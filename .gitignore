@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.pytest_cache/
+
+# Data
+data/*.db
+data/*.sqlite
+!data/.gitkeep
+
+# Frontend / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Environment and OS / Editors
+.env
+.env.local
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

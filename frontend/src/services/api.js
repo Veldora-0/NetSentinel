@@ -1,0 +1,30 @@
+/**
+ * NetSentinel REST API Service.
+ * Interacts with the Flask backend API via relative endpoint paths (proxied by Vite).
+ */
+
+export async function checkBackendHealth() {
+  try {
+    const response = await fetch('/api/health', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      connected: true,
+      data: data,
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      error: error.message,
+    };
+  }
+}
