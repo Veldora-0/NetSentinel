@@ -103,7 +103,12 @@ export function Dashboard({
   onResolveIncident = null,
   onCloseIncident = null,
   onReopenIncident = null,
+  fimStatus = null,
+  fimEvents = [],
+  onRefreshFim = null,
+  onFimRebaseline = null,
 }) {
+
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
 
@@ -808,8 +813,177 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 9. System Resources (Phase 6: Real Host Telemetry) */}
+        {/* 9. File Integrity Monitoring (FIM) (Phase 10) */}
+        <DashboardCard
+          title="File Integrity Monitoring (FIM)"
+          icon={FileText}
+          actions={
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button
+                className="btn-refresh"
+                style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}
+                onClick={() => onRefreshFim && onRefreshFim()}
+                title="Refresh FIM Status"
+              >
+                <RotateCcw size={12} /> Refresh
+              </button>
+              <button
+                className="btn-refresh"
+                style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
+                onClick={async () => {
+                  if (window.confirm("Re-establish baseline for all monitored paths? This will update the expected cryptographic hashes to current state.")) {
+                    if (onFimRebaseline) await onFimRebaseline();
+                  }
+                }}
+                title="Rebuild Integrity Baseline"
+              >
+                <CheckCircle2 size={12} /> Re-baseline
+              </button>
+            </div>
+          }
+        >
+          {!fimStatus ? (
+            <div className="placeholder-state">
+              <FileText size={36} className="placeholder-icon pulse" />
+              <p className="placeholder-text">Waiting for File Integrity Monitoring status...</p>
+            </div>
+          ) : (
+            <div className="fim-container">
+              {/* Metric stats strip */}
+              <div className="fim-stats-grid">
+                <div className="fim-stat-card">
+                  <div className="fim-stat-label">Engine Status</div>
+                  <div className="fim-stat-value">
+                    <span className={`badge ${fimStatus.enabled ? 'badge-success' : 'badge-neutral'}`}>
+                      {fimStatus.enabled ? 'ACTIVE' : 'DISABLED'}
+                    </span>
+                  </div>
+                  <div className="fim-stat-sub">
+                    {fimStatus.baseline_ready ? 'Baseline Verified' : 'Initializing'}
+                  </div>
+                </div>
+
+                <div className="fim-stat-card">
+                  <div className="fim-stat-label">Monitored Files</div>
+                  <div className="fim-stat-value">{fimStatus.baseline_file_count ?? 0}</div>
+                  <div className="fim-stat-sub">{fimStatus.monitored_path_count ?? 0} target path(s)</div>
+                </div>
+
+                <div className="fim-stat-card">
+                  <div className="fim-stat-label">Integrity Alterations</div>
+                  <div className="fim-stat-value" style={{ color: (fimStatus.changed_count || 0) > 0 ? 'var(--status-red)' : 'var(--status-green)' }}>
+                    {fimStatus.changed_count ?? 0}
+                  </div>
+                  <div className="fim-stat-sub">SHA-256 / identity diffs</div>
+                </div>
+
+                <div className="fim-stat-card">
+                  <div className="fim-stat-label">Missing Targets</div>
+                  <div className="fim-stat-value" style={{ color: (fimStatus.missing_count || 0) > 0 ? 'var(--status-amber)' : 'inherit' }}>
+                    {fimStatus.missing_count ?? 0}
+                  </div>
+                  <div className="fim-stat-sub">File deletions</div>
+                </div>
+
+                <div className="fim-stat-card">
+                  <div className="fim-stat-label">Unreadable</div>
+                  <div className="fim-stat-value" style={{ color: (fimStatus.unreadable_count || 0) > 0 ? 'var(--status-amber)' : 'inherit' }}>
+                    {fimStatus.unreadable_count ?? 0}
+                  </div>
+                  <div className="fim-stat-sub">Permission boundaries</div>
+                </div>
+              </div>
+
+              {/* Scan telemetry banner */}
+              <div className="fim-meta-banner">
+                <span><strong>Scan Interval:</strong> {fimStatus.interval_seconds}s</span>
+                <span><strong>Last Scan:</strong> {fimStatus.last_scan_at ? formatFullTime(fimStatus.last_scan_at) : 'In progress...'}</span>
+                <span><strong>Last Alert:</strong> {fimStatus.last_change_at ? formatFullTime(fimStatus.last_change_at) : 'None'}</span>
+                {fimStatus.last_error && <span style={{ color: 'var(--status-red)' }}><strong>Error:</strong> {fimStatus.last_error}</span>}
+              </div>
+
+              {/* Recent FIM Events Table */}
+              <div className="fim-events-wrapper">
+                <div className="fim-events-title">
+                  <span>Recent Integrity Events</span>
+                  <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>Showing latest recorded events</span>
+                </div>
+                <div className="history-table-container">
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Path</th>
+                        <th>Change Type</th>
+                        <th>Severity</th>
+                        <th>Fingerprint / Metadata</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(!fimEvents || fimEvents.length === 0) ? (
+                        <tr>
+                          <td colSpan={5} className="history-empty-row">
+                            No integrity deviations recorded. Monitored files match expected baselines.
+                          </td>
+                        </tr>
+                      ) : (
+                        fimEvents.slice(0, 10).map((ev, idx) => {
+                          const evData = typeof ev.evidence === 'object' ? ev.evidence : {};
+                          const prevHash = evData.previous_sha256 ? `${evData.previous_sha256.substring(0, 12)}...` : '-';
+                          const currHash = evData.current_sha256 ? `${evData.current_sha256.substring(0, 12)}...` : '-';
+                          return (
+                            <tr key={ev.event_id || idx}>
+                              <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{formatAlertTime(ev.timestamp)}</td>
+                              <td style={{ fontFamily: 'monospace', color: '#f8fafc', fontWeight: 500 }}>
+                                {evData.path || ev.description}
+                              </td>
+                              <td>
+                                <span className={`badge ${
+                                  ev.detection_type === 'FILE_MODIFIED' ? 'badge-danger' :
+                                  ev.detection_type === 'FILE_REPLACED' ? 'badge-danger' :
+                                  ev.detection_type === 'FILE_DELETED' ? 'badge-warning' :
+                                  ev.detection_type === 'FILE_CREATED' ? 'badge-info' : 'badge-neutral'
+                                }`}>
+                                  {ev.detection_type}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={getRiskBadgeClass(ev.severity)} style={{ fontSize: '0.65rem' }}>
+                                  {ev.severity}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                                {ev.detection_type === 'FILE_MODIFIED' && (
+                                  <span>Hash: <code style={{ color: '#fca5a5' }}>{prevHash}</code> &rarr; <code style={{ color: '#86efac' }}>{currHash}</code></span>
+                                )}
+                                {ev.detection_type === 'FILE_REPLACED' && (
+                                  <span>Inode: {evData.previous_inode} &rarr; {evData.current_inode}</span>
+                                )}
+                                {ev.detection_type === 'FILE_METADATA_CHANGED' && (
+                                  <span>Mode: {evData.previous_mode} &rarr; {evData.current_mode}</span>
+                                )}
+                                {ev.detection_type === 'FILE_CREATED' && (
+                                  <span>New file (size: {formatBytes(evData.size)})</span>
+                                )}
+                                {ev.detection_type === 'FILE_DELETED' && (
+                                  <span style={{ color: '#fca5a5' }}>File removed from disk</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DashboardCard>
+
+        {/* 10. System Resources (Phase 6: Real Host Telemetry) */}
         <DashboardCard title="System Resources" icon={Cpu}>
+
           {!hostTelemetry ? (
             <div className="placeholder-state">
               <Cpu size={36} className="placeholder-icon pulse" />
@@ -1273,12 +1447,25 @@ export function Dashboard({
                             <span className="timeline-time">{formatFullTime(item.timestamp)}</span>
                           </div>
                           <div className="timeline-desc">{item.description}</div>
-                          {item.metadata && Object.keys(item.metadata).length > 0 && (
+                          {item.metadata?.change_type ? (
+                            <div className="fim-timeline-evidence-box">
+                              <div style={{ color: '#38bdf8', fontFamily: 'monospace' }}>Path: {item.metadata.path}</div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
+                                <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>{item.metadata.change_type}</span>
+                                {item.metadata.previous_sha256 && (
+                                  <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                                    Hash: <code>{item.metadata.previous_sha256.substring(0, 10)}...</code> &rarr; <code>{(item.metadata.current_sha256 || 'None').substring(0, 10)}...</code>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : item.metadata && Object.keys(item.metadata).length > 0 && (
                             <pre className="evidence-meta-pre">
                               {JSON.stringify(item.metadata, null, 2)}
                             </pre>
                           )}
                         </div>
+
                       ))
                     )}
                   </div>
@@ -1366,8 +1553,21 @@ export function Dashboard({
                                   </span>
                                 ) : '-'}
                               </td>
-                              <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.summary}</td>
+                              <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {e.metadata?.change_type ? (
+                                  <div>
+                                    <div style={{ fontWeight: 600 }}>{e.summary}</div>
+                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                                      {e.metadata.path}
+                                      {e.metadata.previous_sha256 && ` (${e.metadata.previous_sha256.substring(0, 8)}... → ${e.metadata.current_sha256?.substring(0, 8)}...)`}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  e.summary
+                                )}
+                              </td>
                               <td style={{ fontFamily: 'monospace', color: '#64748b', fontSize: '0.65rem' }}>{e.reference_id}</td>
+
                             </tr>
                           ))
                         )}

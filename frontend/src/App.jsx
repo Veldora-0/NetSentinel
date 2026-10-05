@@ -26,6 +26,9 @@ import {
   resolveIncident,
   closeIncident,
   reopenIncident,
+  fetchFimStatus,
+  fetchFimEvents,
+  triggerFimRebaseline,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -59,6 +62,11 @@ export function App() {
   // Phase 9: Incident Correlation & Investigation State
   const [incidents, setIncidents] = useState([]);
   const [incidentStats, setIncidentStats] = useState(null);
+
+  // Phase 10: File Integrity Monitoring (FIM) State
+  const [fimStatus, setFimStatus] = useState(null);
+  const [fimEvents, setFimEvents] = useState([]);
+
 
   const refreshFirewall = async () => {
     const fw = await fetchFirewallStatus();
@@ -121,6 +129,22 @@ export function App() {
     }
     return res;
   };
+
+  const refreshFim = async (params = {}) => {
+    const status = await fetchFimStatus();
+    if (status) setFimStatus(status);
+    const evts = await fetchFimEvents(params);
+    if (evts && evts.events) setFimEvents(evts.events);
+  };
+
+  const handleFimRebaseline = async (paths = null) => {
+    const res = await triggerFimRebaseline(paths);
+    if (res && res.success) {
+      await refreshFim();
+    }
+    return res;
+  };
+
 
   useEffect(() => {
     // Check initial API health and fetch component datasets
@@ -196,8 +220,15 @@ export function App() {
 
         const incStatsRes = await fetchIncidentStats();
         if (incStatsRes) setIncidentStats(incStatsRes);
+
+        const fStatus = await fetchFimStatus();
+        if (fStatus) setFimStatus(fStatus);
+
+        const fEvents = await fetchFimEvents({ limit: 20 });
+        if (fEvents && fEvents.events) setFimEvents(fEvents.events);
       }
     };
+
 
     fetchHealthAndData();
     const interval = setInterval(fetchHealthAndData, 5000);
@@ -369,6 +400,9 @@ export function App() {
       },
       (stats) => {
         setIncidentStats(stats);
+      },
+      (fimStat) => {
+        setFimStatus(fimStat);
       }
     );
 
@@ -410,10 +444,15 @@ export function App() {
           onResolveIncident={handleResolve}
           onCloseIncident={handleClose}
           onReopenIncident={handleReopen}
+          fimStatus={fimStatus}
+          fimEvents={fimEvents}
+          onRefreshFim={refreshFim}
+          onFimRebaseline={handleFimRebaseline}
         />
       </main>
     </div>
   );
 }
+
 
 export default App;

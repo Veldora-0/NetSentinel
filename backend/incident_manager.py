@@ -64,14 +64,24 @@ def score_to_severity(score: float) -> str:
     return "LOW"
 
 
+FIM_DETECTION_TYPES = {
+    "FILE_CREATED",
+    "FILE_DELETED",
+    "FILE_MODIFIED",
+    "FILE_REPLACED",
+    "FILE_METADATA_CHANGED",
+}
+
+
 def get_detection_domain(detection_type: str) -> str:
     """Determine domain (network or host) from detection type."""
     det = str(detection_type).upper()
-    if det in ("SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS"):
+    if det in ("SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS") or det in FIM_DETECTION_TYPES:
         return "host"
     if det == "CROSS_DOMAIN_ATTACK":
         return "cross-domain"
     return "network"
+
 
 
 class IncidentEvidence:
@@ -234,15 +244,18 @@ class IncidentManager:
         src_ip_str = str(src_ip).strip() if (src_ip is not None and str(src_ip).strip()) else None
 
         # Rule: Host events without an external source IP must correlate to host identity, NOT 127.0.0.1
+        is_fim = det_type in FIM_DETECTION_TYPES
         is_host_only = (
             det_type == "SUSPICIOUS_PROCESS"
+            or is_fim
             or (evidence and isinstance(evidence, dict) and evidence.get("source") == "host" and not src_ip_str)
-            or (src_ip_str in ("127.0.0.1", "::1", "localhost") and det_type == "SUSPICIOUS_PROCESS")
+            or (src_ip_str in ("127.0.0.1", "::1", "localhost") and (det_type == "SUSPICIOUS_PROCESS" or is_fim))
         )
 
         if is_host_only:
             hostname = platform.node() or "localhost"
             return f"host:{hostname}", None
+
 
         if src_ip_str and src_ip_str not in ("127.0.0.1", "::1", "None", ""):
             return f"ip:{src_ip_str}", src_ip_str
@@ -585,15 +598,19 @@ class IncidentManager:
                 meta = ev.get("metadata", {})
 
                 if ev_type == "SECURITY_EVENT":
+                    is_fim = (det or "").upper() in FIM_DETECTION_TYPES
+                    t_title = f"File Integrity: {det.replace('FILE_', '').title()}" if is_fim else f"Detection: {det or 'Alert'}"
+                    t_desc = summary or ("File integrity change detected" if is_fim else f"Security event {det} recorded")
                     timeline.append({
                         "timestamp": ts,
                         "type": "SECURITY_EVENT",
-                        "title": f"Detection: {det or 'Alert'}",
-                        "description": summary or f"Security event {det} recorded",
+                        "title": t_title,
+                        "description": t_desc,
                         "severity": sev,
                         "source_ip": ev.get("source_ip") or inc["primary_source_ip"],
                         "metadata": meta,
                     })
+
                 elif ev_type == "RISK_ASSESSMENT":
                     score = ev.get("risk_score")
                     timeline.append({

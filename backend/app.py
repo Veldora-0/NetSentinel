@@ -30,7 +30,13 @@ from database import (
     query_security_summary,
     query_telemetry_history,
     cleanup_old_records,
+    save_fim_baseline_record,
+    get_all_fim_baseline_records,
+    query_fim_baseline,
+    query_fim_stats,
+    query_fim_events,
 )
+
 from capture import PacketCapture
 from detector import TrafficDetector, SecurityEvent
 from ml.detector import MLAnomalyDetector, MLAnomalyEvent
@@ -95,9 +101,31 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     )
     app.telemetry_worker = telemetry_worker
 
-    # 6. Initialize Host-Based Intrusion Detection Manager (Phase 7)
-    host_manager = HostDetectionManager(config=app.config.get("HOST_DETECTION_SETTINGS"))
+    # 6. Initialize Host-Based Intrusion Detection Manager (Phase 7 & Phase 10)
+    host_cfg = dict(app.config.get("HOST_DETECTION_SETTINGS", {}))
+    if app.config.get("FIM_SETTINGS"):
+        host_cfg.update(app.config.get("FIM_SETTINGS"))
+    host_manager = HostDetectionManager(config=host_cfg)
     app.host_manager = host_manager
+
+    if hasattr(host_manager, "file_integrity"):
+        def _save_baseline_with_context(record_data, meta=None):
+            with app.app_context():
+                return save_fim_baseline_record(record_data, meta)
+
+        def _load_baseline_with_context():
+            with app.app_context():
+                return get_all_fim_baseline_records()
+
+        host_manager.file_integrity.set_persistence(
+            loader=_load_baseline_with_context,
+            saver=_save_baseline_with_context,
+        )
+        with app.app_context():
+            host_manager.file_integrity.initialize()
+    app.fim_monitor = getattr(host_manager, "file_integrity", None)
+
+
 
     # 7. Initialize Advanced ARP Threat Detector (Phase 8)
     arp_detector = ARPDetector(config=app.config.get("ARP_DETECTION_SETTINGS"))
@@ -222,9 +250,15 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     def _on_host_security_event(event: SecurityEvent) -> None:
         try:
             socketio.emit("host_security_event", event.to_dict())
+            if (event.detection_type or "").upper() in (
+                "FILE_CREATED", "FILE_DELETED", "FILE_MODIFIED", "FILE_REPLACED", "FILE_METADATA_CHANGED"
+            ):
+                if hasattr(host_manager, "file_integrity"):
+                    socketio.emit("fim_status", host_manager.file_integrity.get_status())
         except Exception:
             pass
         _on_security_event(event)
+
 
     host_manager.add_event_callback(_on_host_security_event)
     arp_detector.add_event_callback(_on_security_event)
@@ -721,6 +755,75 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             return jsonify({"status": "error", "message": msg}), code
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
+    # --------------------------------------------------------------------------
+    # File Integrity Monitoring (FIM) Endpoints (Phase 10)
+    # --------------------------------------------------------------------------
+    @app.route("/api/fim/status", methods=["GET"])
+    def get_fim_status():
+        """Retrieve operational state, scan metrics, and baseline statistics of FIM."""
+        if not host_manager or not hasattr(host_manager, "file_integrity"):
+            return jsonify({"enabled": False, "error": "FIM not initialized"}), 503
+        return jsonify(host_manager.file_integrity.get_status()), 200
+
+    @app.route("/api/fim/events", methods=["GET"])
+    def get_fim_events():
+        """Retrieve paginated historical file integrity security events."""
+        limit = min(200, max(1, request.args.get("limit", 50, type=int)))
+        offset = max(0, request.args.get("offset", 0, type=int))
+        since = request.args.get("since", type=float)
+        until = request.args.get("until", type=float)
+        change_type = request.args.get("change_type", type=str)
+        path = request.args.get("path", type=str)
+
+        res = query_fim_events(
+            limit=limit,
+            offset=offset,
+            since=since,
+            until=until,
+            change_type=change_type,
+            path=path,
+        )
+        return jsonify(res), 200
+
+    @app.route("/api/fim/baseline", methods=["GET"])
+    def get_fim_baseline():
+        """Retrieve paginated FIM baseline file records."""
+        limit = min(500, max(1, request.args.get("limit", 100, type=int)))
+        offset = max(0, request.args.get("offset", 0, type=int))
+        status = request.args.get("status", type=str)
+        path = request.args.get("path", type=str)
+
+        res = query_fim_baseline(
+            limit=limit,
+            offset=offset,
+            status=status,
+            path=path,
+        )
+        return jsonify(res), 200
+
+    @app.route("/api/fim/rebaseline", methods=["POST"])
+    def post_fim_rebaseline():
+        """Operator-controlled rebaseline of specified or all monitored paths."""
+        if not host_manager or not hasattr(host_manager, "file_integrity"):
+            return jsonify({"success": False, "error": "FIM not initialized"}), 503
+
+        data = request.get_json(silent=True) or {}
+        paths = data.get("paths")
+        if paths is not None and not isinstance(paths, list):
+            return jsonify({"success": False, "error": "paths must be a list of file paths"}), 400
+
+        with app.app_context():
+            res = host_manager.file_integrity.rebuild_baseline(paths=paths)
+
+        status = host_manager.file_integrity.get_status()
+        socketio.emit("fim_status", status)
+        return jsonify({
+            "success": True,
+            "message": "FIM baseline re-established",
+            "summary": res,
+            "status": status,
+        }), 200
+
     # Socket.IO Event Handlers
     @socketio.on("connect")
     def handle_connect():
@@ -740,6 +843,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             emit("host_telemetry", telemetry_worker.get_current_telemetry())
         if host_manager:
             emit("host_status", host_manager.get_status())
+            if hasattr(host_manager, "file_integrity"):
+                emit("fim_status", host_manager.file_integrity.get_status())
         if arp_detector:
             emit("network_status", {
                 "arp": arp_detector.get_status(),
@@ -750,6 +855,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     "tracked_sources": len(detector._icmp_sweep_state) if detector else 0,
                 },
             })
+
         try:
             emit("security_summary", query_security_summary())
             emit("incident_stats", query_incident_stats())

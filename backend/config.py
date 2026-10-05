@@ -230,4 +230,36 @@ class Config:
     INCIDENT_WINDOW_SECONDS = INCIDENT_SETTINGS["incident_window_sec"]
     MAX_ACTIVE_INCIDENTS = INCIDENT_SETTINGS["max_active_incidents"]
 
+    # File Integrity Monitoring (FIM) Settings (Phase 10)
+    FIM_SETTINGS = {
+        "fim_enabled": os.environ.get("NETSENTINEL_FIM_ENABLED", "True").lower() in ("true", "1", "t"),
+        "fim_interval_sec": float(os.environ.get("NETSENTINEL_FIM_INTERVAL", "30.0")),
+        "fim_paths": [
+            p.strip()
+            for p in os.environ.get(
+                "NETSENTINEL_FIM_PATHS",
+                "/etc/passwd,/etc/group,/etc/ssh/sshd_config"
+            ).split(",")
+            if p.strip()
+        ],
+        "fim_max_files": int(os.environ.get("NETSENTINEL_FIM_MAX_FILES", "1000")),
+        "fim_max_file_size": int(os.environ.get("NETSENTINEL_FIM_MAX_FILE_SIZE", "10485760")),  # 10 MB
+        "fim_critical_paths": [
+            p.strip()
+            for p in os.environ.get(
+                "NETSENTINEL_FIM_CRITICAL_PATHS",
+                "/etc/passwd,/etc/shadow,/etc/ssh/sshd_config,/etc/sudoers"
+            ).split(",")
+            if p.strip()
+        ],
+        "fim_chunk_size": int(os.environ.get("NETSENTINEL_FIM_CHUNK_SIZE", "65536")),  # 64 KiB
+    }
+
+    FIM_ENABLED = FIM_SETTINGS["fim_enabled"]
+    FIM_INTERVAL_SECONDS = FIM_SETTINGS["fim_interval_sec"]
+    FIM_PATHS = FIM_SETTINGS["fim_paths"]
+    FIM_MAX_FILES = FIM_SETTINGS["fim_max_files"]
+    FIM_MAX_FILE_SIZE = FIM_SETTINGS["fim_max_file_size"]
+    FIM_CRITICAL_PATHS = FIM_SETTINGS["fim_critical_paths"]
+
 

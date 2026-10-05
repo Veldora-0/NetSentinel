@@ -294,9 +294,47 @@ class IncidentEvidenceRecord(db.Model):
         }
 
 
+class FileIntegrityBaselineRecord(db.Model):
+    """SQLAlchemy model for persistent File Integrity Monitoring baseline records."""
+    __tablename__ = "fim_baseline"
+
+    id = db.Column(db.Integer, primary_key=True)
+    path = db.Column(db.String(512), unique=True, nullable=False, index=True)
+    file_type = db.Column(db.String(32), default="regular", nullable=False)
+    sha256 = db.Column(db.String(64), nullable=True)
+    size = db.Column(db.BigInteger, nullable=True)
+    mode = db.Column(db.String(10), nullable=True)
+    uid = db.Column(db.Integer, nullable=True)
+    gid = db.Column(db.Integer, nullable=True)
+    inode = db.Column(db.BigInteger, nullable=True)
+    mtime = db.Column(db.Float, nullable=True)
+    first_seen = db.Column(db.Float, nullable=False)
+    last_verified = db.Column(db.Float, nullable=False, index=True)
+    status = db.Column(db.String(32), default="BASELINE", nullable=False, index=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert baseline record to dictionary."""
+        return {
+            "id": self.id,
+            "path": self.path,
+            "file_type": self.file_type,
+            "sha256": self.sha256,
+            "size": self.size,
+            "mode": self.mode,
+            "uid": self.uid,
+            "gid": self.gid,
+            "inode": self.inode,
+            "mtime": self.mtime,
+            "first_seen": self.first_seen,
+            "last_verified": self.last_verified,
+            "status": self.status,
+        }
+
+
 # ==============================================================================
 # Persistence Helper Functions
 # ==============================================================================
+
 
 def save_security_event_record(event: Any) -> bool:
     """Persist a SecurityEvent or MLAnomalyEvent to the database safely."""
@@ -973,7 +1011,199 @@ def query_telemetry_history(
         return {"count": 0, "telemetry": []}
 
 
+# ==============================================================================
+# File Integrity Monitoring (FIM) Helper Functions (Phase 10)
+# ==============================================================================
+
+def save_fim_baseline_record(record_data: Any, meta: Optional[Dict[str, Any]] = None) -> bool:
+    """Insert or update a File Integrity Monitoring baseline record."""
+    try:
+        if meta is not None and isinstance(record_data, str):
+            data = dict(meta)
+            data["path"] = record_data
+        elif isinstance(record_data, dict):
+            data = record_data
+        else:
+            return False
+
+        path = data.get("path")
+        if not path:
+            return False
+
+        rec = FileIntegrityBaselineRecord.query.filter_by(path=path).first()
+        now = time.time()
+        if not rec:
+            rec = FileIntegrityBaselineRecord(
+                path=path,
+                file_type=data.get("file_type", "regular"),
+                sha256=data.get("sha256"),
+                size=data.get("size"),
+                mode=data.get("mode"),
+                uid=data.get("uid"),
+                gid=data.get("gid"),
+                inode=data.get("inode"),
+                mtime=data.get("mtime"),
+                first_seen=data.get("first_seen", now),
+                last_verified=data.get("last_verified", now),
+                status=data.get("status", "BASELINE"),
+            )
+            db.session.add(rec)
+        else:
+            rec.file_type = data.get("file_type", rec.file_type)
+            rec.sha256 = data.get("sha256", rec.sha256)
+            rec.size = data.get("size", rec.size)
+            rec.mode = data.get("mode", rec.mode)
+            rec.uid = data.get("uid", rec.uid)
+            rec.gid = data.get("gid", rec.gid)
+            rec.inode = data.get("inode", rec.inode)
+            rec.mtime = data.get("mtime", rec.mtime)
+            rec.last_verified = data.get("last_verified", now)
+            rec.status = data.get("status", rec.status)
+
+        db.session.commit()
+        return True
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Database FIM baseline save failed for %s: %s", path if 'path' in locals() else None, ex)
+        return False
+
+
+
+def get_fim_baseline_record(path: str) -> Optional[Dict[str, Any]]:
+    """Retrieve a single FIM baseline record by normalized file path."""
+    try:
+        rec = FileIntegrityBaselineRecord.query.filter_by(path=path).first()
+        return rec.to_dict() if rec else None
+    except Exception as ex:
+        logger.debug("Database FIM record lookup failed: %s", ex)
+        return None
+
+
+def get_all_fim_baseline_records() -> Dict[str, Dict[str, Any]]:
+    """Retrieve all persisted FIM baseline records mapped by path."""
+    try:
+        records = FileIntegrityBaselineRecord.query.all()
+        return {r.path: r.to_dict() for r in records}
+    except Exception as ex:
+        logger.debug("Database FIM all baseline query failed: %s", ex)
+        return {}
+
+
+def delete_fim_baseline_record(path: str) -> bool:
+    """Delete a single FIM baseline record by path."""
+    try:
+        rec = FileIntegrityBaselineRecord.query.filter_by(path=path).first()
+        if rec:
+            db.session.delete(rec)
+            db.session.commit()
+            return True
+        return False
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Database FIM baseline delete failed: %s", ex)
+        return False
+
+
+def query_fim_baseline(
+    limit: int = 100,
+    offset: int = 0,
+    status: Optional[str] = None,
+    path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query paginated FIM baseline records with optional status and path filtering."""
+    try:
+        query = FileIntegrityBaselineRecord.query
+        if status:
+            query = query.filter(FileIntegrityBaselineRecord.status == status.upper())
+        if path:
+            query = query.filter(FileIntegrityBaselineRecord.path.like(f"%{path}%"))
+
+        total = query.count()
+        records = (
+            query.order_by(FileIntegrityBaselineRecord.path.asc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "baseline": [r.to_dict() for r in records],
+        }
+    except Exception as ex:
+        logger.debug("Database FIM baseline query failed: %s", ex)
+        return {"total": 0, "limit": limit, "offset": offset, "baseline": []}
+
+
+def query_fim_stats() -> Dict[str, Any]:
+    """Compute aggregate counts for FIM baseline records."""
+    try:
+        total = FileIntegrityBaselineRecord.query.count()
+        baseline_cnt = FileIntegrityBaselineRecord.query.filter_by(status="BASELINE").count()
+        changed_cnt = FileIntegrityBaselineRecord.query.filter_by(status="CHANGED").count()
+        missing_cnt = FileIntegrityBaselineRecord.query.filter_by(status="MISSING").count()
+        unreadable_cnt = FileIntegrityBaselineRecord.query.filter_by(status="UNREADABLE").count()
+
+        return {
+            "total_files": total,
+            "baseline_count": baseline_cnt,
+            "changed_count": changed_cnt,
+            "missing_count": missing_cnt,
+            "unreadable_count": unreadable_cnt,
+        }
+    except Exception as ex:
+        logger.debug("Database FIM stats query failed: %s", ex)
+        return {
+            "total_files": 0,
+            "baseline_count": 0,
+            "changed_count": 0,
+            "missing_count": 0,
+            "unreadable_count": 0,
+        }
+
+
+def query_fim_events(
+    limit: int = 50,
+    offset: int = 0,
+    since: Optional[float] = None,
+    until: Optional[float] = None,
+    change_type: Optional[str] = None,
+    path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query persisted FIM security events from SecurityEventRecord."""
+    fim_types = ["FILE_CREATED", "FILE_DELETED", "FILE_MODIFIED", "FILE_REPLACED", "FILE_METADATA_CHANGED"]
+    try:
+        query = SecurityEventRecord.query.filter(SecurityEventRecord.detection_type.in_(fim_types))
+        if change_type and change_type.upper() in fim_types:
+            query = query.filter(SecurityEventRecord.detection_type == change_type.upper())
+        if since is not None:
+            query = query.filter(SecurityEventRecord.timestamp >= since)
+        if until is not None:
+            query = query.filter(SecurityEventRecord.timestamp <= until)
+        if path:
+            query = query.filter(SecurityEventRecord.evidence.like(f"%{path}%"))
+
+        total = query.count()
+        records = (
+            query.order_by(SecurityEventRecord.timestamp.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "events": [r.to_dict() for r in records],
+        }
+    except Exception as ex:
+        logger.debug("Database FIM events query failed: %s", ex)
+        return {"total": 0, "limit": limit, "offset": offset, "events": []}
+
+
 def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
+
     """Prune historical database records older than the retention threshold.
 
     Preserves active (OPEN, ACKNOWLEDGED) incidents indefinitely. Only RESOLVED

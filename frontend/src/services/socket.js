@@ -29,9 +29,11 @@ export function initSocketConnection(
   onIncidentCreated,
   onIncidentUpdated,
   onIncidentStatusChanged,
-  onIncidentStats
+  onIncidentStats,
+  onFimStatus
 ) {
   socket.on('connect', () => {
+
     if (onConnectChange) onConnectChange(true);
   });
 
@@ -145,6 +147,12 @@ export function initSocketConnection(
     });
   }
 
+  if (onFimStatus) {
+    socket.on('fim_status', (data) => {
+      onFimStatus(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -166,5 +174,7 @@ export function initSocketConnection(
     if (onIncidentUpdated) socket.off('incident_updated');
     if (onIncidentStatusChanged) socket.off('incident_status_changed');
     if (onIncidentStats) socket.off('incident_stats');
+    if (onFimStatus) socket.off('fim_status');
   };
 }
+

@@ -142,7 +142,17 @@ class RiskEngine:
         "PORT_SCAN", "SYN_FLOOD", "NULL_SCAN", "XMAS_SCAN",
         "ARP_SPOOFING", "ARP_IDENTITY_CONFLICT", "ICMP_SWEEP"
     }
-    HOST_DETECTION_TYPES = {"SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS"}
+    HOST_DETECTION_TYPES = {
+        "SSH_AUTH_FAILURE",
+        "SSH_BRUTE_FORCE",
+        "SUSPICIOUS_PROCESS",
+        "FILE_CREATED",
+        "FILE_DELETED",
+        "FILE_MODIFIED",
+        "FILE_REPLACED",
+        "FILE_METADATA_CHANGED",
+    }
+
 
     def _classify_detection_type(self, dtype: str) -> str:
         """Classify a detection type into network or host domain."""

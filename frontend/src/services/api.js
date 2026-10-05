@@ -508,5 +508,79 @@ export async function reopenIncident(incidentId, analystNote = '') {
   }
 }
 
+// Phase 10: File Integrity Monitoring (FIM) APIs
+
+export async function fetchFimStatus() {
+  try {
+    const response = await fetch('/api/fim/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { enabled: false, error: error.message };
+  }
+}
+
+export async function fetchFimEvents(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.since) query.append('since', params.since);
+    if (params.until) query.append('until', params.until);
+    if (params.change_type) query.append('change_type', params.change_type);
+    if (params.path) query.append('path', params.path);
+
+    const qs = query.toString();
+    const url = qs ? `/api/fim/events?${qs}` : '/api/fim/events';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { total: 0, limit: params.limit || 50, offset: params.offset || 0, events: [] };
+  }
+}
+
+export async function fetchFimBaseline(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.status) query.append('status', params.status);
+    if (params.path) query.append('path', params.path);
+
+    const qs = query.toString();
+    const url = qs ? `/api/fim/baseline?${qs}` : '/api/fim/baseline';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { total: 0, limit: params.limit || 100, offset: params.offset || 0, baseline: [] };
+  }
+}
+
+export async function triggerFimRebaseline(paths = null) {
+  try {
+    const response = await fetch('/api/fim/rebaseline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(paths ? { paths } : {}),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+
 
 

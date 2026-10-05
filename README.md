@@ -338,7 +338,49 @@ NetSentinel's **Incident Correlation and Investigation Layer** transforms isolat
 
 ---
 
-## 11. Environment Setup & Execution
+## 11. Phase 10: File Integrity Monitoring (FIM)
+
+NetSentinel implements a bounded, secure, non-destructive File Integrity Monitoring (FIM) engine designed for Linux hosts.
+
+### Core Capabilities
+1. **Cryptographic Integrity & Baseline Management**:
+   * Inspects configured system and application files (`NETSENTINEL_FIM_PATHS`, default `/etc/passwd,/etc/group,/etc/ssh/sshd_config`).
+   * Computes SHA-256 digests using 64 KiB chunked reading, ensuring file contents are never held entirely in memory.
+   * Files exceeding `NETSENTINEL_FIM_MAX_FILE_SIZE` (default 10 MB) have their metadata recorded while hashing is safely bypassed.
+   * Baseline state is persisted in SQLite (`fim_baseline` table) and survives restarts without overwriting historical baselines.
+   * Baseline records are explicitly protected from retention cleanups (`cleanup_old_records`).
+
+2. **Symlink Safety & Bounded Traversal**:
+   * Always queries `os.lstat()` to inspect link attributes safely.
+   * Symbolic links are recorded without following or reading target content, preventing symlink traversal attacks outside intended paths.
+   * Configured directories are recursively traversed without following symlinks and bounded by `NETSENTINEL_FIM_MAX_FILES` (default 1000).
+   * Special device files, FIFOs, and UNIX sockets are safely skipped.
+
+3. **Deterministic Change Classification**:
+   * `FILE_CREATED`: A previously absent or missing target file is now present (Severity: `MEDIUM`).
+   * `FILE_DELETED`: A previously present target file was removed from the filesystem (Severity: `MEDIUM`, `HIGH` if in `NETSENTINEL_FIM_CRITICAL_PATHS`).
+   * `FILE_MODIFIED`: The file exists but its SHA-256 cryptographic digest changed (Severity: `MEDIUM`, `HIGH` if in `NETSENTINEL_FIM_CRITICAL_PATHS`).
+   * `FILE_REPLACED`: File identity changed significantly (inode replacement while path remains) (Severity: `HIGH`).
+   * `FILE_METADATA_CHANGED`: Content hash is unchanged, but permissions (mode), UID, or GID changed (Severity: `LOW`, `MEDIUM` if in critical paths).
+   * Consecutive unchanged scans suppress duplicate alerts via state fingerprinting until restoration or subsequent modifications occur.
+
+4. **Incident & Risk Engine Integration**:
+   * FIM events flow into the central `SecurityEvent` pipeline with `source_ip=None` and correlate strictly to `host:<hostname>`.
+   * Automatically groups with host-internal detections (e.g. `SUSPICIOUS_PROCESS`, `SSH_BRUTE_FORCE`) within the 300s incident window.
+   * FIM events alone never trigger automatic network firewall blocks.
+
+5. **Safe Operator Rebaseline Mechanism**:
+   * `POST /api/fim/rebaseline` allows authorized operators to re-establish the baseline for specific files or all monitored paths following legitimate software updates.
+   * Rebaseline never deletes historical security events.
+
+6. **Viva-Defensible Principles**:
+   * **Integrity Detection vs. Malice**: A detected change is not automatically proof of malicious compromise; administrative updates or package managers frequently alter configuration files.
+   * **Non-Destructive Observation**: NetSentinel does not automatically restore, delete, or chmod monitored files.
+   * **No Signature/Malware Scanning**: FIM focuses strictly on integrity and state tracking without claims of anti-malware execution.
+
+---
+
+## 12. Environment Setup & Execution
 
 ### Prerequisites
 * Linux operating system (kernel supporting `AF_PACKET` and `iptables`)
@@ -386,9 +428,9 @@ NetSentinel's **Incident Correlation and Investigation Layer** transforms isolat
 
 ---
 
-## 12. Automated Testing
+## 13. Automated Testing
 
-All 150 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
+All 182 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
 ```bash
 pytest -v tests/
 ```
@@ -416,12 +458,17 @@ Test coverage:
 * `tests/test_incident_correlator.py`: Correlation key resolution, time window expiration, cross-domain boost (+0.10), multi-vector boost (+0.05), monotonic severity clamping, host process identity isolation, firewall action correlation, and bounded memory eviction.
 * `tests/test_incident_workflow.py`: Status transitions (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), invalid transition rejection, reopening, chronological timeline generation, and SOC executive report generation.
 * `tests/test_incident_api.py`: Incident REST endpoints (`/api/incidents/*`, `/api/incidents/stats`, `/api/incidents/<id>/timeline`, `/api/incidents/<id>/summary`), action shortcuts, and Socket.IO live emissions.
+* `tests/test_fim_scanner.py`: Baseline creation, persistence callbacks, restart with existing baseline, chunked SHA-256 hashing, size bounds, symlink safety, change detection (created, deleted, modified, replaced, metadata), and duplicate suppression.
+* `tests/test_fim_database.py`: FIM baseline record CRUD, filtering, pagination, stats aggregation, event queries, and retention cleanup survival.
+* `tests/test_fim_risk_incident.py`: FIM host classification in RiskEngine, deterministic severity scoring, no automatic firewall blocks, host correlation (`host:<hostname>`), and unified incident timeline formatting.
+* `tests/test_fim_api.py`: REST endpoints (`/api/fim/status`, `/api/fim/events`, `/api/fim/baseline`, `/api/fim/rebaseline`), payload validation, and standalone worker thread lifecycle.
 * `tests/test_health.py` & `tests/test_socket.py`: Health endpoint and WebSocket connection tests.
 
 ---
 
-## 13. Current Scope Limitations & Future Roadmap
+## 14. Current Scope Limitations & Future Roadmap
 
-* **Phase 10 - Attack Simulation, Live Validation, and Hardening**: Live automated testing scripts, multi-vector attack simulations, end-to-end detection and mitigation verification, and system hardening.
+* **Live Attack Simulation & Hardening**: Automated attack scripts for live system validation, defense testing, and system hardening.
+
 
 
