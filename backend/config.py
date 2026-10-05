@@ -80,6 +80,10 @@ class Config:
         # Stealth flag scans
         "null_scan_enabled": True,
         "xmas_scan_enabled": True,
+        # ICMP sweep thresholds
+        "icmp_sweep_window_sec": float(os.environ.get("ICMP_SWEEP_WINDOW_SEC", "10.0")),
+        "icmp_sweep_threshold": int(os.environ.get("ICMP_SWEEP_THRESHOLD", "10")),
+        "icmp_sweep_cooldown_sec": float(os.environ.get("ICMP_SWEEP_COOLDOWN_SEC", "60.0")),
         # Alert de-duplication cooldown per (source_ip, rule) pair
         "alert_cooldown_sec": float(os.environ.get("ALERT_COOLDOWN_SEC", "30.0")),
         # Memory bounds
@@ -92,6 +96,8 @@ class Config:
     PORT_SCAN_UNIQUE_PORT_THRESHOLD = DETECTOR_THRESHOLDS["port_scan_threshold"]
     SYN_FLOOD_WINDOW_SECONDS = DETECTOR_THRESHOLDS["syn_flood_window_sec"]
     SYN_FLOOD_PACKET_THRESHOLD = DETECTOR_THRESHOLDS["syn_flood_threshold"]
+    ICMP_SWEEP_WINDOW_SECONDS = DETECTOR_THRESHOLDS["icmp_sweep_window_sec"]
+    ICMP_SWEEP_THRESHOLD = DETECTOR_THRESHOLDS["icmp_sweep_threshold"]
     ALERT_COOLDOWN_SECONDS = DETECTOR_THRESHOLDS["alert_cooldown_sec"]
     MAX_ALERT_HISTORY = DETECTOR_THRESHOLDS["max_alert_history"]
 
@@ -195,4 +201,19 @@ class Config:
     PROCESS_INTERVAL_SECONDS = HOST_DETECTION_SETTINGS["process_interval_sec"]
     CORRELATION_WINDOW_SECONDS = HOST_DETECTION_SETTINGS["correlation_window_sec"]
     CORRELATION_BOOST = HOST_DETECTION_SETTINGS["correlation_boost"]
+
+    # Advanced Network Threat Detection: ARP Settings (Phase 8)
+    ARP_DETECTION_SETTINGS = {
+        "arp_enabled": os.environ.get("NETSENTINEL_ARP_ENABLED", "True").lower() in ("true", "1", "t"),
+        "arp_state_timeout": float(os.environ.get("NETSENTINEL_ARP_STATE_TIMEOUT", "300.0")),
+        "arp_max_tracked_ips": int(os.environ.get("NETSENTINEL_ARP_MAX_IPS", "1000")),
+        "arp_max_tracked_macs": int(os.environ.get("NETSENTINEL_ARP_MAX_MACS", "1000")),
+        "arp_cooldown_sec": float(os.environ.get("NETSENTINEL_ARP_COOLDOWN_SEC", "60.0")),
+        "arp_conflict_threshold": int(os.environ.get("NETSENTINEL_ARP_CONFLICT_THRESHOLD", "3")),
+        "arp_trusted_mappings": {},
+    }
+
+    ARP_ENABLED = ARP_DETECTION_SETTINGS["arp_enabled"]
+    ARP_STATE_TIMEOUT = ARP_DETECTION_SETTINGS["arp_state_timeout"]
+    ARP_CONFLICT_THRESHOLD = ARP_DETECTION_SETTINGS["arp_conflict_threshold"]
 

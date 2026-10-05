@@ -13,6 +13,26 @@ from typing import Any, Dict, Optional
 
 
 @dataclass
+class ParsedARP:
+    """Structured representation of an Ethernet ARP packet."""
+    hardware_type: int
+    protocol_type: int
+    hardware_size: int
+    protocol_size: int
+    operation: int  # 1 = request, 2 = reply
+    operation_name: str  # "request", "reply"
+    sender_mac: str
+    sender_ip: str
+    target_mac: str
+    target_ip: str
+    is_gratuitous: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert dataclass to dictionary representation."""
+        return asdict(self)
+
+
+@dataclass
 class ParsedPacket:
     """Structured representation of a parsed network packet."""
     timestamp: float
@@ -37,6 +57,7 @@ class ParsedPacket:
     udp_length: Optional[int] = None
     icmp_type: Optional[int] = None
     icmp_code: Optional[int] = None
+    arp_info: Optional[ParsedARP] = None
     payload_length: int = 0
     error: Optional[str] = None
 
@@ -262,6 +283,72 @@ def parse_icmp_header(icmp_data: bytes) -> Optional[Dict[str, Any]]:
         return None
 
 
+# Standard ARP operation codes
+ARP_OPERATIONS = {
+    1: "REQUEST",
+    2: "REPLY",
+    3: "REVERSE_REQUEST",
+    4: "REVERSE_REPLY",
+}
+
+
+def parse_arp_packet(payload: bytes) -> Optional[Dict[str, Any]]:
+    """Parse Ethernet ARP packet (RFC 826).
+
+    Args:
+        payload: Byte slice following Ethernet header (min 28 bytes for IPv4 over Ethernet).
+
+    Returns:
+        Structured dictionary containing hardware_type, protocol_type, hardware_size,
+        protocol_size, operation, operation_name, sender_mac, sender_ip, target_mac,
+        target_ip, is_gratuitous, and payload slice, or None if malformed/truncated.
+    """
+    if len(payload) < 28:
+        return None
+
+    try:
+        (
+            hw_type,
+            proto_type,
+            hw_size,
+            proto_size,
+            opcode,
+            sender_mac_raw,
+            sender_ip_raw,
+            target_mac_raw,
+            target_ip_raw,
+        ) = struct.unpack("!HHBBH6s4s6s4s", payload[:28])
+
+        # Validate standard Ethernet IPv4 ARP sizes
+        if hw_size != 6 or proto_size != 4:
+            return None
+
+        sender_mac = format_mac(sender_mac_raw)
+        target_mac = format_mac(target_mac_raw)
+        sender_ip = socket.inet_ntoa(sender_ip_raw)
+        target_ip = socket.inet_ntoa(target_ip_raw)
+
+        op_name = ARP_OPERATIONS.get(opcode, f"0x{opcode:04x}")
+        is_gratuitous = (sender_ip == target_ip)
+
+        return {
+            "hardware_type": hw_type,
+            "protocol_type": proto_type,
+            "hardware_size": hw_size,
+            "protocol_size": proto_size,
+            "operation": opcode,
+            "operation_name": op_name,
+            "sender_mac": sender_mac,
+            "sender_ip": sender_ip,
+            "target_mac": target_mac,
+            "target_ip": target_ip,
+            "is_gratuitous": is_gratuitous,
+            "payload": payload[28:],
+        }
+    except Exception:
+        return None
+
+
 def parse_packet(raw_frame: bytes, timestamp: Optional[float] = None) -> ParsedPacket:
     """Parse a full raw Ethernet frame into a structured ParsedPacket object.
 
@@ -362,5 +449,29 @@ def parse_packet(raw_frame: bytes, timestamp: Optional[float] = None) -> ParsedP
                 packet.payload_length = len(icmp_info["payload"])
             else:
                 packet.error = "Malformed ICMP message"
+
+    elif ethertype == 0x0806:  # ARP
+        packet.protocol_name = "ARP"
+        arp_data = parse_arp_packet(payload)
+        if not arp_data:
+            packet.error = "Malformed ARP frame"
+            return packet
+
+        packet.src_ip = arp_data["sender_ip"]
+        packet.dst_ip = arp_data["target_ip"]
+        packet.arp_info = ParsedARP(
+            hardware_type=arp_data["hardware_type"],
+            protocol_type=arp_data["protocol_type"],
+            hardware_size=arp_data["hardware_size"],
+            protocol_size=arp_data["protocol_size"],
+            operation=arp_data["operation"],
+            operation_name=arp_data["operation_name"],
+            sender_mac=arp_data["sender_mac"],
+            sender_ip=arp_data["sender_ip"],
+            target_mac=arp_data["target_mac"],
+            target_ip=arp_data["target_ip"],
+            is_gratuitous=arp_data["is_gratuitous"],
+        )
+        packet.payload_length = len(arp_data["payload"])
 
     return packet

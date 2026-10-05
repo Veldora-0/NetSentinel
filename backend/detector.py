@@ -8,6 +8,7 @@ and bounded memory state management.
 
 from collections import deque
 from dataclasses import dataclass, asdict
+import ipaddress
 import logging
 import threading
 import time
@@ -69,6 +70,11 @@ class TrafficDetector:
         self.null_scan_enabled = bool(cfg.get("null_scan_enabled", True))
         self.xmas_scan_enabled = bool(cfg.get("xmas_scan_enabled", True))
 
+        # ICMP Sweep Thresholds
+        self.icmp_sweep_window_sec = float(cfg.get("icmp_sweep_window_sec", 10.0))
+        self.icmp_sweep_threshold = int(cfg.get("icmp_sweep_threshold", 10))
+        self.icmp_sweep_cooldown_sec = float(cfg.get("icmp_sweep_cooldown_sec", 60.0))
+
         # Alert Cooldown & Memory Limits
         self.alert_cooldown_sec = float(cfg.get("alert_cooldown_sec", 30.0))
         self.max_tracked_ips = int(cfg.get("max_tracked_ips", 1000))
@@ -81,6 +87,8 @@ class TrafficDetector:
         self._port_scan_state: Dict[str, deque] = {}
         # source_ip -> deque of timestamps
         self._syn_flood_state: Dict[str, deque] = {}
+        # source_ip -> deque of (timestamp, dst_ip)
+        self._icmp_sweep_state: Dict[str, deque] = {}
 
         # Alert Suppression: (source_ip, rule_name) -> last_alert_time
         self._alert_cooldowns: Dict[Tuple[str, str], float] = {}
@@ -97,8 +105,10 @@ class TrafficDetector:
     def _is_in_cooldown(self, source_ip: str, rule_name: str, now: float) -> bool:
         """Check if an alert for (source_ip, rule_name) should be suppressed."""
         last_time = self._alert_cooldowns.get((source_ip, rule_name))
-        if last_time is not None and (now - last_time) < self.alert_cooldown_sec:
-            return True
+        if last_time is not None:
+            cooldown = self.icmp_sweep_cooldown_sec if rule_name == "ICMP_SWEEP" else self.alert_cooldown_sec
+            if (now - last_time) < cooldown:
+                return True
         return False
 
     def _mark_alerted(self, source_ip: str, rule_name: str, now: float) -> None:
@@ -134,8 +144,19 @@ class TrafficDetector:
         for ip in stale_syn_ips:
             del self._syn_flood_state[ip]
 
+        # Prune inactive ICMP sweep tracking
+        cutoff_icmp = now - self.icmp_sweep_window_sec
+        stale_icmp_ips = []
+        for ip, probes in self._icmp_sweep_state.items():
+            while probes and probes[0][0] < cutoff_icmp:
+                probes.popleft()
+            if not probes:
+                stale_icmp_ips.append(ip)
+        for ip in stale_icmp_ips:
+            del self._icmp_sweep_state[ip]
+
         # Prune expired alert cooldowns
-        cutoff_cooldown = now - (self.alert_cooldown_sec * 2)
+        cutoff_cooldown = now - (max(self.alert_cooldown_sec, self.icmp_sweep_cooldown_sec) * 2)
         stale_cooldowns = [
             key for key, ts in self._alert_cooldowns.items() if ts < cutoff_cooldown
         ]
@@ -151,6 +172,10 @@ class TrafficDetector:
         while len(self._syn_flood_state) >= self.max_tracked_ips:
             oldest_ip = next(iter(self._syn_flood_state))
             del self._syn_flood_state[oldest_ip]
+
+        while len(self._icmp_sweep_state) >= self.max_tracked_ips:
+            oldest_ip = next(iter(self._icmp_sweep_state))
+            del self._icmp_sweep_state[oldest_ip]
 
     def detect_port_scan(self, packet: ParsedPacket) -> Optional[SecurityEvent]:
         """Detect Port Scan activity based on unique destination ports probed within window."""
@@ -340,6 +365,68 @@ class TrafficDetector:
 
         return None
 
+    def detect_icmp_sweep(self, packet: ParsedPacket) -> Optional[SecurityEvent]:
+        """Detect ICMP Sweep / ping scan probing multiple target hosts within window."""
+        # Must be ICMP Echo Request (packet.protocol == 1 and icmp_type == 8)
+        if not packet.src_ip or packet.protocol != 1 or packet.icmp_type != 8 or not packet.dst_ip:
+            return None
+
+        # Filter out multicast, loopback, broadcast, and invalid addresses
+        try:
+            target = ipaddress.ip_address(packet.dst_ip)
+            if target.is_multicast or target.is_loopback or target.is_unspecified or target.is_link_local:
+                return None
+            if str(target) == "255.255.255.255":
+                return None
+        except ValueError:
+            return None
+
+        now = packet.timestamp or time.time()
+        src_ip = packet.src_ip
+        dst_ip = packet.dst_ip
+
+        if src_ip not in self._icmp_sweep_state:
+            self._enforce_max_ips()
+            self._icmp_sweep_state[src_ip] = deque()
+
+        probes = self._icmp_sweep_state[src_ip]
+        probes.append((now, dst_ip))
+
+        # Evict probes outside the active time window
+        cutoff = now - self.icmp_sweep_window_sec
+        while probes and probes[0][0] < cutoff:
+            probes.popleft()
+
+        unique_dsts: Set[str] = {dst for _, dst in probes}
+
+        if len(unique_dsts) >= self.icmp_sweep_threshold:
+            if not self._is_in_cooldown(src_ip, "ICMP_SWEEP", now):
+                self._mark_alerted(src_ip, "ICMP_SWEEP", now)
+                sample_dsts = sorted(list(unique_dsts))[:10]
+                event = SecurityEvent(
+                    event_id=uuid.uuid4().hex[:12],
+                    timestamp=now,
+                    detection_type="ICMP_SWEEP",
+                    severity="MEDIUM",
+                    source_ip=src_ip,
+                    destination_ip=dst_ip,
+                    protocol="ICMP",
+                    description=(
+                        f"ICMP sweep detected: {len(unique_dsts)} distinct destination hosts "
+                        f"probed with ICMP Echo Requests within {self.icmp_sweep_window_sec:.1f}s window."
+                    ),
+                    evidence={
+                        "unique_hosts_count": len(unique_dsts),
+                        "window_seconds": self.icmp_sweep_window_sec,
+                        "threshold": self.icmp_sweep_threshold,
+                        "sample_destinations": sample_dsts,
+                    },
+                    rule_name="RULE_ICMP_SWEEP",
+                )
+                return event
+
+        return None
+
     def analyze_packet(self, packet: ParsedPacket) -> List[SecurityEvent]:
         """Process a structured ParsedPacket through all active detection rules.
 
@@ -379,6 +466,11 @@ class TrafficDetector:
             xmas_event = self.detect_xmas_scan(packet)
             if xmas_event:
                 new_events.append(xmas_event)
+
+            # 5. Evaluate ICMP Sweep rule
+            icmp_event = self.detect_icmp_sweep(packet)
+            if icmp_event:
+                new_events.append(icmp_event)
 
             # Store and dispatch generated events
             for evt in new_events:

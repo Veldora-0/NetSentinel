@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status (Phase 7 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser, real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), and a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`). HIDS monitors Linux authentication logs for SSH brute-force attempts, observes host process integrity for suspicious execution paths or unlinked binaries, and correlates cross-domain network reconnaissance and host authentication failures from the same source IP with an explainable risk boost. All components stream real-time events over Socket.IO and persist securely to SQLite.
+> **Implementation Status (Phase 8 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py` with Port Scan, SYN Flood, NULL Scan, XMAS Scan, and ICMP Sweep rules), an advanced **ARP Threat Detector** (`arp_detector.py` for ARP Spoofing/Poisoning and Identity Conflict detection), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), and a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`). HIDS monitors Linux authentication logs for SSH brute-force attempts, observes host process integrity for suspicious execution paths or unlinked binaries, and correlates cross-domain network reconnaissance and host authentication failures from the same source IP with an explainable risk boost. All components stream real-time events over Socket.IO and persist securely to SQLite.
 
 ---
 
@@ -15,12 +15,12 @@
 * **Linux `iptables`** - Packet filtering and mitigation via dedicated `NETSENTINEL` chain
 * **Scikit-learn** - Unsupervised `IsolationForest` anomaly detection
 * **NumPy & Joblib** - High-performance numerical feature arrays and model persistence
-* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/events`, `/api/host/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`)
-* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `host_security_event`, `host_status`, `ml_anomaly`, `risk_assessment`, `firewall_action`, `host_telemetry`, `security_summary`)
+* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`)
+* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `host_security_event`, `host_status`, `network_status`, `ml_anomaly`, `risk_assessment`, `firewall_action`, `host_telemetry`, `security_summary`)
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models (`SecurityEventRecord`, `RiskAssessmentRecord`, `FirewallActionRecord`, `HostTelemetryRecord`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring (CPU, RAM, disk, load average, host I/O rates) & process integrity observation
-* **pytest** - Automated test suite (101 tests)
+* **pytest** - Automated test suite (127 tests)
 
 ### Frontend
 * **React 18** - UI framework
@@ -40,8 +40,9 @@ NetSentinel/
 │   ├── app.py           # Flask app factory, API routes, Socket.IO & capture lifecycle
 │   ├── config.py        # Centralized settings, network interface, detection thresholds, telemetry & retention config
 │   ├── capture.py       # AF_PACKET raw socket capture engine & rolling metrics aggregator
-│   ├── parser.py        # Complete Ethernet, IPv4, IPv6, TCP, UDP, ICMP packet parser
-│   ├── detector.py      # Rule-based intrusion detection engine & state manager
+│   ├── parser.py        # Complete Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP packet parser
+│   ├── detector.py      # Rule-based intrusion detection engine & state manager (Port scan, SYN flood, Stealth, ICMP sweep)
+│   ├── arp_detector.py  # Stateful ARP threat detector (ARP spoofing / poisoning, identity conflicts)
 │   ├── ml/              # Machine Learning Anomaly Detection Package (Phase 4)
 │   │   ├── __init__.py
 │   │   ├── feature_extractor.py # 13 numerical window traffic features & TrafficWindow buffer
@@ -333,14 +334,18 @@ sudo iptables -X NETSENTINEL
 
 ## 11. Automated Testing
 
-All 101 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
+All 127 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
 * `tests/test_parser.py`: Binary frame parsing across Ethernet, IPv4, IPv6, TCP, UDP, ICMP.
-* `tests/test_capture.py`: Raw socket lifecycle, error handling, unprivileged fallbacks, and rolling metrics.
+* `tests/test_arp_parser.py`: Binary ARP frame parsing (RFC 826 request/reply, gratuitous ARP, truncated frames, invalid hardware/protocol sizes).
+* `tests/test_arp_detector.py`: Baseline establishment, repeat claims, ARP spoofing detection, alert cooldowns, static trusted bindings, state timeout expiration, and identity conflict thresholds.
+* `tests/test_icmp_detector.py`: ICMP sweep detection, unique destination counting, duplicate probe deduplication, time window expiration, alert cooldown, and edge-case filtering (broadcast, multicast, loopback, link-local).
+* `tests/test_network_api.py`: Advanced network REST endpoints (`/api/network/status`, `/api/network/arp`), pipeline persistence, and RiskEngine domain classification.
+* `tests/test_capture.py`: Raw socket lifecycle, error handling, unprivileged fallbacks, and rolling metrics (including ARP frames).
 * `tests/test_detector.py`: Port scan, SYN flood, NULL scan, XMAS scan, window expiration, alert cooldowns, and memory bounds.
 * `tests/test_ml.py`: 13-feature window extraction, zero-division safety, IsolationForest lifecycle, persistence, corrupted file safety, and anomaly detection.
 * `tests/test_risk.py`: Severity scores, ML weighting, score clamping, boundary mapping, repeat frequency boost, and state pruning.
@@ -359,5 +364,5 @@ Test coverage:
 
 ## 12. Current Scope Limitations & Future Roadmap
 
-* **Phase 8 - Attack Simulation, Live Validation, and Hardening**: Live automated testing scripts, multi-vector attack simulations, end-to-end detection and mitigation verification, and system hardening.
+* **Phase 9 - Attack Simulation, Live Validation, and Hardening**: Live automated testing scripts, multi-vector attack simulations, end-to-end detection and mitigation verification, and system hardening.
 

@@ -33,6 +33,7 @@ from risk_engine import RiskEngine, RiskAssessment
 from firewall import FirewallManager
 from telemetry import TelemetryWorker
 from host import HostDetectionManager
+from arp_detector import ARPDetector
 
 # Global server components
 packet_capture: PacketCapture = None
@@ -42,12 +43,13 @@ risk_engine: RiskEngine = None
 firewall: FirewallManager = None
 telemetry_worker: TelemetryWorker = None
 host_manager: HostDetectionManager = None
+arp_detector: ARPDetector = None
 metrics_thread: threading.Thread = None
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, metrics_thread
+    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, metrics_thread
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -88,6 +90,10 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # 6. Initialize Host-Based Intrusion Detection Manager (Phase 7)
     host_manager = HostDetectionManager(config=app.config.get("HOST_DETECTION_SETTINGS"))
     app.host_manager = host_manager
+
+    # 7. Initialize Advanced ARP Threat Detector (Phase 8)
+    arp_detector = ARPDetector(config=app.config.get("ARP_DETECTION_SETTINGS"))
+    app.arp_detector = arp_detector
 
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
@@ -191,15 +197,17 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         _on_security_event(event)
 
     host_manager.add_event_callback(_on_host_security_event)
+    arp_detector.add_event_callback(_on_security_event)
 
     # 6. Resolve network interface & initialize PacketCapture
     active_iface = resolve_network_interface(app.config.get("NETWORK_INTERFACE"))
     packet_capture = PacketCapture(interface=active_iface)
     app.packet_capture = packet_capture
 
-    # Connect rule detector and ML detector as observers to the single raw packet stream
+    # Connect rule detector, ML detector, and ARP detector as observers to the single raw packet stream
     packet_capture.add_packet_callback(detector.analyze_packet)
     packet_capture.add_packet_callback(ml_detector.process_packet)
+    packet_capture.add_packet_callback(arp_detector.process_packet)
 
     # Register API Routes
     @app.route("/api/health", methods=["GET"])
@@ -379,6 +387,52 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
         return jsonify({"status": "ok", **result}), 200
 
+    # Advanced Network Threat Detection Endpoints (Phase 8)
+    @app.route("/api/network/status", methods=["GET"])
+    def get_network_status():
+        """REST endpoint to retrieve network detection status (packet metrics, ARP status, ICMP sweep)."""
+        metrics = packet_capture.get_metrics() if packet_capture else {}
+        arp_status = arp_detector.get_status() if arp_detector else {}
+        icmp_status = {
+            "enabled": True,
+            "window_sec": detector.icmp_sweep_window_sec if detector else 10.0,
+            "threshold": detector.icmp_sweep_threshold if detector else 10,
+            "cooldown_sec": detector.icmp_sweep_cooldown_sec if detector else 60.0,
+            "tracked_sources": len(detector._icmp_sweep_state) if detector else 0,
+        }
+        thresholds = {
+            "port_scan_threshold": detector.port_scan_threshold if detector else 15,
+            "syn_flood_threshold": detector.syn_flood_threshold if detector else 50,
+            "null_scan_enabled": detector.null_scan_enabled if detector else True,
+            "xmas_scan_enabled": detector.xmas_scan_enabled if detector else True,
+            "icmp_sweep_threshold": detector.icmp_sweep_threshold if detector else 10,
+        }
+        return jsonify({
+            "status": "ok",
+            "network": {
+                "capture": metrics,
+                "arp": arp_status,
+                "icmp_sweep": icmp_status,
+                "thresholds": thresholds,
+            },
+            "arp": arp_status,
+            "icmp_sweep": icmp_status,
+        }), 200
+
+    @app.route("/api/network/arp", methods=["GET"])
+    def get_arp_mappings():
+        """REST endpoint to retrieve tracked ARP IP-to-MAC mappings."""
+        limit = request.args.get("limit", 100, type=int)
+        mappings = arp_detector.get_mappings(limit=limit) if arp_detector else []
+        status = arp_detector.get_status() if arp_detector else {}
+        return jsonify({
+            "status": "ok",
+            "total": status.get("tracked_ips_count", len(mappings)),
+            "count": len(mappings),
+            "mappings": mappings,
+            "arp_status": status,
+        }), 200
+
     @app.route("/api/firewall/status", methods=["GET"])
     def get_firewall_status():
         """REST endpoint to retrieve firewall integration and safety status."""
@@ -490,6 +544,16 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             emit("host_telemetry", telemetry_worker.get_current_telemetry())
         if host_manager:
             emit("host_status", host_manager.get_status())
+        if arp_detector:
+            emit("network_status", {
+                "arp": arp_detector.get_status(),
+                "icmp_sweep": {
+                    "enabled": True,
+                    "window_sec": detector.icmp_sweep_window_sec if detector else 10.0,
+                    "threshold": detector.icmp_sweep_threshold if detector else 10,
+                    "tracked_sources": len(detector._icmp_sweep_state) if detector else 0,
+                },
+            })
         try:
             emit("security_summary", query_security_summary())
         except Exception:

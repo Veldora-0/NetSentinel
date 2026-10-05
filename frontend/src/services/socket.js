@@ -24,7 +24,8 @@ export function initSocketConnection(
   onHostTelemetry,
   onSecuritySummary,
   onHostSecurityEvent,
-  onHostStatus
+  onHostStatus,
+  onNetworkStatus
 ) {
   socket.on('connect', () => {
     if (onConnectChange) onConnectChange(true);
@@ -110,6 +111,12 @@ export function initSocketConnection(
     });
   }
 
+  if (onNetworkStatus) {
+    socket.on('network_status', (data) => {
+      onNetworkStatus(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -126,5 +133,6 @@ export function initSocketConnection(
     if (onSecuritySummary) socket.off('security_summary');
     if (onHostSecurityEvent) socket.off('host_security_event');
     if (onHostStatus) socket.off('host_status');
+    if (onNetworkStatus) socket.off('network_status');
   };
 }

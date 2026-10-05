@@ -326,4 +326,32 @@ export async function fetchHostEvents(params = {}) {
   }
 }
 
+// Phase 8: Advanced Network Threat Detection APIs
+
+export async function fetchNetworkStatus() {
+  try {
+    const response = await fetch('/api/network/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchARPMappings(limit = 100) {
+  try {
+    const response = await fetch(`/api/network/arp?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', total: 0, count: 0, mappings: [] };
+  }
+}
+
 

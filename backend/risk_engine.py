@@ -138,7 +138,10 @@ class RiskEngine:
         combined = (self.rule_weight * base_rule_score) + (self.ml_weight * ml_score)
         return round(max(0.0, min(1.0, combined)), 4)
 
-    NETWORK_DETECTION_TYPES = {"PORT_SCAN", "SYN_FLOOD", "NULL_SCAN", "XMAS_SCAN"}
+    NETWORK_DETECTION_TYPES = {
+        "PORT_SCAN", "SYN_FLOOD", "NULL_SCAN", "XMAS_SCAN",
+        "ARP_SPOOFING", "ARP_IDENTITY_CONFLICT", "ICMP_SWEEP"
+    }
     HOST_DETECTION_TYPES = {"SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS"}
 
     def _classify_detection_type(self, dtype: str) -> str:

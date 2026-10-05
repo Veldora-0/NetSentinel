@@ -18,6 +18,8 @@ import {
   fetchTelemetryHistory,
   fetchHostStatus,
   fetchHostEvents,
+  fetchNetworkStatus,
+  fetchARPMappings,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -43,6 +45,10 @@ export function App() {
 
   // Phase 7: Host-Based Intrusion Detection (HIDS) State
   const [hostStatus, setHostStatus] = useState(null);
+
+  // Phase 8: Advanced Network Threat Detection (ARP & ICMP Sweep) State
+  const [networkStatus, setNetworkStatus] = useState(null);
+  const [arpMappings, setArpMappings] = useState([]);
 
   const refreshFirewall = async () => {
     const fw = await fetchFirewallStatus();
@@ -125,6 +131,12 @@ export function App() {
 
         const hStatus = await fetchHostStatus();
         if (hStatus) setHostStatus(hStatus);
+
+        const nStatus = await fetchNetworkStatus();
+        if (nStatus) setNetworkStatus(nStatus);
+
+        const arpRes = await fetchARPMappings(20);
+        if (arpRes && arpRes.mappings) setArpMappings(arpRes.mappings);
       }
     };
 
@@ -254,6 +266,9 @@ export function App() {
       },
       (hStatus) => {
         setHostStatus(hStatus);
+      },
+      (netStatus) => {
+        setNetworkStatus(netStatus);
       }
     );
 
@@ -286,6 +301,8 @@ export function App() {
           historicalEvents={historicalEvents}
           onRefreshHistory={refreshHistory}
           hostStatus={hostStatus}
+          networkStatus={networkStatus}
+          arpMappings={arpMappings}
         />
       </main>
     </div>

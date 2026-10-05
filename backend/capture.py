@@ -30,6 +30,7 @@ class TrafficMetrics:
         self.tcp_packets = 0
         self.udp_packets = 0
         self.icmp_packets = 0
+        self.arp_packets = 0
         self.other_packets = 0
 
         # Rolling window history: deque of (timestamp, packet_count, byte_count)
@@ -51,6 +52,8 @@ class TrafficMetrics:
                 self.udp_packets += 1
             elif proto in ("ICMP", "ICMPv6"):
                 self.icmp_packets += 1
+            elif proto == "ARP":
+                self.arp_packets += 1
             else:
                 self.other_packets += 1
 
@@ -95,6 +98,7 @@ class TrafficMetrics:
                 "tcp_packets": self.tcp_packets,
                 "udp_packets": self.udp_packets,
                 "icmp_packets": self.icmp_packets,
+                "arp_packets": self.arp_packets,
                 "other_packets": self.other_packets,
             }
 

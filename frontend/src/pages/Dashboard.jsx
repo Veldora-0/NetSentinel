@@ -18,7 +18,8 @@ import {
   RotateCcw,
   History,
   Filter,
-  Terminal
+  Terminal,
+  Radio
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -71,6 +72,8 @@ export function Dashboard({
   historicalEvents = [],
   onRefreshHistory = null,
   hostStatus = null,
+  networkStatus = null,
+  arpMappings = [],
 }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
@@ -180,6 +183,10 @@ export function Dashboard({
                 <div className="proto-pill">
                   <span className="proto-name">ICMP</span>
                   <span className="proto-count">{trafficMetrics.icmp_packets.toLocaleString()}</span>
+                </div>
+                <div className="proto-pill">
+                  <span className="proto-name">ARP</span>
+                  <span className="proto-count">{(trafficMetrics.arp_packets || networkStatus?.arp?.stats?.total_arp_packets || 0).toLocaleString()}</span>
                 </div>
                 <div className="proto-pill">
                   <span className="proto-name">Other</span>
@@ -602,7 +609,96 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 8. System Resources (Phase 6: Real Host Telemetry) */}
+        {/* 8. Advanced Network Threat Detection (ARP & ICMP Sweeps) */}
+        <DashboardCard title="Advanced Network Threats (ARP & ICMP)" icon={Radio}>
+          <div className="host-sec-container">
+            {/* ARP Spoofing & Poisoning Monitor */}
+            <div className="host-section-block">
+              <div className="host-block-title">
+                <span>ARP Spoofing Monitor</span>
+                <span className={`badge ${networkStatus?.arp?.enabled ? 'badge-success' : 'badge-neutral'}`}>
+                  {networkStatus?.arp?.enabled ? 'ACTIVE' : 'ACTIVE'}
+                </span>
+              </div>
+              <div className="host-stat-row">
+                <span>Tracked IP-MAC Bindings:</span>
+                <span className="host-stat-val">{networkStatus?.arp?.tracked_ips_count ?? arpMappings.length}</span>
+              </div>
+              <div className="host-stat-row">
+                <span>ARP Spoofing Alerts:</span>
+                <span className="host-stat-val" style={{ color: (networkStatus?.arp?.stats?.spoofing_alerts || stats['ARP_SPOOFING'] || 0) > 0 ? 'var(--status-red)' : 'inherit' }}>
+                  {networkStatus?.arp?.stats?.spoofing_alerts ?? (stats['ARP_SPOOFING'] || 0)}
+                </span>
+              </div>
+              <div className="host-stat-row">
+                <span>Identity Conflict Alerts:</span>
+                <span className="host-stat-val" style={{ color: (networkStatus?.arp?.stats?.conflict_alerts || stats['ARP_IDENTITY_CONFLICT'] || 0) > 0 ? 'var(--status-yellow)' : 'inherit' }}>
+                  {networkStatus?.arp?.stats?.conflict_alerts ?? (stats['ARP_IDENTITY_CONFLICT'] || 0)}
+                </span>
+              </div>
+              <div className="host-stat-row">
+                <span>Conflict Threshold:</span>
+                <span className="host-stat-val">{networkStatus?.arp?.conflict_threshold || 3} IPs / MAC</span>
+              </div>
+              <div className="host-stat-row">
+                <span>State Timeout / Cooldown:</span>
+                <span className="host-stat-val">
+                  {networkStatus?.arp?.state_timeout_sec || 300}s / {networkStatus?.arp?.cooldown_sec || 60}s
+                </span>
+              </div>
+            </div>
+
+            {/* ICMP Sweep Detection */}
+            <div className="host-section-block">
+              <div className="host-block-title">
+                <span>ICMP Sweep Detection</span>
+                <span className="badge badge-success">
+                  {networkStatus?.icmp_sweep?.enabled ? 'ACTIVE' : 'ACTIVE'}
+                </span>
+              </div>
+              <div className="host-stat-row">
+                <span>Sweep Time Window:</span>
+                <span className="host-stat-val">{networkStatus?.icmp_sweep?.window_sec || 10}s</span>
+              </div>
+              <div className="host-stat-row">
+                <span>Unique Target Threshold:</span>
+                <span className="host-stat-val">{networkStatus?.icmp_sweep?.threshold || 10} hosts</span>
+              </div>
+              <div className="host-stat-row">
+                <span>ICMP Sweep Alerts:</span>
+                <span className="host-stat-val" style={{ color: (stats['ICMP_SWEEP'] || 0) > 0 ? 'var(--status-yellow)' : 'inherit' }}>
+                  {stats['ICMP_SWEEP'] || 0}
+                </span>
+              </div>
+              <div className="host-stat-row">
+                <span>Tracked Probing Sources:</span>
+                <span className="host-stat-val">{networkStatus?.icmp_sweep?.tracked_sources || 0}</span>
+              </div>
+              <div className="host-stat-row">
+                <span>Alert Cooldown:</span>
+                <span className="host-stat-val">{networkStatus?.icmp_sweep?.cooldown_sec || 60}s</span>
+              </div>
+            </div>
+          </div>
+
+          {arpMappings && arpMappings.length > 0 && (
+            <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>Active ARP Table Bindings (Latest {Math.min(5, arpMappings.length)}):</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
+                {arpMappings.slice(0, 5).map((m) => (
+                  <div key={m.ip} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.2rem 0.4rem', backgroundColor: '#0f172a', borderRadius: '4px', border: '1px solid #1e293b' }}>
+                    <span style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{m.ip}</span>
+                    <span style={{ fontFamily: 'monospace', color: '#a78bfa' }}>{m.mac}</span>
+                    <span style={{ color: '#64748b' }}>{m.claims_count || 1} claims</span>
+                    {m.is_trusted && <span className="badge badge-success" style={{ fontSize: '0.6rem', padding: '1px 4px' }}>TRUSTED</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DashboardCard>
+
+        {/* 9. System Resources (Phase 6: Real Host Telemetry) */}
         <DashboardCard title="System Resources" icon={Cpu}>
           {!hostTelemetry ? (
             <div className="placeholder-state">
@@ -818,6 +914,9 @@ export function Dashboard({
                     <option value="SYN_FLOOD">SYN Flood</option>
                     <option value="NULL_SCAN">NULL Scan</option>
                     <option value="XMAS_SCAN">XMAS Scan</option>
+                    <option value="ARP_SPOOFING">ARP Spoofing</option>
+                    <option value="ARP_IDENTITY_CONFLICT">ARP Identity Conflict</option>
+                    <option value="ICMP_SWEEP">ICMP Sweep</option>
                     <option value="ANOMALY">ML Anomaly</option>
                     <option value="SSH_AUTH_FAILURE">SSH Auth Failure</option>
                     <option value="SSH_BRUTE_FORCE">SSH Brute-Force</option>
