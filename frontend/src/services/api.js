@@ -630,6 +630,41 @@ export async function requestThreatIntelLookup(ip) {
   }
 }
 
+// ==============================================================================
+// Operational Health & Production Diagnostics API (Phase 12)
+// ==============================================================================
+
+export async function fetchReadiness() {
+  try {
+    const response = await fetch('/api/ready', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    const data = await response.json();
+    return {
+      ok: response.ok,
+      status: response.status,
+      ...data,
+    };
+  } catch (error) {
+    return { ok: false, ready: false, error: error.message };
+  }
+}
+
+export async function fetchSystemStatus() {
+  try {
+    const response = await fetch('/api/system/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+
 
 
 

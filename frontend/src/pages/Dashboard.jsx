@@ -121,6 +121,8 @@ export function Dashboard({
   threatIntelStatus = null,
   onRequestTILookup = null,
   onFetchTIIP = null,
+  readinessStatus = null,
+  systemStatus = null,
 }) {
 
   const isCaptureRunning = trafficMetrics?.status === 'running';
@@ -269,8 +271,18 @@ export function Dashboard({
   return (
     <div className="dashboard-container">
       <div className="dashboard-grid">
-        {/* 1. System Status */}
-        <DashboardCard title="System Status" icon={Server}>
+        {/* 1. System Status & Operational Health */}
+        <DashboardCard title="System Status & Health" icon={Server}>
+          {readinessStatus?.status === 429 && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '4px', padding: '8px', marginBottom: '10px', fontSize: '12px', color: '#fca5a5' }}>
+              ⚠️ Rate limit reached (429). Throttling active requests to protect system stability.
+            </div>
+          )}
+          {readinessStatus?.ready === false && readinessStatus?.status !== 429 && (
+            <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '4px', padding: '8px', marginBottom: '10px', fontSize: '12px', color: '#fcd34d' }}>
+              ⚠️ System degraded (503). One or more required subsystem workers or database are offline.
+            </div>
+          )}
           <div className="status-detail-list">
             <div className="detail-item">
               <span className="detail-label">Backend Service:</span>
@@ -279,8 +291,23 @@ export function Dashboard({
               </span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">Service Name:</span>
-              <span className="detail-value">{apiStatus.data?.service || 'N/A'}</span>
+              <span className="detail-label">Version / Uptime:</span>
+              <span className="detail-value">
+                v{systemStatus?.application?.version || apiStatus.data?.version || '1.0.0'}
+                {systemStatus?.application?.uptime_seconds != null ? ` (${Math.floor(systemStatus.application.uptime_seconds / 60)}m uptime)` : ''}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Readiness Probe:</span>
+              <span className={`badge ${readinessStatus?.ready ? 'badge-success' : readinessStatus ? 'badge-warning' : 'badge-info'}`}>
+                {readinessStatus?.ready ? 'READY (200)' : readinessStatus ? 'DEGRADED (503)' : 'CHECKING'}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Database Health:</span>
+              <span className={`badge ${systemStatus?.database?.healthy ? 'badge-success' : 'badge-warning'}`}>
+                {systemStatus?.database?.healthy ? `OK (${systemStatus.database.latency_ms || '<1'}ms)` : 'OFFLINE'}
+              </span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Socket.IO Stream:</span>
@@ -289,8 +316,14 @@ export function Dashboard({
               </span>
             </div>
             <div className="detail-item">
+              <span className="detail-label">Firewall Mode:</span>
+              <span className={`badge ${systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'badge-warning' : 'badge-success') : 'badge-info'}`}>
+                {systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'ACTIVE') : (systemStatus?.firewall?.mode || 'DISABLED').toUpperCase()}
+              </span>
+            </div>
+            <div className="detail-item">
               <span className="detail-label">Capture Interface:</span>
-              <span className="detail-value">{trafficMetrics?.interface || 'Auto'}</span>
+              <span className="detail-value">{trafficMetrics?.interface || systemStatus?.packet_capture?.interface || 'Auto'}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Capture Status:</span>
@@ -299,6 +332,25 @@ export function Dashboard({
               </span>
             </div>
           </div>
+          {systemStatus?.workers && Object.keys(systemStatus.workers).length > 0 && (
+            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                Worker Subsystems:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {Object.entries(systemStatus.workers).map(([name, w]) => (
+                  <span
+                    key={name}
+                    className={`badge ${w.status === 'HEALTHY' ? 'badge-success' : w.status === 'DEGRADED' ? 'badge-warning' : w.status === 'DISABLED' ? 'badge-info' : 'badge-danger'}`}
+                    style={{ fontSize: '10px', padding: '2px 6px' }}
+                    title={`${w.role || name}: ${w.status}`}
+                  >
+                    {name}: {w.status}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </DashboardCard>
 
         {/* 2. Network Traffic (Live Metrics) */}

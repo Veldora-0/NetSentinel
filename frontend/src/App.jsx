@@ -32,12 +32,16 @@ import {
   fetchThreatIntelStatus,
   fetchThreatIntelIP,
   requestThreatIntelLookup,
+  fetchReadiness,
+  fetchSystemStatus,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
 
 export function App() {
   const [apiStatus, setApiStatus] = useState({ connected: false, data: null });
+  const [readinessStatus, setReadinessStatus] = useState(null);
+  const [systemStatus, setSystemStatus] = useState(null);
   const [socketConnected, setSocketConnected] = useState(socket.connected);
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
@@ -236,6 +240,12 @@ export function App() {
 
         const tiStatus = await fetchThreatIntelStatus();
         if (tiStatus) setThreatIntelStatus(tiStatus);
+
+        const ready = await fetchReadiness();
+        if (ready) setReadinessStatus(ready);
+
+        const sysStat = await fetchSystemStatus();
+        if (sysStat) setSystemStatus(sysStat);
       }
     };
 
@@ -468,6 +478,8 @@ export function App() {
           threatIntelStatus={threatIntelStatus}
           onRequestTILookup={requestThreatIntelLookup}
           onFetchTIIP={fetchThreatIntelIP}
+          readinessStatus={readinessStatus}
+          systemStatus={systemStatus}
         />
       </main>
     </div>

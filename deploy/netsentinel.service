@@ -1,0 +1,53 @@
+[Unit]
+Description=NetSentinel - Hybrid Network & Host Intrusion Detection System
+After=network.target network-online.target
+Wants=network-online.target
+Documentation=https://github.com/Veldora-0/NetSentinel
+
+[Service]
+Type=simple
+User=netsentinel
+Group=netsentinel
+WorkingDirectory=/opt/netsentinel
+
+# Environment configuration
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=-/etc/default/netsentinel
+
+# Execution command
+ExecStart=/opt/netsentinel/.venv/bin/python /opt/netsentinel/backend/app.py
+
+# Restart behavior
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=15s
+
+# Security Hardening & Sandboxing
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictNamespaces=true
+MemoryDenyWriteExecute=false
+
+# Linux Ambient Capabilities for raw sockets and iptables firewall rules
+# Allows running as non-root user 'netsentinel' without full sudo privileges
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_DAC_OVERRIDE
+
+# Resource & process limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Structured Logging via systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netsentinel
+
+[Install]
+WantedBy=multi-user.target

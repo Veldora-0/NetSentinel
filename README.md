@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status (Phase 9 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py` with Port Scan, SYN Flood, NULL Scan, XMAS Scan, and ICMP Sweep rules), an advanced **ARP Threat Detector** (`arp_detector.py` for ARP Spoofing/Poisoning and Identity Conflict detection), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), and an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`). The incident correlation engine groups related alerts, risk assessments, and firewall mitigation actions into contextual security incidents by source IP or host identity within bounded windows (300s). It computes monotonic risk scores with bounded cross-domain (+0.10) and multi-vector (+0.05) boosts clamped to [0.0, 1.0], generates objective explainable titles and correlation reasons, supports an operator status workflow (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), constructs unified chronological event timelines, generates SOC report summaries, and provides an interactive investigation workspace in the React dashboard. All components stream real-time events over Socket.IO and persist securely to SQLite.
+> **Implementation Status (Phase 12 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), and **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`). All 239 automated tests pass deterministically.
 
 ---
 
@@ -15,12 +15,12 @@
 * **Linux `iptables`** - Packet filtering and mitigation via dedicated `NETSENTINEL` chain
 * **Scikit-learn** - Unsupervised `IsolationForest` anomaly detection
 * **NumPy & Joblib** - High-performance numerical feature arrays and model persistence
-* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`, `/api/incidents/*`)
-* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `host_security_event`, `host_status`, `network_status`, `ml_anomaly`, `risk_assessment`, `firewall_action`, `host_telemetry`, `security_summary`, `incident_created`, `incident_updated`, `incident_status_changed`, `incident_stats`)
-* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models (`SecurityEventRecord`, `RiskAssessmentRecord`, `FirewallActionRecord`, `HostTelemetryRecord`, `IncidentRecord`, `IncidentEvidenceRecord`)
-* **SQLite** - Embedded database storage with automated time-based retention pruning (preserves active incidents)
-* **psutil** - Host system telemetry monitoring (CPU, RAM, disk, load average, host I/O rates) & process integrity observation
-* **pytest** - Automated test suite (150 tests)
+* **Flask** - REST API framework (`/api/health`, `/api/ready`, `/api/system/status`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/fim/*`, `/api/threat-intel/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`, `/api/incidents/*`)
+* **Flask-SocketIO** - Real-time WebSocket event communication
+* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
+* **SQLite** - Embedded database storage with automated time-based retention pruning
+* **psutil** - Host system telemetry monitoring & process integrity observation
+* **pytest** - Automated test suite (239 tests)
 
 ### Frontend
 * **React 18** - UI framework
@@ -491,14 +491,71 @@ Security Event (Public Source IP)
 
 ---
 
-## 14. Automated Testing
+---
 
-All 213 unit and integration tests run deterministically and mock `iptables` and external HTTP APIs without requiring root privileges or live external network access:
+## 14. Production Deployment & Operational Controls (Phase 12)
+
+NetSentinel provides production-grade operational hardening, deterministic configuration validation, and least-privilege systemd deployment:
+
+### 1. Systemd Service Unit (`deploy/netsentinel.service`)
+Deploy NetSentinel as a managed system daemon with Linux ambient capabilities and sandboxing:
+```bash
+# 1. Copy service file
+sudo cp deploy/netsentinel.service /etc/systemd/system/netsentinel.service
+
+# 2. Create unprivileged service user and group
+sudo useradd -r -s /bin/false -d /opt/netsentinel netsentinel
+
+# 3. Reload systemd daemon, enable, and start service
+sudo systemctl daemon-reload
+sudo systemctl enable netsentinel
+sudo systemctl start netsentinel
+
+# 4. Inspect status and structured journal logs
+sudo systemctl status netsentinel
+sudo journalctl -u netsentinel -f -o cat
+```
+
+### 2. Least-Privilege Execution & Ambient Capabilities
+* **Non-Root Execution**: Runs under unprivileged user `netsentinel`.
+* **Ambient Capabilities**: Grants `CAP_NET_RAW` (for raw `AF_PACKET` frame capture) and `CAP_NET_ADMIN` (for isolated `iptables` rules) without full root or sudo permissions.
+* **Process Sandboxing**: Enforces `NoNewPrivileges=true`, `ProtectSystem=full`, `ProtectHome=true`, `PrivateTmp=true`, `ProtectControlGroups=true`, and `ProtectKernelModules=true`.
+
+### 3. Central Configuration Validation (`backend/config_validator.py`)
+* Strict deterministic validation of port boundaries (1–65535), non-empty host, positive telemetry intervals, valid IP/CIDR notations in firewall allowlists, probability boundaries [0.0, 1.0] for risk thresholds, and valid CORS origins.
+* Safe defaults and early failure preventing invalid startups or silent security degradation.
+
+### 4. Secret Sanitization & Privacy Controls
+* Automatic redaction of credentials (`SECRET_KEY`, `ABUSEIPDB_API_KEY`, `VIRUSTOTAL_API_KEY`, passwords, bearer tokens) across application logs, REST responses, and runtime diagnostic APIs.
+* Structured logging format: `[%(asctime)s] [%(levelname)s] [%(name)s] [%(request_id)s] %(message)s`.
+
+### 5. Security Middleware & Defensive Headers (`backend/security_middleware.py`)
+* **Request Correlation**: Propagates `X-Request-ID` across all REST requests and log records.
+* **Defensive HTTP Headers**: Automatically injects `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Content-Security-Policy`.
+* **Sliding-Window Rate Limiting**: In-memory rate limiting per client IP (60 req/min general, 10 req/min sensitive) with automated `Retry-After` headers and exemptions for health probes.
+* **Normalized Error Responses**: Structured JSON errors (400, 404, 405, 409, 429, 500, 503) without leaking backend tracebacks or internal paths.
+
+### 6. Health & Diagnostic Endpoints
+* `GET /api/health`: High-performance liveness probe (`alive: true`, `service: "NetSentinel Backend"`, `version`).
+* `GET /api/ready`: Readiness probe verifying database connectivity and essential worker threads (returns HTTP 200 when ready, 503 when degraded).
+* `GET /api/system/status`: Runtime operational status, application uptime, database probe latency, firewall capability probe, subsystem worker states, and sanitized configuration.
+
+### 7. Worker Lifecycle Watchdog & Graceful Shutdown (`backend/lifecycle.py`)
+* Centralized registration and heartbeat tracking for all subsystem workers (`HEALTHY`, `DEGRADED`, `DISABLED`, `FAILED`, `STOPPED`).
+* Thread-safe graceful shutdown via `LifecycleManager.stop_all(timeout=...)` with reverse dependency stopping order.
+
+---
+
+## 15. Automated Testing
+
+All 239 unit and integration tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
+* `tests/test_config_validation.py`: Central configuration validator, host/port checks, interval bounds, risk threshold clamping, CIDR/IP allowlists, CORS parsing, and secret redaction.
+* `tests/test_security_ops.py`: Structured logging secret sanitization, request correlation ID propagation, defensive security headers, normalized JSON errors, sliding-window rate limiting, liveness probe (`/api/health`), readiness probe (`/api/ready`), runtime diagnostics (`/api/system/status`), worker watchdog lifecycle, database latency probe, and firewall capability checks.
 * `tests/test_ti_eligibility.py`: Public vs private, loopback, multicast, link-local, broadcast, unspecified, and local identifier rejection.
 * `tests/test_ti_providers.py`: AbuseIPDB and VirusTotal adapter responses (clean, malicious, 404, 429 rate limit backoff, timeout, private IP rejection).
 * `tests/test_ti_cache.py`: In-memory LRU cache capacity eviction, TTL expiration, in-flight deduplication locks, and SQLite persistence hooks.
@@ -535,9 +592,9 @@ Test coverage:
 
 ---
 
-## 15. Current Scope Limitations & Future Roadmap
+## 16. Current Scope Limitations & Future Roadmap
 
-* **Live Attack Simulation & Hardening**: Automated attack scripts for live system validation, defense testing, and system hardening.
+* **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills.
 
 
 

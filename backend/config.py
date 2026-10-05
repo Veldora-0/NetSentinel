@@ -291,5 +291,55 @@ class Config:
     TI_VT_ENABLED = TI_SETTINGS["vt_enabled"]
     TI_VT_API_KEY = TI_SETTINGS["vt_api_key"]
 
+    # Production Hardening & Operational Controls (Phase 12)
+    VERSION = "1.0.0"
+    NETSENTINEL_VERSION = VERSION
+    LOG_LEVEL = os.environ.get("NETSENTINEL_LOG_LEVEL", "INFO").upper()
+
+    # CORS Origins (comma-separated string or list)
+    _raw_cors = os.environ.get(
+        "NETSENTINEL_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
+    CORS_ORIGINS = [x.strip() for x in _raw_cors.split(",") if x.strip()]
+
+    # In-memory API Rate Limiting (requests per minute)
+    API_RATE_LIMIT = int(os.environ.get("NETSENTINEL_API_RATE_LIMIT", "60"))
+    SENSITIVE_RATE_LIMIT = int(os.environ.get("NETSENTINEL_SENSITIVE_RATE_LIMIT", "10"))
+
+    @classmethod
+    def validate(cls) -> None:
+        """Validate the active configuration and raise ConfigurationError if invalid."""
+        from config_validator import ConfigValidator
+        ConfigValidator.validate_or_raise(cls)
+
+    @classmethod
+    def get_redacted_dict(cls) -> dict:
+        """Return a safe dictionary representation with credentials and secrets masked."""
+        from config_validator import ConfigValidator
+        raw_dict = {
+            "version": cls.VERSION,
+            "host": cls.HOST,
+            "port": cls.PORT,
+            "log_level": cls.LOG_LEVEL,
+            "cors_origins": cls.CORS_ORIGINS,
+            "api_rate_limit": cls.API_RATE_LIMIT,
+            "sensitive_rate_limit": cls.SENSITIVE_RATE_LIMIT,
+            "secret_key": getattr(cls, "SECRET_KEY", "netsentinel-dev-secret-key-change-in-production"),
+            "SECRET_KEY": getattr(cls, "SECRET_KEY", "netsentinel-dev-secret-key-change-in-production"),
+            "detector_thresholds": cls.DETECTOR_THRESHOLDS,
+            "ml_settings": cls.ML_SETTINGS,
+            "risk_settings": cls.RISK_SETTINGS,
+            "firewall_settings": cls.FIREWALL_SETTINGS,
+            "telemetry_settings": cls.TELEMETRY_SETTINGS,
+            "host_detection_settings": cls.HOST_DETECTION_SETTINGS,
+            "arp_detection_settings": cls.ARP_DETECTION_SETTINGS,
+            "incident_settings": cls.INCIDENT_SETTINGS,
+            "fim_settings": cls.FIM_SETTINGS,
+            "ti_settings": cls.TI_SETTINGS,
+        }
+        return ConfigValidator.redact_secrets(raw_dict)
+
+
 
 

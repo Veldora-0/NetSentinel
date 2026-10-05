@@ -6,18 +6,25 @@ composite risk scoring, automated iptables firewall mitigation, durable event pe
 and host system telemetry sampling.
 """
 
+import platform
+import sys
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
 from config import Config, resolve_network_interface
+from config_validator import ConfigValidator, NETSENTINEL_VERSION, ConfigurationError
+from logging_config import setup_logging
+from security_middleware import SecurityMiddleware
+from lifecycle import LifecycleManager, check_firewall_capabilities
 from database import (
     init_db,
+    check_database_health,
     save_assessment_record,
     save_security_event_record,
     save_firewall_action_record,
@@ -64,25 +71,59 @@ arp_detector: ARPDetector = None
 incident_manager: IncidentManager = None
 threat_intel_service: ThreatIntelService = None
 metrics_thread: threading.Thread = None
+lifecycle_manager: LifecycleManager = None
+app_start_time: float = time.time()
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, incident_manager, threat_intel_service, metrics_thread
+    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, incident_manager, threat_intel_service, metrics_thread, lifecycle_manager, app_start_time
+
 
 
 
     app = Flask(__name__)
-    app.config.from_object(config_class)
+    if isinstance(config_class, type):
+        app.config.from_object(config_class)
+    elif isinstance(config_class, dict):
+        app.config.update(config_class)
+    else:
+        app.config.from_object(config_class)
 
-    # Enable Cross-Origin Resource Sharing
-    CORS(app, resources={r"/api/*": {"origins": "*"}, r"/socket.io/*": {"origins": "*"}})
+    # 1. Initialize Structured Logging
+    log_level = app.config.get("LOG_LEVEL", "INFO")
+    setup_logging(log_level)
 
-    # Initialize Database
+    # 2. Central Configuration Validation
+    ConfigValidator.validate_or_raise(app.config)
+
+    # 3. Setup Lifecycle Manager
+    lifecycle_manager = LifecycleManager()
+    app.lifecycle_manager = lifecycle_manager
+    app.start_time = time.time()
+    app_start_time = app.start_time
+
+    # 4. CORS Hardening
+    cors_origins = app.config.get("CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173"])
+    if isinstance(cors_origins, str):
+        cors_origins = [x.strip() for x in cors_origins.split(",") if x.strip()]
+    socket_cors = "*" if "*" in cors_origins else cors_origins
+    CORS(app, resources={r"/api/*": {"origins": cors_origins}, r"/socket.io/*": {"origins": socket_cors}})
+
+    # 5. Initialize Security Middleware (Request correlation, rate limiting, security headers, error normalization)
+    security_mw = SecurityMiddleware(
+        app=app,
+        rate_limit=app.config.get("API_RATE_LIMIT", 60),
+        sensitive_rate_limit=app.config.get("SENSITIVE_RATE_LIMIT", 10),
+        enable_rate_limiting=not app.config.get("TESTING", False),
+    )
+    app.security_middleware = security_mw
+
+    # 6. Initialize Database
     init_db(app)
 
-    # Initialize Flask-SocketIO
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+    # 7. Initialize Flask-SocketIO
+    socketio = SocketIO(app, cors_allowed_origins=socket_cors, async_mode="threading")
 
     # 1. Initialize Rule-Based Intrusion Detection Engine
     detector = TrafficDetector(config=app.config.get("DETECTOR_THRESHOLDS"))
@@ -333,14 +374,143 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     packet_capture.add_packet_callback(ml_detector.process_packet)
     packet_capture.add_packet_callback(arp_detector.process_packet)
 
+    # Register all subsystem workers with LifecycleManager
+    lifecycle_manager.register_worker(
+        name="packet_capture",
+        instance=packet_capture,
+        role="Linux AF_PACKET Raw Frame Capture Engine",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="detector",
+        instance=detector,
+        role="Rule-Based Intrusion Detector",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="ml_detector",
+        instance=ml_detector,
+        role="ML Anomaly Detector",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="risk_engine",
+        instance=risk_engine,
+        role="Composite Risk Assessment Engine",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="firewall",
+        instance=firewall,
+        role="Linux iptables Firewall Manager",
+        is_optional=True,
+    )
+    fw_cap = check_firewall_capabilities(firewall)
+    firewall.capability_status = fw_cap
+
+    lifecycle_manager.register_worker(
+        name="telemetry",
+        instance=telemetry_worker,
+        role="Host System Telemetry Worker",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="host_manager",
+        instance=host_manager,
+        role="Host Intrusion Detection & FIM Manager",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="arp_detector",
+        instance=arp_detector,
+        role="ARP Spoofing & Cache Poisoning Detector",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="incident_manager",
+        instance=incident_manager,
+        role="Security Incident Correlator",
+        is_optional=False,
+    )
+    lifecycle_manager.register_worker(
+        name="threat_intel",
+        instance=threat_intel_service,
+        role="Threat Intelligence Enrichment Service",
+        is_optional=True,
+    )
+
     # Register API Routes
     @app.route("/api/health", methods=["GET"])
     def health_check():
-        """Health check endpoint to verify backend operational status."""
+        """Health check endpoint to verify backend operational status (liveness probe)."""
         return jsonify({
             "status": "ok",
-            "service": "NetSentinel Backend"
+            "alive": True,
+            "service": "NetSentinel Backend",
+            "version": Config.VERSION,
+            "timestamp": time.time(),
+            "request_id": getattr(g, "request_id", "-"),
         }), 200
+
+    @app.route("/api/ready", methods=["GET"])
+    def readiness_check():
+        """Readiness check endpoint verifying database connectivity and core workers."""
+        db_health = check_database_health()
+        is_ready, worker_checks = lifecycle_manager.assess_readiness() if lifecycle_manager else (True, {})
+        overall_ready = db_health.get("healthy", False) and is_ready
+
+        status_code = 200 if overall_ready else 503
+        return jsonify({
+            "ready": overall_ready,
+            "checks": {
+                "database": "ok" if db_health.get("healthy") else "failed",
+                "capture": worker_checks.get("packet_capture", "unknown"),
+                "configuration": "ok",
+                "workers": worker_checks,
+            },
+            "timestamp": time.time(),
+            "request_id": getattr(g, "request_id", "-"),
+        }), status_code
+
+    @app.route("/api/system/status", methods=["GET"])
+    def get_system_status():
+        """Comprehensive runtime operational diagnostics and subsystem health."""
+        now = time.time()
+        uptime = round(now - app_start_time, 2)
+        db_health = check_database_health()
+        fw_cap_status = check_firewall_capabilities(firewall) if firewall else {"capable": False, "mode": "disabled"}
+
+        capture_status = packet_capture.status if packet_capture else "stopped"
+        capture_err = packet_capture.error_message if packet_capture else None
+
+        diagnostics = {
+            "status": "ok",
+            "application": {
+                "name": "NetSentinel",
+                "version": Config.VERSION,
+                "python_version": sys.version.split()[0],
+                "platform": platform.platform(),
+                "uptime_seconds": uptime,
+                "start_time": app_start_time,
+            },
+            "database": db_health,
+            "firewall": {
+                **fw_cap_status,
+                "active_blocks": len(firewall._blocked_ips) if firewall else 0,
+                "dry_run": firewall.dry_run if firewall else True,
+                "auto_block": firewall.auto_block if firewall else False,
+            },
+            "packet_capture": {
+                "status": capture_status,
+                "interface": packet_capture.interface if packet_capture else "none",
+                "error": capture_err,
+            },
+            "workers": lifecycle_manager.get_all_worker_statuses() if lifecycle_manager else {},
+            "configuration": Config.get_redacted_dict() if hasattr(Config, "get_redacted_dict") else {},
+            "timestamp": now,
+            "request_id": getattr(g, "request_id", "-"),
+        }
+        return jsonify(diagnostics), 200
 
     @app.route("/api/metrics", methods=["GET"])
     def get_metrics():
@@ -583,21 +753,30 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         if not ip:
             return jsonify({"status": "error", "message": "Missing 'ip' field"}), 400
 
-        reason = data.get("reason", "Operator Manual Block")
+        ip_str = str(ip).strip()
+        if len(ip_str) > 64:
+            return jsonify({"status": "error", "message": "IP address exceeds maximum length of 64 characters"}), 400
+
+        reason = str(data.get("reason", "Operator Manual Block")).strip()
+        if len(reason) > 255:
+            return jsonify({"status": "error", "message": "Reason exceeds maximum length of 255 characters"}), 400
+
         duration = data.get("duration", None)
         if duration is not None:
             try:
                 duration = float(duration)
+                if duration <= 0 or duration > 2592000:
+                    return jsonify({"status": "error", "message": "Duration must be between 1 and 2592000 seconds"}), 400
             except (ValueError, TypeError):
                 return jsonify({"status": "error", "message": "Invalid 'duration' parameter"}), 400
 
-        result = firewall.block_ip(ip_address=ip, reason=reason, duration=duration)
+        result = firewall.block_ip(ip_address=ip_str, reason=reason, duration=duration)
         if result.get("success"):
             try:
                 with app.app_context():
                     save_firewall_action_record(
                         action="block",
-                        source_ip=ip,
+                        source_ip=ip_str,
                         success=True,
                         reason=reason,
                         expires_at=result.get("expires_at"),
@@ -608,7 +787,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             socketio.emit("firewall_action", {
                 "timestamp": time.time(),
                 "action": "block",
-                "source_ip": ip,
+                "source_ip": ip_str,
                 "success": True,
                 "expires_at": result.get("expires_at"),
                 "reason": reason,
@@ -616,7 +795,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
             incident_manager.correlate_firewall_action(
                 action="block",
-                source_ip=ip,
+                source_ip=ip_str,
                 reason=f"Operator Manual Block: {reason}",
                 duration=duration,
                 timestamp=time.time(),
@@ -633,13 +812,17 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         if not ip:
             return jsonify({"status": "error", "message": "Missing 'ip' field"}), 400
 
-        result = firewall.unblock_ip(ip_address=ip)
+        ip_str = str(ip).strip()
+        if len(ip_str) > 64:
+            return jsonify({"status": "error", "message": "IP address exceeds maximum length of 64 characters"}), 400
+
+        result = firewall.unblock_ip(ip_address=ip_str)
         if result.get("success"):
             try:
                 with app.app_context():
                     save_firewall_action_record(
                         action="unblock",
-                        source_ip=ip,
+                        source_ip=ip_str,
                         success=True,
                         reason="Operator Manual Unblock",
                     )
@@ -649,7 +832,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             socketio.emit("firewall_action", {
                 "timestamp": time.time(),
                 "action": "unblock",
-                "source_ip": ip,
+                "source_ip": ip_str,
                 "success": True,
                 "expires_at": None,
                 "reason": "Operator Manual Unblock",
@@ -657,7 +840,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
             incident_manager.correlate_firewall_action(
                 action="unblock",
-                source_ip=ip,
+                source_ip=ip_str,
                 reason="Operator Manual Unblock",
                 timestamp=time.time(),
             )
@@ -743,19 +926,32 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Update incident workflow status and optional analyst notes."""
         data = request.get_json(silent=True) or {}
         target_status = data.get("status")
-        if not target_status:
-            return jsonify({"status": "error", "message": "Missing 'status' field in request body"}), 400
+        if not target_status or not isinstance(target_status, str):
+            return jsonify({"status": "error", "message": "Missing or invalid 'status' field in request body"}), 400
+        
+        target_status_str = str(target_status).strip().upper()
         analyst_note = data.get("analyst_note")
         resolution = data.get("resolution")
 
+        if analyst_note is not None and len(str(analyst_note)) > 1000:
+            return jsonify({"status": "error", "message": "Analyst note exceeds maximum length of 1000 characters"}), 400
+        if resolution is not None and len(str(resolution)) > 1000:
+            return jsonify({"status": "error", "message": "Resolution exceeds maximum length of 1000 characters"}), 400
+
         success, msg, inc_data = incident_manager.transition_status(
             incident_id=incident_id,
-            target_status=target_status,
+            target_status=target_status_str,
             analyst_note=analyst_note,
             resolution=resolution,
         )
         if not success:
-            code = 404 if "not found" in msg.lower() else 400
+            msg_lower = msg.lower()
+            if "not found" in msg_lower:
+                code = 404
+            elif "cannot transition" in msg_lower or "invalid transition" in msg_lower:
+                code = 409
+            else:
+                code = 400
             return jsonify({"status": "error", "message": msg}), code
 
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
@@ -765,13 +961,17 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Operator shortcut to acknowledge an incident."""
         data = request.get_json(silent=True) or {}
         note = data.get("analyst_note", "Incident acknowledged by operator")
+        if note is not None and len(str(note)) > 1000:
+            return jsonify({"status": "error", "message": "Analyst note exceeds maximum length of 1000 characters"}), 400
+
         success, msg, inc_data = incident_manager.transition_status(
             incident_id=incident_id,
             target_status="ACKNOWLEDGED",
             analyst_note=note,
         )
         if not success:
-            code = 404 if "not found" in msg.lower() else 400
+            msg_lower = msg.lower()
+            code = 404 if "not found" in msg_lower else (409 if "cannot transition" in msg_lower else 400)
             return jsonify({"status": "error", "message": msg}), code
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
@@ -781,6 +981,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         data = request.get_json(silent=True) or {}
         resolution = data.get("resolution", "Resolved by operator")
         note = data.get("analyst_note")
+        if note is not None and len(str(note)) > 1000:
+            return jsonify({"status": "error", "message": "Analyst note exceeds maximum length of 1000 characters"}), 400
+        if resolution is not None and len(str(resolution)) > 1000:
+            return jsonify({"status": "error", "message": "Resolution exceeds maximum length of 1000 characters"}), 400
+
         success, msg, inc_data = incident_manager.transition_status(
             incident_id=incident_id,
             target_status="RESOLVED",
@@ -788,7 +993,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             resolution=resolution,
         )
         if not success:
-            code = 404 if "not found" in msg.lower() else 400
+            msg_lower = msg.lower()
+            code = 404 if "not found" in msg_lower else (409 if "cannot transition" in msg_lower else 400)
             return jsonify({"status": "error", "message": msg}), code
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
@@ -798,6 +1004,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         data = request.get_json(silent=True) or {}
         resolution = data.get("resolution", "Closed by operator")
         note = data.get("analyst_note")
+        if note is not None and len(str(note)) > 1000:
+            return jsonify({"status": "error", "message": "Analyst note exceeds maximum length of 1000 characters"}), 400
+        if resolution is not None and len(str(resolution)) > 1000:
+            return jsonify({"status": "error", "message": "Resolution exceeds maximum length of 1000 characters"}), 400
+
         success, msg, inc_data = incident_manager.transition_status(
             incident_id=incident_id,
             target_status="CLOSED",
@@ -805,7 +1016,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             resolution=resolution,
         )
         if not success:
-            code = 404 if "not found" in msg.lower() else 400
+            msg_lower = msg.lower()
+            code = 404 if "not found" in msg_lower else (409 if "cannot transition" in msg_lower else 400)
             return jsonify({"status": "error", "message": msg}), code
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
@@ -814,13 +1026,17 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Operator shortcut to reopen a resolved or closed incident."""
         data = request.get_json(silent=True) or {}
         note = data.get("analyst_note", "Reopened by operator")
+        if note is not None and len(str(note)) > 1000:
+            return jsonify({"status": "error", "message": "Analyst note exceeds maximum length of 1000 characters"}), 400
+
         success, msg, inc_data = incident_manager.transition_status(
             incident_id=incident_id,
             target_status="OPEN",
             analyst_note=note,
         )
         if not success:
-            code = 404 if "not found" in msg.lower() else 400
+            msg_lower = msg.lower()
+            code = 404 if "not found" in msg_lower else (409 if "cannot transition" in msg_lower else 400)
             return jsonify({"status": "error", "message": msg}), code
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
@@ -878,8 +1094,12 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
         data = request.get_json(silent=True) or {}
         paths = data.get("paths")
-        if paths is not None and not isinstance(paths, list):
-            return jsonify({"success": False, "error": "paths must be a list of file paths"}), 400
+        if paths is not None:
+            if not isinstance(paths, list):
+                return jsonify({"success": False, "error": "paths must be a list of file paths"}), 400
+            for p in paths:
+                if not isinstance(p, str) or len(p) > 512:
+                    return jsonify({"success": False, "error": "Each path in paths must be a string <= 512 characters"}), 400
 
         with app.app_context():
             res = host_manager.file_integrity.rebuild_baseline(paths=paths)
@@ -1053,8 +1273,10 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
         def _metrics_emitter():
             interval = app.config.get("METRICS_EMIT_INTERVAL", 1.0)
-            while True:
+            while not lifecycle_manager.shutdown_event.is_set():
                 time.sleep(interval)
+                if lifecycle_manager.shutdown_event.is_set():
+                    break
                 try:
                     metrics = packet_capture.get_metrics()
                     socketio.emit("traffic_metrics", metrics)
@@ -1078,15 +1300,18 @@ if __name__ == "__main__":
     try:
         socketio.run(app, host=config.HOST, port=config.PORT, debug=config.DEBUG)
     finally:
-        if packet_capture:
-            packet_capture.stop()
-        if ml_detector:
-            ml_detector.stop()
-        if telemetry_worker:
-            telemetry_worker.stop()
-        if host_manager:
-            host_manager.stop()
-        if threat_intel_service:
-            threat_intel_service.stop()
+        if hasattr(app, "lifecycle_manager") and app.lifecycle_manager:
+            app.lifecycle_manager.stop_all(timeout=5.0)
+        else:
+            if packet_capture:
+                packet_capture.stop()
+            if ml_detector:
+                ml_detector.stop()
+            if telemetry_worker:
+                telemetry_worker.stop()
+            if host_manager:
+                host_manager.stop()
+            if threat_intel_service:
+                threat_intel_service.stop()
 
 

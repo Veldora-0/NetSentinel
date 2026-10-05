@@ -1558,8 +1558,56 @@ def get_persisted_assessments(limit: int = 50) -> List[Dict[str, Any]]:
         return []
 
 
+def check_database_health() -> Dict[str, Any]:
+    """Lightweight database connectivity probe (SELECT 1).
+
+    Returns:
+        Dictionary reporting database connection status and query latency.
+    """
+    t0 = time.time()
+    try:
+        from sqlalchemy import text
+        res = db.session.execute(text("SELECT 1")).scalar()
+        latency = round((time.time() - t0) * 1000.0, 2)
+        if res == 1:
+            return {
+                "status": "ok",
+                "healthy": True,
+                "latency_ms": latency,
+                "engine": "sqlite",
+            }
+        return {
+            "status": "degraded",
+            "healthy": False,
+            "latency_ms": latency,
+            "error": "Unexpected probe response",
+        }
+    except Exception as ex:
+        logger.warning("Database health check probe failed: %s", ex)
+        return {
+            "status": "error",
+            "healthy": False,
+            "latency_ms": -1,
+            "error": "Database connectivity failed",
+        }
+
+
 def init_db(app) -> None:
-    """Initialize SQLAlchemy with the Flask application context."""
+    """Initialize SQLAlchemy with the Flask application context and configure SQLite pragmas."""
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def _set_sqlite_pragmas(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys = ON")
+            cursor.execute("PRAGMA busy_timeout = 5000")
+            cursor.close()
+        except Exception:
+            pass
+
     db.init_app(app)
     with app.app_context():
         db.create_all()
+
