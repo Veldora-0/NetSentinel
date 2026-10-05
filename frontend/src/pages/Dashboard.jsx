@@ -6,9 +6,9 @@ import {
   ShieldAlert, 
   Cpu, 
   BarChart2,
-  Radio,
-  Wifi,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -21,9 +21,22 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficHistory = [] }) {
+function formatAlertTime(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficHistory = [], alerts = [] }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
+
+  // Compute real alert breakdown statistics from actual received events
+  const stats = alerts.reduce((acc, curr) => {
+    const type = curr.detection_type;
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="dashboard-container">
@@ -157,11 +170,52 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
         </DashboardCard>
 
         {/* 3. Live Security Alerts */}
-        <DashboardCard title="Live Security Alerts" icon={AlertTriangle}>
-          <div className="placeholder-state">
-            <ShieldAlert size={36} className="placeholder-icon" />
-            <p className="placeholder-text">No active alerts</p>
-          </div>
+        <DashboardCard title={`Live Security Alerts (${alerts.length})`} icon={AlertTriangle}>
+          {alerts.length === 0 ? (
+            <div className="placeholder-state">
+              <ShieldAlert size={36} className="placeholder-icon" />
+              <p className="placeholder-text">No security events detected</p>
+            </div>
+          ) : (
+            <div className="alerts-container">
+              <div className="alerts-scroll-list">
+                {alerts.map((alert) => (
+                  <div key={alert.event_id} className={`alert-item severity-${alert.severity.toLowerCase()}`}>
+                    <div className="alert-item-header">
+                      <div className="alert-badges">
+                        <span className={`badge badge-severity-${alert.severity.toLowerCase()}`}>
+                          {alert.severity}
+                        </span>
+                        <span className="badge badge-rule">
+                          {alert.detection_type}
+                        </span>
+                      </div>
+                      <span className="alert-timestamp">
+                        <Clock size={12} />
+                        {formatAlertTime(alert.timestamp)}
+                      </span>
+                    </div>
+
+                    <div className="alert-item-body">
+                      <div className="alert-ip-route">
+                        <span className="ip-source">{alert.source_ip}</span>
+                        {alert.destination_ip && (
+                          <>
+                            <ArrowRight size={12} className="ip-arrow" />
+                            <span className="ip-target">
+                              {alert.destination_ip}
+                              {alert.destination_port ? `:${alert.destination_port}` : ''}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <p className="alert-description">{alert.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </DashboardCard>
 
         {/* 4. Blocked IPs */}
@@ -181,10 +235,37 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
 
         {/* 6. Detection Statistics */}
         <DashboardCard title="Detection Statistics" icon={BarChart2}>
-          <div className="placeholder-state">
-            <BarChart2 size={36} className="placeholder-icon" />
-            <p className="placeholder-text">Waiting for detection engine</p>
-          </div>
+          {alerts.length === 0 ? (
+            <div className="placeholder-state">
+              <BarChart2 size={36} className="placeholder-icon" />
+              <p className="placeholder-text">Waiting for detection events</p>
+            </div>
+          ) : (
+            <div className="detection-stats-container">
+              <div className="stats-metric-row">
+                <span className="stat-label">Total Events Detected:</span>
+                <span className="stat-number">{alerts.length}</span>
+              </div>
+              <div className="stats-breakdown-list">
+                <div className="stat-pill">
+                  <span className="stat-pill-name">Port Scan</span>
+                  <span className="stat-pill-val">{stats.PORT_SCAN || 0}</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">SYN Flood</span>
+                  <span className="stat-pill-val">{stats.SYN_FLOOD || 0}</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">NULL Scan</span>
+                  <span className="stat-pill-val">{stats.NULL_SCAN || 0}</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">XMAS Scan</span>
+                  <span className="stat-pill-val">{stats.XMAS_SCAN || 0}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </DashboardCard>
       </div>
     </div>

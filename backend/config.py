@@ -1,7 +1,7 @@
 """NetSentinel Configuration Module.
 
 Centralizes backend settings, environment configurations, SQLite database URLs,
-network interface configuration, and reserved placeholders for detection and ML.
+network interface configuration, and rule-based intrusion detection thresholds.
 """
 
 import os
@@ -58,7 +58,6 @@ class Config:
     PORT = int(os.environ.get("PORT", 5000))
 
     # Network Packet Capture & Metrics Configuration
-    # Set to specific interface (e.g. "enp0s3", "eth0", "lo") or None for auto-detection
     NETWORK_INTERFACE = os.environ.get("NETSENTINEL_INTERFACE", None)
     METRICS_EMIT_INTERVAL = float(os.environ.get("METRICS_EMIT_INTERVAL", "1.0"))
 
@@ -68,15 +67,31 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Reserved Configuration: Rule-Based Detection Thresholds (Future Phase)
+    # Rule-Based Intrusion Detection Thresholds (Phase 3)
     DETECTOR_THRESHOLDS = {
-        "port_scan_window_sec": 10,
-        "port_scan_threshold": 100,
-        "syn_flood_window_sec": 5,
-        "syn_flood_threshold": 500,
+        # Port scan: min unique destination ports probed within time window
+        "port_scan_window_sec": float(os.environ.get("PORT_SCAN_WINDOW_SEC", "10.0")),
+        "port_scan_threshold": int(os.environ.get("PORT_SCAN_THRESHOLD", "15")),
+        # SYN flood: min SYN packets from a source within time window
+        "syn_flood_window_sec": float(os.environ.get("SYN_FLOOD_WINDOW_SEC", "5.0")),
+        "syn_flood_threshold": int(os.environ.get("SYN_FLOOD_THRESHOLD", "50")),
+        # Stealth flag scans
         "null_scan_enabled": True,
         "xmas_scan_enabled": True,
+        # Alert de-duplication cooldown per (source_ip, rule) pair
+        "alert_cooldown_sec": float(os.environ.get("ALERT_COOLDOWN_SEC", "30.0")),
+        # Memory bounds
+        "max_tracked_ips": int(os.environ.get("MAX_TRACKED_IPS", "1000")),
+        "state_cleanup_sec": float(os.environ.get("STATE_CLEANUP_SEC", "60.0")),
+        "max_alert_history": int(os.environ.get("MAX_ALERT_HISTORY", "100")),
     }
+
+    PORT_SCAN_WINDOW_SECONDS = DETECTOR_THRESHOLDS["port_scan_window_sec"]
+    PORT_SCAN_UNIQUE_PORT_THRESHOLD = DETECTOR_THRESHOLDS["port_scan_threshold"]
+    SYN_FLOOD_WINDOW_SECONDS = DETECTOR_THRESHOLDS["syn_flood_window_sec"]
+    SYN_FLOOD_PACKET_THRESHOLD = DETECTOR_THRESHOLDS["syn_flood_threshold"]
+    ALERT_COOLDOWN_SECONDS = DETECTOR_THRESHOLDS["alert_cooldown_sec"]
+    MAX_ALERT_HISTORY = DETECTOR_THRESHOLDS["max_alert_history"]
 
     # Reserved Configuration: Machine Learning & Risk Engine (Future Phase)
     RISK_ENGINE_SETTINGS = {

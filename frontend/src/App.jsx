@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './pages/Dashboard';
-import { checkBackendHealth, fetchTrafficMetrics } from './services/api';
+import { checkBackendHealth, fetchTrafficMetrics, fetchSecurityAlerts } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
 
@@ -10,24 +10,31 @@ export function App() {
   const [socketConnected, setSocketConnected] = useState(socket.connected);
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
+  const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
-    // Check initial API health and setup interval polling (every 5s)
-    const fetchHealth = async () => {
+    // Check initial API health, fetch metrics, and fetch recent alerts
+    const fetchHealthAndData = async () => {
       const res = await checkBackendHealth();
       setApiStatus(res);
-      if (res.connected && !trafficMetrics) {
-        const initialMetrics = await fetchTrafficMetrics();
-        if (initialMetrics) {
-          setTrafficMetrics(initialMetrics);
+      if (res.connected) {
+        if (!trafficMetrics) {
+          const initialMetrics = await fetchTrafficMetrics();
+          if (initialMetrics) {
+            setTrafficMetrics(initialMetrics);
+          }
+        }
+        const initialAlerts = await fetchSecurityAlerts(50);
+        if (initialAlerts && initialAlerts.length > 0) {
+          setAlerts(initialAlerts);
         }
       }
     };
 
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 5000);
+    fetchHealthAndData();
+    const interval = setInterval(fetchHealthAndData, 5000);
 
-    // Initialize Socket.IO connection handlers and real-time traffic metrics
+    // Initialize Socket.IO connection handlers, traffic metrics, and security events
     const cleanupSocket = initSocketConnection(
       (connected) => {
         setSocketConnected(connected);
@@ -53,6 +60,16 @@ export function App() {
           ];
           return updated.slice(-20);
         });
+      },
+      (newAlert) => {
+        // Prepend new security alert to list (keep latest 100)
+        setAlerts((prev) => {
+          // Avoid duplicate event_id if already present
+          if (prev.some((a) => a.event_id === newAlert.event_id)) {
+            return prev;
+          }
+          return [newAlert, ...prev].slice(0, 100);
+        });
       }
     );
 
@@ -74,6 +91,7 @@ export function App() {
           socketConnected={socketConnected}
           trafficMetrics={trafficMetrics}
           trafficHistory={trafficHistory}
+          alerts={alerts}
         />
       </main>
     </div>

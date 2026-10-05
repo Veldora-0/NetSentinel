@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates security risk levels, and automatically mitigates threats using Linux `iptables` firewall rules.
 
-> **Implementation Status (Phase 2 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a full packet parser for Ethernet, IPv4, IPv6, TCP, UDP, and ICMP, rolling traffic rate calculation (packets/sec and bytes/sec), and real-time Socket.IO streaming to the React dashboard. Intrusion detection rules, ML models, and automated firewall blocks will be implemented in subsequent phases.
+> **Implementation Status (Phase 3 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser, real-time traffic rate metrics, and a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`). The engine identifies **Port Scans**, **SYN Floods**, **NULL Scans**, and **XMAS Scans**, emitting structured `SecurityEvent` alerts in real-time over Flask-SocketIO and via the `/api/alerts` REST endpoint. Automated firewall blocking and machine learning models are reserved for subsequent phases.
 
 ---
 
@@ -12,12 +12,12 @@
 ### Backend
 * **Python 3**
 * **Linux `AF_PACKET` Raw Sockets** - Kernel-level raw Ethernet frame capture
-* **Flask** - REST API framework
-* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics` event)
+* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`)
+* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics` and `security_event` streams)
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM
-* **SQLite** - Embedded event & telemetry persistence
+* **SQLite** - Embedded event & telemetry persistence foundation
 * **psutil** - System telemetry monitoring
-* **pytest** - Automated test suite
+* **pytest** - Automated test suite (29 tests)
 
 ### Frontend
 * **React 18** - UI framework
@@ -35,10 +35,10 @@ NetSentinel/
 │
 ├── backend/
 │   ├── app.py           # Flask app factory, API routes, Socket.IO & capture lifecycle
-│   ├── config.py        # Centralized settings, network interface selection, thresholds
+│   ├── config.py        # Centralized settings, network interface selection, detection thresholds
 │   ├── capture.py       # AF_PACKET raw socket capture engine & rolling metrics aggregator
 │   ├── parser.py        # Complete Ethernet, IPv4, IPv6, TCP, UDP, ICMP packet parser
-│   ├── detector.py      # Rule-based intrusion detector architectural skeleton (Phase 3)
+│   ├── detector.py      # Rule-based intrusion detection engine & state manager
 │   ├── risk_engine.py   # Composite threat risk evaluation skeleton (Phase 5)
 │   ├── firewall.py      # Linux iptables firewall manager skeleton (Phase 5)
 │   ├── database.py      # SQLAlchemy database configuration and model base
@@ -47,7 +47,7 @@ NetSentinel/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/  # Modular UI components (Header, DashboardCard, etc.)
-│   │   ├── pages/       # Page views (Dashboard with real-time traffic telemetry)
+│   │   ├── pages/       # Page views (Dashboard with live alerts & traffic telemetry)
 │   │   ├── services/    # REST API & Socket.IO client connections
 │   │   ├── App.jsx      # Root application component
 │   │   ├── App.css      # SOC dark theme styling
@@ -57,10 +57,11 @@ NetSentinel/
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
 ├── data/                # Directory for SQLite database storage
-├── tests/               # Automated unit tests for parser, capture, API, and Socket.IO
+├── tests/               # Automated unit tests for parser, capture, detector, API, and Socket.IO
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_capture.py  # Traffic metrics & capture lifecycle tests
+│   ├── test_detector.py # Rule detection, cooldown, state cleanup, and alerts tests
 │   └── test_socket.py   # Test Socket.IO connection and ping
 ├── requirements.txt     # Python backend dependencies
 ├── .gitignore           # Git ignore configurations
@@ -69,7 +70,7 @@ NetSentinel/
 
 ---
 
-## 4. Architecture & Implementation (Phase 2)
+## 4. Phase 3 Architecture: Detection Pipeline & Security Events
 
 ```text
 Linux Network Interface (e.g., enp0s3)
@@ -80,62 +81,88 @@ Linux Network Interface (e.g., enp0s3)
                  ↓
      backend/parser.py (Structured ParsedPacket)
                  ↓
-     TrafficMetrics (Rolling Rates & Protocol Counters)
+     backend/detector.py (TrafficDetector Rule Engine)
+        ├── Port Scan Rule (Stateful: unique probed ports in window)
+        ├── SYN Flood Rule (Stateful: SYN request volume in window)
+        ├── NULL Scan Rule (Stateless: TCP control flags == 0)
+        └── XMAS Scan Rule (Stateless: FIN + PSH + URG active)
                  ↓
-    Flask-SocketIO (Event: "traffic_metrics")
+      Structured SecurityEvent
                  ↓
-     React Dashboard (Live Telemetry & Recharts)
+  ┌──────────────┴──────────────┐
+  ↓                             ↓
+Flask-SocketIO            In-Memory Event Store (deque)
+(Event: "security_event") (Endpoint: GET /api/alerts)
+  ↓                             ↓
+React Dashboard: Live Security Alerts & Breakdown Stats
 ```
 
-### Packet Parser (`backend/parser.py`)
-Converts raw bytes into a strongly typed `ParsedPacket` dataclass:
-* **Ethernet**: Source MAC, Destination MAC, EtherType (IPv4, IPv6, ARP, 802.1Q).
-* **IPv4**: Source IP, Destination IP, Protocol (TCP, UDP, ICMP, IGMP), TTL, Header Length, Total Length.
-* **IPv6**: Source IPv6, Destination IPv6, Next Header / Protocol, Hop Limit, Payload Length.
-* **TCP**: Source Port, Destination Port, Sequence Number, Acknowledgement Number, Header Length, and individual TCP flags (`SYN`, `ACK`, `FIN`, `RST`, `PSH`, `URG`).
-* **UDP**: Source Port, Destination Port, Datagram Length.
-* **ICMP / ICMPv6**: Message Type, Code.
-* **Robustness**: Truncated frames, malformed headers, or unknown protocols are handled gracefully without crashing the capture thread.
+### Detection Rules & Criteria
 
-### Packet Capture & Metrics (`backend/capture.py`)
-* Manages the lifecycle of a Linux `AF_PACKET` raw socket (`ETH_P_ALL = 0x0003`).
-* Binds to the designated interface or auto-detects the active gateway interface.
-* Aggregates live traffic metrics: total packets, total bytes, rolling packets/second (pps), rolling bytes/second (bps), and individual protocol counters (TCP, UDP, ICMP, other).
-* Safe error handling: If run without required raw socket privileges, the module gracefully flags `status: "permission_denied"` and avoids crashing the Flask application.
+| Rule Name | Detection Type | Severity | Description & Criteria |
+|---|---|---|---|
+| **`RULE_PORT_SCAN`** | `PORT_SCAN` | `MEDIUM` | Tracks distinct destination ports probed by a single source IP over a sliding time window. Triggers when unique ports $\ge$ `PORT_SCAN_UNIQUE_PORT_THRESHOLD`. |
+| **`RULE_SYN_FLOOD`** | `SYN_FLOOD` | `HIGH` | Tracks unmatched TCP SYN packets ($SYN=1, ACK=0$) per source IP over a sliding window. Triggers when SYN volume $\ge$ `SYN_FLOOD_PACKET_THRESHOLD`. |
+| **`RULE_NULL_SCAN`** | `NULL_SCAN` | `HIGH` | Detects stealth probe packets where all 6 TCP control flags ($SYN, ACK, FIN, RST, PSH, URG$) are set to 0. |
+| **`RULE_XMAS_SCAN`** | `XMAS_SCAN` | `HIGH` | Detects stealth probe packets where $FIN=1, PSH=1, URG=1$ (and $SYN=0, ACK=0, RST=0$). |
 
-### Real-Time Dashboard Integration
-* Flask-SocketIO emits periodic `traffic_metrics` events (default: 1.0s interval) to connected dashboard clients.
-* React displays live throughput, packets/sec, total volume, protocol breakdown pills, and a real-time Recharts area trend graph.
+### Security Event Schema
+Each alert is represented as a structured `SecurityEvent` with JSON-serializable fields:
+* `event_id`: Unique identifier (hex string).
+* `timestamp`: Unix timestamp of detection.
+* `detection_type`: `PORT_SCAN`, `SYN_FLOOD`, `NULL_SCAN`, or `XMAS_SCAN`.
+* `severity`: `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`.
+* `source_ip`: Attacker IP address.
+* `destination_ip`: Target IP address.
+* `protocol`: Transport protocol (`TCP`, `UDP`).
+* `source_port`: Attacker port.
+* `destination_port`: Target port.
+* `description`: Clear textual description of the detected anomaly.
+* `evidence`: Dictionary containing counts, window parameters, and flag values.
+* `rule_name`: Internal rule identifier.
+
+### Alert Cooldown & State Management
+* **Alert De-duplication**: To prevent alert fatigue from ongoing attacks, the detector enforces an alert cooldown (`ALERT_COOLDOWN_SECONDS`, default: 30s) per `(source_ip, rule_name)` pair.
+* **Bounded Memory**: Probing history per IP is kept in sliding `deque` buffers pruned on every packet. State for inactive IPs is pruned automatically every 60 seconds, and the total tracked IP count is capped at `MAX_TRACKED_IPS` (default: 1000).
+* **Event Store**: Alerts are stored in a bounded in-memory `deque` (latest 100 events) and served in newest-first order via `/api/alerts`.
 
 ---
 
-## 5. Linux Privileges and Network Interface Configuration
+## 5. Configuration & Thresholds
 
-### Network Interface Selection
-By default, NetSentinel automatically discovers the active Linux network interface by inspecting `/proc/net/route` and `psutil`. You can explicitly specify an interface via environment variable:
-```bash
-export NETSENTINEL_INTERFACE=enp0s3
-```
-Or configure `NETWORK_INTERFACE` in `backend/config.py`.
+All thresholds are centralized in `backend/config.py` and can be overridden via environment variables:
 
-### Linux Privileges for `AF_PACKET`
-Opening Linux raw sockets (`AF_PACKET`) requires the `CAP_NET_RAW` Linux capability. To run NetSentinel securely without running the entire application as `root`:
+| Setting / Environment Variable | Default Value | Purpose |
+|---|---|---|
+| `PORT_SCAN_WINDOW_SEC` | `10.0` seconds | Sliding time window for tracking unique probed ports |
+| `PORT_SCAN_THRESHOLD` | `15` ports | Distinct destination ports required to trigger Port Scan alert |
+| `SYN_FLOOD_WINDOW_SEC` | `5.0` seconds | Sliding time window for tracking SYN volume |
+| `SYN_FLOOD_THRESHOLD` | `50` packets | Unmatched SYN packets required to trigger SYN Flood alert |
+| `ALERT_COOLDOWN_SEC` | `30.0` seconds | Minimum time between duplicate alerts for same IP and rule |
+| `MAX_TRACKED_IPS` | `1000` | Upper bound on concurrently tracked source IPs |
+| `MAX_ALERT_HISTORY` | `100` | Capacity of in-memory security alert store |
+| `NETSENTINEL_INTERFACE` | `None` (auto) | Network capture interface (`enp0s3`, `lo`, etc.) |
+
+---
+
+## 6. Linux Privileges and Capabilities
+
+Opening Linux raw sockets (`AF_PACKET`) requires the `CAP_NET_RAW` Linux capability:
 
 **Recommended (Grant Linux Capability):**
 ```bash
 sudo setcap cap_net_raw,cap_net_admin+eip .venv/bin/python3
 ```
-*(Replace `.venv/bin/python3` with your active python binary path)*
 
 **Development / Sudo alternative:**
 ```bash
 sudo .venv/bin/python backend/app.py
 ```
-If started without privileges, the backend continues running normally and indicates `Capture Status: PERMISSION_DENIED` on the dashboard.
+If started unprivileged, the application remains fully functional, sets `status: "permission_denied"`, and informs the operator without crashing.
 
 ---
 
-## 6. Environment Setup & Execution
+## 7. Environment Setup & Execution
 
 ### Prerequisites
 * Linux operating system (kernel supporting `AF_PACKET`)
@@ -152,11 +179,11 @@ If started without privileges, the backend continues running normally and indica
    ```bash
    pip install -r requirements.txt
    ```
-3. Run the automated test suite:
+3. Run automated unit tests:
    ```bash
    pytest tests/
    ```
-4. Start the backend server:
+4. Start backend server:
    ```bash
    python backend/app.py
    ```
@@ -175,7 +202,7 @@ If started without privileges, the backend continues running normally and indica
    ```bash
    npm run dev
    ```
-   Frontend will run on `http://localhost:5173`.
+   Frontend runs on `http://localhost:5173`.
 
 4. Build production frontend assets:
    ```bash
@@ -184,17 +211,27 @@ If started without privileges, the backend continues running normally and indica
 
 ---
 
-## 7. Current Limitations
+## 8. Controlled Verification & Testing
 
-* **No Attack Rules Yet**: Signature detection (Port scan, SYN flood, NULL scan, XMAS scan) is reserved for Phase 3.
-* **No Automated Blocking**: Firewall mitigation via `iptables` is disabled (dry-run skeleton) until Phase 5.
-* **No Machine Learning**: Isolation Forest anomaly scoring will be added in Phase 4.
+> **Important**: Testing must only be conducted in authorized, controlled lab environments (such as an isolated local virtual machine or test network). Never test against unauthorized networks.
+
+Synthetic tests for all rules run automatically without requiring live attack traffic:
+```bash
+pytest -v tests/test_detector.py
+```
 
 ---
 
-## 8. Future Development Roadmap
+## 9. Current Scope Limitations
 
-* **Phase 3 - Rule-Based Detection Engine**: Implement detection algorithms for Port Scans, SYN Floods, NULL Scans, and XMAS Scans.
+* **No Automated IP Blocking**: Firewall mitigation via `iptables` is disabled (dry-run skeleton) until Phase 5.
+* **No Machine Learning**: Isolation Forest anomaly scoring will be added in Phase 4.
+* **In-Memory Alert Store**: SQLite persistent storage of security events will be integrated in Phase 6.
+
+---
+
+## 10. Future Development Roadmap
+
 * **Phase 4 - Machine Learning Anomaly Detection**: Train and integrate Scikit-learn's Isolation Forest model on traffic feature vectors.
 * **Phase 5 - Risk Engine & Automated IPS**: Compute risk decisions and automate Linux `iptables` firewall blocking and unblocking.
 * **Phase 6 - Event Persistence & Telemetry Stream**: Store security alerts in SQLite and stream complete telemetry to the React dashboard.

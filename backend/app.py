@@ -1,29 +1,31 @@
 """NetSentinel Flask Backend Application.
 
 Main entry point for the NetSentinel REST API, real-time Socket.IO connection server,
-packet capture lifecycle, and live traffic metrics emission.
+packet capture lifecycle, rule-based intrusion detection, and live security event streaming.
 """
 
 import threading
 import time
 from typing import Tuple
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
 from config import Config, resolve_network_interface
 from database import init_db
 from capture import PacketCapture
+from detector import TrafficDetector, SecurityEvent
 
-# Global capture engine instance
+# Global server components
 packet_capture: PacketCapture = None
+detector: TrafficDetector = None
 metrics_thread: threading.Thread = None
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, metrics_thread
+    global packet_capture, detector, metrics_thread
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -37,10 +39,26 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # Initialize Flask-SocketIO
     socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-    # Resolve network interface
+    # Initialize Intrusion Detection Engine
+    detector = TrafficDetector(config=app.config.get("DETECTOR_THRESHOLDS"))
+    app.detector = detector
+
+    # Broadcast generated security events over Socket.IO
+    def _on_security_event(event: SecurityEvent) -> None:
+        try:
+            socketio.emit("security_event", event.to_dict())
+        except Exception:
+            pass
+
+    detector.add_event_callback(_on_security_event)
+
+    # Resolve network interface & initialize PacketCapture
     active_iface = resolve_network_interface(app.config.get("NETWORK_INTERFACE"))
     packet_capture = PacketCapture(interface=active_iface)
     app.packet_capture = packet_capture
+
+    # Connect detector as observer to packet capture stream
+    packet_capture.add_packet_callback(detector.analyze_packet)
 
     # Register API Routes
     @app.route("/api/health", methods=["GET"])
@@ -55,6 +73,17 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     def get_metrics():
         """REST endpoint to retrieve current packet capture metrics snapshot."""
         return jsonify(packet_capture.get_metrics()), 200
+
+    @app.route("/api/alerts", methods=["GET"])
+    def get_alerts():
+        """REST endpoint to retrieve recent security detection alerts (newest first)."""
+        limit = request.args.get("limit", 50, type=int)
+        alerts = detector.get_recent_alerts(limit=limit)
+        return jsonify({
+            "status": "ok",
+            "count": len(alerts),
+            "alerts": alerts,
+        }), 200
 
     # Socket.IO Event Handlers
     @socketio.on("connect")

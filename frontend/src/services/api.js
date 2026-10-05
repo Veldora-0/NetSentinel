@@ -47,3 +47,23 @@ export async function fetchTrafficMetrics() {
     return null;
   }
 }
+
+export async function fetchSecurityAlerts(limit = 50) {
+  try {
+    const response = await fetch(`/api/alerts?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.alerts || [];
+  } catch (error) {
+    return [];
+  }
+}
