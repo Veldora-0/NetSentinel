@@ -32,6 +32,7 @@ from ml.detector import MLAnomalyDetector, MLAnomalyEvent
 from risk_engine import RiskEngine, RiskAssessment
 from firewall import FirewallManager
 from telemetry import TelemetryWorker
+from host import HostDetectionManager
 
 # Global server components
 packet_capture: PacketCapture = None
@@ -40,6 +41,7 @@ ml_detector: MLAnomalyDetector = None
 risk_engine: RiskEngine = None
 firewall: FirewallManager = None
 telemetry_worker: TelemetryWorker = None
+host_manager: HostDetectionManager = None
 metrics_thread: threading.Thread = None
 
 
@@ -82,6 +84,10 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         config=app.config.get("TELEMETRY_SETTINGS"),
     )
     app.telemetry_worker = telemetry_worker
+
+    # 6. Initialize Host-Based Intrusion Detection Manager (Phase 7)
+    host_manager = HostDetectionManager(config=app.config.get("HOST_DETECTION_SETTINGS"))
+    app.host_manager = host_manager
 
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
@@ -175,6 +181,16 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             app.logger.debug("Error persisting ML anomaly: %s", ex)
 
     ml_detector.add_anomaly_callback(_on_ml_anomaly)
+
+    # Connect host detector security events to persistence, Socket.IO, and Risk Engine
+    def _on_host_security_event(event: SecurityEvent) -> None:
+        try:
+            socketio.emit("host_security_event", event.to_dict())
+        except Exception:
+            pass
+        _on_security_event(event)
+
+    host_manager.add_event_callback(_on_host_security_event)
 
     # 6. Resolve network interface & initialize PacketCapture
     active_iface = resolve_network_interface(app.config.get("NETWORK_INTERFACE"))
@@ -305,6 +321,64 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         result = query_telemetry_history(limit=limit, since=since, until=until)
         return jsonify({"status": "ok", **result}), 200
 
+    # Host-Based Intrusion Detection Endpoints (Phase 7)
+    @app.route("/api/host/status", methods=["GET"])
+    def get_host_status():
+        """REST endpoint to retrieve host detection status (SSH detector & Process monitor)."""
+        status = host_manager.get_status() if host_manager else {}
+        return jsonify({"status": "ok", "host": status, "data": status}), 200
+
+    @app.route("/api/host/events", methods=["GET"])
+    def get_host_events():
+        """REST endpoint to retrieve persisted host security events with filtering and pagination."""
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        since = request.args.get("since", None, type=float)
+        until = request.args.get("until", None, type=float)
+        source_ip = request.args.get("source_ip", None, type=str)
+        detection_type = request.args.get("detection_type", None, type=str)
+        severity = request.args.get("severity", None, type=str)
+
+        host_types = ["SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS"]
+        if detection_type and detection_type.strip().upper() in host_types:
+            result = query_security_events(
+                limit=limit,
+                offset=offset,
+                since=since,
+                until=until,
+                source_ip=source_ip,
+                detection_type=detection_type.strip().upper(),
+                severity=severity,
+            )
+        else:
+            from database import SecurityEventRecord
+            query = SecurityEventRecord.query.filter(SecurityEventRecord.detection_type.in_(host_types))
+            if since is not None:
+                query = query.filter(SecurityEventRecord.timestamp >= since)
+            if until is not None:
+                query = query.filter(SecurityEventRecord.timestamp <= until)
+            if source_ip and source_ip.strip():
+                query = query.filter(SecurityEventRecord.source_ip == source_ip.strip())
+            if severity and severity.strip():
+                query = query.filter(SecurityEventRecord.severity == severity.strip().upper())
+
+            total = query.count()
+            records = (
+                query.order_by(SecurityEventRecord.timestamp.desc())
+                .offset(max(0, offset))
+                .limit(max(1, min(limit, 500)))
+                .all()
+            )
+            result = {
+                "total": total,
+                "count": len(records),
+                "limit": limit,
+                "offset": offset,
+                "events": [r.to_dict() for r in records],
+            }
+
+        return jsonify({"status": "ok", **result}), 200
+
     @app.route("/api/firewall/status", methods=["GET"])
     def get_firewall_status():
         """REST endpoint to retrieve firewall integration and safety status."""
@@ -414,6 +488,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         emit("blocked_ips", firewall.list_blocked_ips())
         if telemetry_worker:
             emit("host_telemetry", telemetry_worker.get_current_telemetry())
+        if host_manager:
+            emit("host_status", host_manager.get_status())
         try:
             emit("security_summary", query_security_summary())
         except Exception:
@@ -429,12 +505,13 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Handle optional client ping test."""
         emit("pong_client", {"response": "pong", "received": data})
 
-    # Start live capture, ML worker, telemetry worker, and metrics emitter if requested
+    # Start live capture, ML worker, telemetry worker, host manager, and metrics emitter if requested
     is_testing = app.config.get("TESTING", False)
     if start_capture and not is_testing:
         packet_capture.start()
         ml_detector.start()
         telemetry_worker.start()
+        host_manager.start()
 
         def _metrics_emitter():
             interval = app.config.get("METRICS_EMIT_INTERVAL", 1.0)
@@ -469,3 +546,6 @@ if __name__ == "__main__":
             ml_detector.stop()
         if telemetry_worker:
             telemetry_worker.stop()
+        if host_manager:
+            host_manager.stop()
+

@@ -286,3 +286,44 @@ export async function fetchTelemetryHistory(limit = 60, since = null, until = nu
   }
 }
 
+// Phase 7: Host-Based Intrusion Detection (HIDS) APIs
+
+export async function fetchHostStatus() {
+  try {
+    const response = await fetch('/api/host/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.host || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchHostEvents(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.since) query.append('since', params.since);
+    if (params.until) query.append('until', params.until);
+    if (params.source_ip) query.append('source_ip', params.source_ip);
+    if (params.detection_type) query.append('detection_type', params.detection_type);
+    if (params.severity) query.append('severity', params.severity);
+
+    const qs = query.toString();
+    const url = qs ? `/api/host/events?${qs}` : '/api/host/events';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', total: 0, count: 0, events: [] };
+  }
+}
+
+

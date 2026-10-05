@@ -26,7 +26,7 @@ class SecurityEventRecord(db.Model):
     timestamp = db.Column(db.Float, nullable=False, index=True)
     detection_type = db.Column(db.String(50), nullable=False, index=True)
     severity = db.Column(db.String(20), nullable=False, index=True)
-    source_ip = db.Column(db.String(64), nullable=False, index=True)
+    source_ip = db.Column(db.String(64), nullable=True, index=True)
     destination_ip = db.Column(db.String(64), nullable=True)
     protocol = db.Column(db.String(20), nullable=True)
     source_port = db.Column(db.Integer, nullable=True)
@@ -197,9 +197,11 @@ def save_security_event_record(event: Any) -> bool:
             ts = float(event.get("timestamp", time.time()))
             det_type = str(event.get("detection_type", "UNKNOWN"))
             sev = str(event.get("severity", "LOW"))
-            src_ip = str(event.get("source_ip", ""))
+            raw_src = event.get("source_ip")
+            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else "127.0.0.1"
             dst_ip = event.get("destination_ip")
-            proto = event.get("protocol")
+            raw_proto = event.get("protocol")
+            proto = str(raw_proto) if (raw_proto is not None and str(raw_proto).strip()) else None
             src_p = event.get("source_port")
             dst_p = event.get("destination_port")
             desc = event.get("description", "")
@@ -210,9 +212,11 @@ def save_security_event_record(event: Any) -> bool:
             ts = float(getattr(event, "timestamp", time.time()))
             det_type = str(getattr(event, "detection_type", "UNKNOWN"))
             sev = str(getattr(event, "severity", "LOW"))
-            src_ip = str(getattr(event, "source_ip", ""))
+            raw_src = getattr(event, "source_ip", None)
+            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else "127.0.0.1"
             dst_ip = getattr(event, "destination_ip", None)
-            proto = getattr(event, "protocol", None)
+            raw_proto = getattr(event, "protocol", None)
+            proto = str(raw_proto) if (raw_proto is not None and str(raw_proto).strip()) else None
             src_p = getattr(event, "source_port", None)
             dst_p = getattr(event, "destination_port", None)
             desc = getattr(event, "description", "")

@@ -171,3 +171,28 @@ class Config:
     TELEMETRY_INTERVAL = TELEMETRY_SETTINGS["interval"]
     TELEMETRY_PERSIST_INTERVAL = TELEMETRY_SETTINGS["persist_interval"]
     RETENTION_DAYS = TELEMETRY_SETTINGS["retention_days"]
+
+    # Host Intrusion Detection & Process Monitor Settings (Phase 7)
+    HOST_DETECTION_SETTINGS = {
+        "ssh_enabled": os.environ.get("NETSENTINEL_SSH_ENABLED", "True").lower() in ("true", "1", "t"),
+        "ssh_log_path": os.environ.get("NETSENTINEL_SSH_LOG_PATH", None),
+        "ssh_window_sec": float(os.environ.get("NETSENTINEL_SSH_WINDOW", "60.0")),
+        "ssh_failure_threshold": int(os.environ.get("NETSENTINEL_SSH_FAILURE_THRESHOLD", "5")),
+        "ssh_alert_cooldown_sec": float(os.environ.get("NETSENTINEL_SSH_ALERT_COOLDOWN", "60.0")),
+        "ssh_max_tracked_ips": int(os.environ.get("NETSENTINEL_SSH_MAX_TRACKED_IPS", "1000")),
+        "process_monitor_enabled": os.environ.get("NETSENTINEL_PROCESS_MONITOR_ENABLED", "True").lower() in ("true", "1", "t"),
+        "process_interval_sec": float(os.environ.get("NETSENTINEL_PROCESS_INTERVAL", "10.0")),
+        "process_alert_cooldown_sec": float(os.environ.get("NETSENTINEL_PROCESS_ALERT_COOLDOWN", "60.0")),
+        "correlation_window_sec": float(os.environ.get("NETSENTINEL_CORRELATION_WINDOW", "300.0")),
+        "correlation_boost": float(os.environ.get("NETSENTINEL_CORRELATION_BOOST", "0.10")),
+        "max_correlation_boost": float(os.environ.get("NETSENTINEL_MAX_CORRELATION_BOOST", "0.20")),
+    }
+
+    SSH_DETECTOR_ENABLED = HOST_DETECTION_SETTINGS["ssh_enabled"]
+    SSH_WINDOW_SECONDS = HOST_DETECTION_SETTINGS["ssh_window_sec"]
+    SSH_FAILURE_THRESHOLD = HOST_DETECTION_SETTINGS["ssh_failure_threshold"]
+    PROCESS_MONITOR_ENABLED = HOST_DETECTION_SETTINGS["process_monitor_enabled"]
+    PROCESS_INTERVAL_SECONDS = HOST_DETECTION_SETTINGS["process_interval_sec"]
+    CORRELATION_WINDOW_SECONDS = HOST_DETECTION_SETTINGS["correlation_window_sec"]
+    CORRELATION_BOOST = HOST_DETECTION_SETTINGS["correlation_boost"]
+

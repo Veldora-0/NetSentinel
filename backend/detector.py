@@ -27,18 +27,30 @@ class SecurityEvent:
     timestamp: float
     detection_type: str
     severity: str
-    source_ip: str
-    destination_ip: Optional[str]
-    protocol: str
-    source_port: Optional[int]
-    destination_port: Optional[int]
-    description: str
-    evidence: Dict[str, Any]
-    rule_name: str
+    source_ip: Optional[str] = None
+    destination_ip: Optional[str] = None
+    protocol: Optional[str] = None
+    source_port: Optional[int] = None
+    destination_port: Optional[int] = None
+    description: str = ""
+    evidence: Optional[Dict[str, Any]] = None
+    rule_name: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        if self.evidence is None:
+            self.evidence = self.metadata if self.metadata is not None else {}
+        if self.metadata is None:
+            self.metadata = self.evidence
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert dataclass to JSON-serializable dictionary."""
-        return asdict(self)
+        d = asdict(self)
+        if d.get("evidence") is None:
+            d["evidence"] = {}
+        if d.get("metadata") is None:
+            d["metadata"] = d["evidence"]
+        return d
 
 
 class TrafficDetector:

@@ -16,6 +16,8 @@ import {
   fetchSecuritySummary,
   fetchTelemetryCurrent,
   fetchTelemetryHistory,
+  fetchHostStatus,
+  fetchHostEvents,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -38,6 +40,9 @@ export function App() {
   const [telemetryHistory, setTelemetryHistory] = useState([]);
   const [securitySummary, setSecuritySummary] = useState(null);
   const [historicalEvents, setHistoricalEvents] = useState([]);
+
+  // Phase 7: Host-Based Intrusion Detection (HIDS) State
+  const [hostStatus, setHostStatus] = useState(null);
 
   const refreshFirewall = async () => {
     const fw = await fetchFirewallStatus();
@@ -117,6 +122,9 @@ export function App() {
 
         const eventsRes = await fetchSecurityEvents({ limit: 50 });
         if (eventsRes && eventsRes.events) setHistoricalEvents(eventsRes.events);
+
+        const hStatus = await fetchHostStatus();
+        if (hStatus) setHostStatus(hStatus);
       }
     };
 
@@ -232,6 +240,20 @@ export function App() {
       },
       (summary) => {
         setSecuritySummary(summary);
+      },
+      (hostEvt) => {
+        setAlerts((prev) => {
+          if (prev.some((a) => a.event_id === hostEvt.event_id)) return prev;
+          return [hostEvt, ...prev].slice(0, 100);
+        });
+        setHistoricalEvents((prev) => {
+          if (prev.some((e) => e.event_id === hostEvt.event_id)) return prev;
+          return [hostEvt, ...prev].slice(0, 100);
+        });
+        fetchHostStatus().then((st) => st && setHostStatus(st));
+      },
+      (hStatus) => {
+        setHostStatus(hStatus);
       }
     );
 
@@ -263,6 +285,7 @@ export function App() {
           securitySummary={securitySummary}
           historicalEvents={historicalEvents}
           onRefreshHistory={refreshHistory}
+          hostStatus={hostStatus}
         />
       </main>
     </div>

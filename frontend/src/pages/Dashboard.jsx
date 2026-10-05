@@ -17,7 +17,8 @@ import {
   HardDrive,
   RotateCcw,
   History,
-  Filter
+  Filter,
+  Terminal
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -69,6 +70,7 @@ export function Dashboard({
   securitySummary = null,
   historicalEvents = [],
   onRefreshHistory = null,
+  hostStatus = null,
 }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
@@ -91,7 +93,7 @@ export function Dashboard({
   const displayedHistory = historicalEvents.filter((ev) => {
     if (historyTypeFilter !== 'ALL' && ev.detection_type !== historyTypeFilter) return false;
     if (historySeverityFilter !== 'ALL' && ev.severity !== historySeverityFilter) return false;
-    if (historySearchIP.trim() && !ev.source_ip.toLowerCase().includes(historySearchIP.trim().toLowerCase())) return false;
+    if (historySearchIP.trim() && !(ev.source_ip || 'local').toLowerCase().includes(historySearchIP.trim().toLowerCase())) return false;
     return true;
   });
 
@@ -255,7 +257,7 @@ export function Dashboard({
 
                     <div className="alert-item-body">
                       <div className="alert-ip-route">
-                        <span className="ip-source">{alert.source_ip}</span>
+                        <span className="ip-source">{alert.source_ip || 'local host'}</span>
                         {alert.destination_ip && (
                           <>
                             <ArrowRight size={12} className="ip-arrow" />
@@ -420,6 +422,16 @@ export function Dashboard({
                 </div>
               </div>
 
+              {/* Network + Host Correlation Callout */}
+              {latestRisk.evidence?.correlated && (
+                <div className="correlation-callout">
+                  <span className="correlation-badge">CORRELATED ATTACK</span>
+                  <span className="correlation-text">
+                    {latestRisk.evidence.correlation_reason || 'Cross-domain network reconnaissance and host authentication activity detected.'}
+                  </span>
+                </div>
+              )}
+
               {/* Score formula breakdown */}
               <div className="risk-breakdown-bar">
                 <div className="breakdown-row">
@@ -430,6 +442,12 @@ export function Dashboard({
                   <span>ML Anomaly Contribution (35%):</span>
                   <span className="breakdown-val">{(0.35 * latestRisk.ml_anomaly_score).toFixed(3)}</span>
                 </div>
+                {latestRisk.evidence?.correlation_boost > 0 && (
+                  <div className="breakdown-row" style={{ color: '#f97316' }}>
+                    <span>Cross-Domain Boost:</span>
+                    <span className="breakdown-val" style={{ color: '#f97316' }}>+{latestRisk.evidence.correlation_boost.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Recent assessments mini list */}
@@ -508,7 +526,83 @@ export function Dashboard({
           </div>
         </DashboardCard>
 
-        {/* 7. System Resources (Phase 6: Real Host Telemetry) */}
+        {/* 7. Host Intrusion Detection (HIDS) */}
+        <DashboardCard title="Host Intrusion Detection (HIDS)" icon={Terminal}>
+          {!hostStatus ? (
+            <div className="placeholder-state">
+              <Terminal size={36} className="placeholder-icon pulse" />
+              <p className="placeholder-text">Waiting for host security telemetry</p>
+            </div>
+          ) : (
+            <div className="host-sec-container">
+              {/* SSH Authentication Monitoring */}
+              <div className="host-section-block">
+                <div className="host-block-title">
+                  <span>SSH Auth Monitoring</span>
+                  <span className={`badge ${
+                    hostStatus.ssh_detector?.status === 'RUNNING' ? 'badge-success' :
+                    hostStatus.ssh_detector?.status === 'NOT_FOUND' ? 'badge-warning' :
+                    hostStatus.ssh_detector?.status === 'PERMISSION_DENIED' ? 'badge-danger' : 'badge-neutral'
+                  }`}>
+                    {hostStatus.ssh_detector?.status || 'UNKNOWN'}
+                  </span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Log Source:</span>
+                  <span className="host-stat-val" style={{ fontSize: '0.7rem' }}>
+                    {hostStatus.ssh_detector?.log_path ? hostStatus.ssh_detector.log_path.split('/').slice(-2).join('/') : 'Auto-detect'}
+                  </span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Auth Failures:</span>
+                  <span className="host-stat-val">{hostStatus.ssh_detector?.total_failures || 0}</span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Brute-Force Detections:</span>
+                  <span className="host-stat-val" style={{ color: (hostStatus.ssh_detector?.total_brute_force_detected || 0) > 0 ? 'var(--status-red)' : 'inherit' }}>
+                    {hostStatus.ssh_detector?.total_brute_force_detected || 0}
+                  </span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Tracked Attacker IPs:</span>
+                  <span className="host-stat-val">{hostStatus.ssh_detector?.tracked_sources_count || 0}</span>
+                </div>
+              </div>
+
+              {/* Host Process Monitor */}
+              <div className="host-section-block">
+                <div className="host-block-title">
+                  <span>Process Integrity Monitor</span>
+                  <span className={`badge ${
+                    hostStatus.process_monitor?.status === 'RUNNING' ? 'badge-success' : 'badge-neutral'
+                  }`}>
+                    {hostStatus.process_monitor?.status || 'UNKNOWN'}
+                  </span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Baseline Active PIDs:</span>
+                  <span className="host-stat-val">{hostStatus.process_monitor?.baseline_pids_count || 0}</span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Periodic Integrity Scans:</span>
+                  <span className="host-stat-val">{hostStatus.process_monitor?.total_scans || 0}</span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Suspicious Processes:</span>
+                  <span className="host-stat-val" style={{ color: (hostStatus.process_monitor?.suspicious_processes_detected || 0) > 0 ? 'var(--status-red)' : 'inherit' }}>
+                    {hostStatus.process_monitor?.suspicious_processes_detected || 0}
+                  </span>
+                </div>
+                <div className="host-stat-row">
+                  <span>Visible System PIDs:</span>
+                  <span className="host-stat-val">{hostStatus.process_monitor?.visible_processes || 0}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </DashboardCard>
+
+        {/* 8. System Resources (Phase 6: Real Host Telemetry) */}
         <DashboardCard title="System Resources" icon={Cpu}>
           {!hostTelemetry ? (
             <div className="placeholder-state">
@@ -681,6 +775,24 @@ export function Dashboard({
                   </span>
                 </div>
                 <div className="stat-pill">
+                  <span className="stat-pill-name">SSH Failure</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.SSH_AUTH_FAILURE ?? stats.SSH_AUTH_FAILURE ?? 0}
+                  </span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">SSH Brute-Force</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.SSH_BRUTE_FORCE ?? stats.SSH_BRUTE_FORCE ?? 0}
+                  </span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">Suspicious Process</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.SUSPICIOUS_PROCESS ?? stats.SUSPICIOUS_PROCESS ?? 0}
+                  </span>
+                </div>
+                <div className="stat-pill">
                   <span className="stat-pill-name">Blocked IPs</span>
                   <span className="stat-pill-val">{blockedIPs.length}</span>
                 </div>
@@ -707,6 +819,9 @@ export function Dashboard({
                     <option value="NULL_SCAN">NULL Scan</option>
                     <option value="XMAS_SCAN">XMAS Scan</option>
                     <option value="ANOMALY">ML Anomaly</option>
+                    <option value="SSH_AUTH_FAILURE">SSH Auth Failure</option>
+                    <option value="SSH_BRUTE_FORCE">SSH Brute-Force</option>
+                    <option value="SUSPICIOUS_PROCESS">Suspicious Process</option>
                   </select>
 
                   <select 
@@ -778,7 +893,7 @@ export function Dashboard({
                             </span>
                           </td>
                           <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>
-                            {ev.source_ip}
+                            {ev.source_ip || 'local host'}
                           </td>
                           <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
                             {ev.destination_ip ? `${ev.destination_ip}${ev.destination_port ? `:${ev.destination_port}` : ''}` : '-'}

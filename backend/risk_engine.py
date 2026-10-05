@@ -59,9 +59,15 @@ class RiskEngine:
         self.max_tracked_ips = int(cfg.get("max_tracked_ips", 1000))
         self.max_history = int(cfg.get("max_assessment_history", 100))
 
+        # Phase 7: Network + Host Evidence Correlation Settings
+        self.correlation_window_seconds = float(cfg.get("correlation_window_sec", 300.0))
+        self.correlation_boost = float(cfg.get("correlation_boost", 0.10))
+        self.max_correlation_boost = float(cfg.get("max_correlation_boost", 0.20))
+
         # Thread-safe in-memory state
         self._lock = threading.RLock()
         self._ip_history: Dict[str, deque] = {}
+        self._correlation_history: Dict[str, deque] = {}  # ip -> deque of (timestamp, category, type)
         self._recent_assessments: deque = deque(maxlen=self.max_history)
         self._stats = {
             "total_assessments": 0,
@@ -132,21 +138,95 @@ class RiskEngine:
         combined = (self.rule_weight * base_rule_score) + (self.ml_weight * ml_score)
         return round(max(0.0, min(1.0, combined)), 4)
 
+    NETWORK_DETECTION_TYPES = {"PORT_SCAN", "SYN_FLOOD", "NULL_SCAN", "XMAS_SCAN"}
+    HOST_DETECTION_TYPES = {"SSH_AUTH_FAILURE", "SSH_BRUTE_FORCE", "SUSPICIOUS_PROCESS"}
+
+    def _classify_detection_type(self, dtype: str) -> str:
+        """Classify a detection type into network or host domain."""
+        up = (dtype or "").upper()
+        if up in self.NETWORK_DETECTION_TYPES:
+            return "network"
+        elif up in self.HOST_DETECTION_TYPES:
+            return "host"
+        return "other"
+
+    def _record_correlation(self, source_ip: str, alerts: List[Any], now: float) -> None:
+        """Record detection event occurrences by domain for correlation."""
+        if not source_ip:
+            return
+
+        if source_ip not in self._correlation_history:
+            if len(self._correlation_history) >= self.max_tracked_ips:
+                self.cleanup_stale_state(now)
+            if len(self._correlation_history) >= self.max_tracked_ips:
+                oldest_ip = next(iter(self._correlation_history))
+                del self._correlation_history[oldest_ip]
+            self._correlation_history[source_ip] = deque()
+
+        history = self._correlation_history[source_ip]
+        for a in alerts:
+            dtype = a.get("detection_type", "UNKNOWN") if isinstance(a, dict) else getattr(a, "detection_type", "UNKNOWN")
+            ts = a.get("timestamp", now) if isinstance(a, dict) else getattr(a, "timestamp", now)
+            cat = self._classify_detection_type(dtype)
+            history.append((ts, cat, dtype))
+
+        cutoff = now - self.correlation_window_seconds
+        while history and history[0][0] < cutoff:
+            history.popleft()
+
+    def _check_correlation(self, source_ip: str, now: float) -> tuple[bool, float, str]:
+        """Check if source IP has correlated network and host intrusion evidence within window."""
+        if not source_ip or source_ip not in self._correlation_history:
+            return False, 0.0, ""
+
+        history = self._correlation_history[source_ip]
+        cutoff = now - self.correlation_window_seconds
+        while history and history[0][0] < cutoff:
+            history.popleft()
+
+        has_network = any(item[1] == "network" for item in history)
+        has_host = any(item[1] == "host" for item in history)
+
+        if has_network and has_host:
+            boost = min(self.correlation_boost, self.max_correlation_boost)
+            note = "Correlated hybrid attack: network reconnaissance and host authentication activity from same source"
+            return True, boost, note
+
+        return False, 0.0, ""
+
+    def assess_rule_event(
+        self,
+        event: Any,
+        ml_anomaly_score: float = 0.0,
+    ) -> RiskAssessment:
+        """Convenience method to evaluate a single SecurityEvent instance."""
+        src_ip = getattr(event, "source_ip", None) or "127.0.0.1"
+        dst_ip = getattr(event, "destination_ip", None)
+        return self.assess(
+            source_ip=src_ip,
+            destination_ip=dst_ip,
+            rule_alerts=[event],
+            ml_anomaly_score=ml_anomaly_score,
+        )
+
     def assess(
         self,
-        source_ip: str,
+        source_ip: Optional[str],
         destination_ip: Optional[str] = None,
         rule_alerts: Optional[List[Any]] = None,
         ml_anomaly_score: float = 0.0,
     ) -> RiskAssessment:
         """Evaluate overall threat level, compute composite score, and record assessment."""
         now = time.time()
+        safe_source_ip = source_ip if (source_ip and source_ip.strip()) else "127.0.0.1"
         alerts = rule_alerts or []
         ml_score = max(0.0, min(1.0, float(ml_anomaly_score or 0.0)))
 
         with self._lock:
-            self._record_ip_event(source_ip, now)
-            repeat_boost = self._get_repeat_boost(source_ip, now)
+            self._record_ip_event(safe_source_ip, now)
+            self._record_correlation(safe_source_ip, alerts, now)
+            repeat_boost = self._get_repeat_boost(safe_source_ip, now)
+            is_correlated, correlation_boost, correlation_note = self._check_correlation(safe_source_ip, now)
 
             # Determine rule score and detection types
             detection_types = []
@@ -179,12 +259,18 @@ class RiskEngine:
                 effective_rule_score = 0.0
                 combined = self.ml_weight * ml_score
 
+            # Apply bounded correlation boost if both network and host evidence are present
+            if is_correlated and correlation_boost > 0.0:
+                combined = min(1.0, combined + correlation_boost)
+
             combined_clamped = round(max(0.0, min(1.0, combined)), 4)
             risk_level, action = self._determine_risk_level_and_action(combined_clamped)
 
             reason_parts = []
             if alerts:
                 reason_parts.append(f"Rule detections: {', '.join(detection_types)}")
+            if is_correlated and correlation_boost > 0.0:
+                reason_parts.append(f"{correlation_note} (+{correlation_boost:.2f})")
             if repeat_boost > 0.0:
                 reason_parts.append(f"repeated activity (+{repeat_boost:.2f})")
             if ml_score > 0.0:
@@ -195,7 +281,7 @@ class RiskEngine:
             assessment = RiskAssessment(
                 assessment_id=uuid.uuid4().hex[:12],
                 timestamp=now,
-                source_ip=source_ip,
+                source_ip=safe_source_ip,
                 destination_ip=destination_ip,
                 rule_score=round(effective_rule_score, 4),
                 ml_anomaly_score=round(ml_score, 4),
@@ -206,6 +292,10 @@ class RiskEngine:
                 evidence={
                     "base_rule_score": base_rule_score,
                     "repeat_boost": round(repeat_boost, 4),
+                    "correlation_boost": round(correlation_boost, 4),
+                    "correlated": is_correlated,
+                    "correlation_note": correlation_note if is_correlated else None,
+                    "correlation_reason": correlation_note if is_correlated else None,
                     "rule_weight": self.rule_weight,
                     "ml_weight": self.ml_weight,
                     "alert_count": len(alerts),
@@ -291,5 +381,17 @@ class RiskEngine:
             for ip in stale_ips:
                 del self._ip_history[ip]
                 removed_count += 1
+
+            # Prune correlation history
+            cutoff_corr = current_time - self.correlation_window_seconds
+            stale_corr = []
+            for ip, hist in self._correlation_history.items():
+                while hist and hist[0][0] < cutoff_corr:
+                    hist.popleft()
+                if not hist:
+                    stale_corr.append(ip)
+
+            for ip in stale_corr:
+                del self._correlation_history[ip]
 
         return removed_count
