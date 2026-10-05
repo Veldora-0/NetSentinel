@@ -28,3 +28,22 @@ export async function checkBackendHealth() {
     };
   }
 }
+
+export async function fetchTrafficMetrics() {
+  try {
+    const response = await fetch('/api/metrics', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}

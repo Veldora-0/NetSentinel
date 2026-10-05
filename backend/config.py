@@ -1,14 +1,52 @@
 """NetSentinel Configuration Module.
 
 Centralizes backend settings, environment configurations, SQLite database URLs,
-and reserved configuration placeholders for future intrusion detection rules and ML models.
+network interface configuration, and reserved placeholders for detection and ML.
 """
 
 import os
+from typing import Optional
+import psutil
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+
+def resolve_network_interface(configured_iface: Optional[str] = None) -> str:
+    """Resolve configured or auto-detected active Linux network interface.
+
+    Args:
+        configured_iface: Explicit interface name or None for automatic discovery.
+
+    Returns:
+        Interface name to listen on.
+    """
+    if configured_iface and configured_iface.strip():
+        return configured_iface.strip()
+
+    # Automatic discovery: 1. Check default gateway route from /proc/net/route
+    try:
+        with open("/proc/net/route", "r") as fh:
+            for line in fh:
+                fields = line.strip().split()
+                if len(fields) >= 2 and fields[1] == "00000000":
+                    return fields[0]
+    except Exception:
+        pass
+
+    # Automatic discovery: 2. Fallback to first non-loopback UP interface
+    try:
+        stats = psutil.net_if_stats()
+        for name, stat in stats.items():
+            if stat.isup and name != "lo":
+                return name
+    except Exception:
+        pass
+
+    # Fallback to loopback
+    return "lo"
+
 
 class Config:
     """Base Configuration."""
@@ -18,6 +56,11 @@ class Config:
     # Server Binding
     HOST = os.environ.get("HOST", "0.0.0.0")
     PORT = int(os.environ.get("PORT", 5000))
+
+    # Network Packet Capture & Metrics Configuration
+    # Set to specific interface (e.g. "enp0s3", "eth0", "lo") or None for auto-detection
+    NETWORK_INTERFACE = os.environ.get("NETSENTINEL_INTERFACE", None)
+    METRICS_EMIT_INTERVAL = float(os.environ.get("METRICS_EMIT_INTERVAL", "1.0"))
 
     # Database Configuration (SQLite)
     SQLALCHEMY_DATABASE_URI = os.environ.get(
