@@ -1,8 +1,8 @@
 import React from 'react';
 import { getWorkerStatusBadgeClass } from '../../utils/formatters';
 
-export function StatusBadge({ status, label, className = '' }) {
-  const displayLabel = label || status || 'UNKNOWN';
+export function StatusBadge({ status, label, text, className = '' }) {
+  const displayLabel = text || label || status || 'UNKNOWN';
   const badgeClass = getWorkerStatusBadgeClass(status);
 
   return (
@@ -11,3 +11,5 @@ export function StatusBadge({ status, label, className = '' }) {
     </span>
   );
 }
+
+export default StatusBadge;

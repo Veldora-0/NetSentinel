@@ -4,14 +4,10 @@ import {
   Activity,
   Database,
   Shield,
-  Cpu,
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
-  HardDrive,
-  Clock,
   Layers,
-  FileText,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
@@ -21,7 +17,7 @@ import { LoadingState } from '../components/common/LoadingState';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { checkBackendHealth, fetchReadiness, fetchSystemStatus } from '../services/api';
-import { formatUptime, formatNumber } from '../utils/formatters';
+import { formatUptime } from '../utils/formatters';
 
 export default function System() {
   const [health, setHealth] = useState(null);
@@ -59,14 +55,21 @@ export default function System() {
   }
 
   if (error && !health && !systemStatus) {
-    return <ErrorState message={error} onRetry={loadData} />;
+    return <ErrorState error={error} onRetry={loadData} />;
   }
 
   const isReady = readiness?.ready === true;
   const isConnected = health?.connected === true;
   const is429 = readiness?.status === 429;
-  const dbHealthy = systemStatus?.database?.healthy ?? true;
-  const dbLatency = systemStatus?.database?.latency_ms ?? '<1';
+
+  // Semantically correct database state: UNKNOWN/CHECKING != HEALTHY
+  const dbStatus = systemStatus?.database != null
+    ? (systemStatus.database.healthy ? 'HEALTHY' : 'OFFLINE')
+    : 'CHECKING';
+  const dbLatencyDisplay = dbStatus === 'HEALTHY'
+    ? `${systemStatus.database.latency_ms ?? '<1'} ms`
+    : dbStatus;
+
   const appUptime = systemStatus?.application?.uptime_seconds;
   const workers = systemStatus?.workers || {};
 
@@ -104,7 +107,7 @@ export default function System() {
           value={isReady ? 'READY (200)' : readiness ? 'DEGRADED (503)' : 'CHECKING'}
           subtext="Kubernetes / Systemd operational gate"
           icon={CheckCircle2}
-          badge={<StatusBadge status={isReady ? 'HEALTHY' : 'DEGRADED'} text={isReady ? 'READY' : 'DEGRADED'} />}
+          badge={<StatusBadge status={isReady ? 'HEALTHY' : readiness ? 'DEGRADED' : 'CHECKING'} text={isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'} />}
         />
         <MetricCard
           title="Liveness Health (/api/health)"
@@ -115,19 +118,19 @@ export default function System() {
         />
         <MetricCard
           title="Database Latency"
-          value={dbHealthy ? `${dbLatency} ms` : 'OFFLINE'}
+          value={dbLatencyDisplay}
           subtext="SQLite WAL durable persistence layer"
           icon={Database}
-          badge={<StatusBadge status={dbHealthy ? 'HEALTHY' : 'FAILED'} text={dbHealthy ? 'HEALTHY' : 'OFFLINE'} />}
+          badge={<StatusBadge status={dbStatus} text={dbStatus} />}
         />
         <MetricCard
           title="Firewall Netfilter"
-          value={systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'LIVE KERNEL') : 'DISABLED'}
+          value={systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'LIVE KERNEL') : (systemStatus?.firewall ? 'DISABLED' : 'CHECKING')}
           subtext={`Chain: ${systemStatus?.firewall?.chain || 'NETSENTINEL'}`}
           icon={Shield}
           badge={
-            <span className={`badge ${systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'badge-warning' : 'badge-success') : 'badge-info'}`}>
-              {systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'ACTIVE') : 'OFF'}
+            <span className={`badge ${systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'badge-warning' : 'badge-success') : systemStatus?.firewall ? 'badge-info' : 'badge-neutral'}`}>
+              {systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'ACTIVE') : (systemStatus?.firewall ? 'OFF' : 'CHECKING')}
             </span>
           }
         />
@@ -160,7 +163,7 @@ export default function System() {
                         {w.role || 'Background operational process'}
                       </td>
                       <td>
-                        <StatusBadge status={w.status} text={w.status} />
+                        <StatusBadge status={w.status || 'UNKNOWN'} text={w.status || 'UNKNOWN'} />
                       </td>
                       <td style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
                         {w.last_heartbeat_seconds != null ? `${w.last_heartbeat_seconds}s ago` : 'Active'}
@@ -211,7 +214,7 @@ export default function System() {
               </div>
               <div className="host-stat-row">
                 <span>Capture Status:</span>
-                <span className="host-stat-val">{systemStatus?.packet_capture?.status?.toUpperCase() || 'RUNNING'}</span>
+                <span className="host-stat-val">{systemStatus?.packet_capture?.status ? systemStatus.packet_capture.status.toUpperCase() : 'UNKNOWN'}</span>
               </div>
               <div className="host-stat-row">
                 <span>Socket Protocol:</span>
@@ -227,12 +230,16 @@ export default function System() {
               </div>
               <div className="host-stat-row">
                 <span>Isolation Forest:</span>
-                <span className="host-stat-val" style={{ color: '#10b981' }}>Active (scikit-learn)</span>
+                <span className="host-stat-val" style={{ color: '#10b981' }}>
+                  {systemStatus?.ml_detector?.model_ready ? 'Model Ready' : systemStatus?.ml_detector?.collecting_baseline ? 'Collecting Baseline' : 'Active (scikit-learn)'}
+                </span>
               </div>
               <div className="host-stat-row">
                 <span>Threat Intelligence:</span>
                 <span className="host-stat-val">
-                  {systemStatus?.threat_intel?.enabled ? 'Active' : 'Standby / Local'}
+                  {systemStatus?.threat_intel != null
+                    ? (systemStatus.threat_intel.enabled ? 'Active' : 'Standby / Local')
+                    : 'UNKNOWN'}
                 </span>
               </div>
             </div>

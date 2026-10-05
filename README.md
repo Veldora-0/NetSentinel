@@ -265,8 +265,12 @@ sudo iptables -X NETSENTINEL
 ## 9. REST API & Socket.IO Endpoints
 
 ### REST API Endpoints
-* `GET /api/health`: Health status.
+* `GET /api/health`: Basic liveness probe endpoint.
+* `GET /api/ready`: Comprehensive readiness probe (DB connectivity, packet engine, thread workers).
+* `GET /api/system/status`: Detailed runtime diagnostics, uptime, and thread/memory stats.
 * `GET /api/metrics`: Live packet capture and protocol statistics.
+* `GET /api/network/status`: Operating status of ARP and ICMP detectors, table counts, and metrics.
+* `GET /api/network/arp`: Query current dynamic and static ARP cache table mappings.
 * `GET /api/alerts`: Recent rule-based security events (newest first).
 * `GET /api/events`: Persisted historical security events with filtering (`since`, `until`, `source_ip`, `detection_type`, `severity`) and pagination (`limit`, `offset`).
 * `GET /api/security/summary`: Aggregate security event metrics, severity breakdown, top source IPs, and risk averages.
@@ -279,9 +283,15 @@ sudo iptables -X NETSENTINEL
 * `GET /api/risk/stats`: Aggregate risk level breakdown and score averages.
 * `GET /api/host/status`: Operating status of SSH authentication log reader and process integrity observer.
 * `GET /api/host/events`: Query persisted host security events (`SSH_AUTH_FAILURE`, `SSH_BRUTE_FORCE`, `SUSPICIOUS_PROCESS`) with filtering and pagination.
+* `GET /api/fim/status`: FIM scanner operational status, baseline count, and last scan timestamp.
+* `GET /api/fim/baseline`: Query active cryptographic baseline records.
+* `GET /api/fim/events`: Query historical file modification/creation/deletion security events.
+* `POST /api/fim/rebaseline`: Trigger an immediate cryptographic rebaselining scan.
+* `GET /api/threat-intel/status`: Threat intelligence queue status, provider cache stats, and consensus counters.
+* `GET /api/threat-intel/ip/<ip>`: Query cached threat intelligence reputation for an IP.
+* `POST /api/threat-intel/ip/<ip>/lookup`: Trigger on-demand reputation lookup for an eligible public IP.
 * `GET /api/firewall/status`: Firewall operational mode, chain, and configuration.
 * `GET /api/firewall/blocked`: List of actively blocked IPs with reasons and expiration timestamps.
-* `POST /api/firewall/block`: Manually block an IP (`{"ip": "...", "reason": "...", "duration": 300}`).
 * `POST /api/firewall/block`: Manually block an IP (`{"ip": "...", "reason": "...", "duration": 300}`).
 * `POST /api/firewall/unblock`: Manually unblock an IP (`{"ip": "..."}`).
 * `GET /api/incidents`: Retrieve paginated and filtered security incidents (`limit`, `offset`, `status`, `severity`, `source_ip`, `correlation_key`, `since`, `until`).
@@ -300,6 +310,9 @@ sudo iptables -X NETSENTINEL
 * `security_event`: Live rule-based intrusion detection alerts.
 * `host_security_event`: Live host intrusion detection alerts (`SSH_AUTH_FAILURE`, `SSH_BRUTE_FORCE`, `SUSPICIOUS_PROCESS`).
 * `host_status`: Snapshot and updates of HIDS component health and counters.
+* `fim_event`: Live file integrity modification, creation, or deletion alerts.
+* `fim_status`: Periodic update of FIM scanner engine and baseline counts.
+* `threat_intel_update`: Live notification of threat intelligence reputation enrichment.
 * `ml_anomaly`: Unsupervised ML anomaly detection alerts.
 * `ml_status`: ML model lifecycle state transitions.
 * `risk_assessment`: Live composite risk assessments with scores, actions, and cross-domain correlation notes.
@@ -339,7 +352,7 @@ NetSentinel's **Incident Correlation and Investigation Layer** transforms isolat
 5. **Operator Status Workflow & Deep Investigation**:
    * Supports standard SOC lifecycle states: `OPEN` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `RESOLVED` $\rightarrow$ `CLOSED` with operator notes, resolution rationales, and reopen capabilities.
    * `build_incident_timeline` compiles a unified chronological flow of milestones, detections, and firewall mitigations.
-   * React SOC Dashboard features an interactive incidents table, severity/status filters, and a full-featured Investigation Workspace Modal with visual timelines and operator action buttons.
+   * React SOC Dashboard features an interactive incidents table, severity/status filters, and dedicated routed Investigation Workspace (`/incidents/:incidentId`) with visual timelines, report export, and operator action controls.
 
 ---
 

@@ -26,7 +26,16 @@ export default function History() {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [severityFilter, setSeverityFilter] = useState('ALL');
   const [searchIP, setSearchIP] = useState('');
+  const [debouncedIP, setDebouncedIP] = useState('');
   const [limit, setLimit] = useState(100);
+
+  // Debounce searchIP by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedIP(searchIP);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchIP]);
 
   const loadData = useCallback(async () => {
     try {
@@ -34,7 +43,7 @@ export default function History() {
       const params = { limit };
       if (typeFilter !== 'ALL') params.detection_type = typeFilter;
       if (severityFilter !== 'ALL') params.severity = severityFilter;
-      if (searchIP.trim()) params.source_ip = searchIP.trim();
+      if (debouncedIP.trim()) params.source_ip = debouncedIP.trim();
 
       const res = await fetchSecurityEvents(params);
       setEvents(res?.events || []);
@@ -44,7 +53,7 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, severityFilter, searchIP, limit]);
+  }, [typeFilter, severityFilter, debouncedIP, limit]);
 
   useEffect(() => {
     loadData();

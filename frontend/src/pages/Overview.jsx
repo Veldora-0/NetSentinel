@@ -38,6 +38,7 @@ import {
   formatRate,
   formatScore,
   formatPercent,
+  safeNumber,
   formatAlertTime,
   getIncidentStatusBadgeClass,
   getRiskBadgeClass,
@@ -136,8 +137,10 @@ export function Overview() {
     });
   });
 
-  useSocketEvent('blocked_ips', (data) => {
-    if (Array.isArray(data)) setBlockedIPs(data);
+  useSocketEvent('firewall_action', () => {
+    fetchBlockedIPs().then((ips) => {
+      if (Array.isArray(ips)) setBlockedIPs(ips);
+    });
   });
 
   useSocketEvent('risk_assessment', (data) => {
@@ -147,7 +150,7 @@ export function Overview() {
 
   // Calculate highest current risk score
   const highestRiskScore = recentRisks.length > 0
-    ? Math.max(...recentRisks.map((r) => Number(r.risk_score || 0)))
+    ? Math.max(...recentRisks.map((r) => safeNumber(r.risk_score, 0)))
     : 0;
 
   const highestRiskLevel = recentRisks.length > 0

@@ -31,6 +31,9 @@ import {
 } from '../services/api';
 import {
   formatFullTime,
+  formatScore,
+  formatConfidence,
+  formatNumber,
   getRiskBadgeClass,
   getIncidentStatusBadgeClass,
   getReputationBadgeClass,
@@ -121,7 +124,7 @@ export default function IncidentDetail() {
 Incident ID: ${incidentId}
 Title: ${incident?.title || 'Security Incident'}
 Status: ${incident?.status}
-Severity: ${incident?.severity} (Score: ${(incident?.risk_score ?? 0).toFixed(4)})
+Severity: ${incident?.severity} (Score: ${formatScore(incident?.risk_score, 4)})
 Primary Source: ${incident?.primary_source_ip || incident?.correlation_key || 'Unknown'}
 First Seen: ${summaryReport.first_seen_iso || 'N/A'}
 Last Seen: ${summaryReport.last_seen_iso || 'N/A'}
@@ -147,7 +150,7 @@ ${summaryReport.analyst_note ? `\nAnalyst Notes:\n${summaryReport.analyst_note}`
 - **Title:** ${incident?.title}
 - **Status:** ${incident?.status}
 - **Severity:** ${incident?.severity}
-- **Deterministic Risk Score:** ${(incident?.risk_score ?? 0).toFixed(4)}
+- **Deterministic Risk Score:** ${formatScore(incident?.risk_score, 4)}
 - **Primary Attacker / Source:** \`${incident?.primary_source_ip || incident?.correlation_key}\`
 - **Attack Domains:** ${(incident?.attack_domains || []).join(', ')}
 - **Detection Vectors:** ${(incident?.detection_types || []).join(', ')}
@@ -205,7 +208,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
       {/* Page Header with Breadcrumb */}
       <PageHeader
         title={incident.title || `Incident ${incidentId}`}
-        subtitle={`ID: ${incidentId} | Target: ${incident.primary_source_ip || incident.correlation_key || 'Unknown'} | Risk Score: ${(incident.risk_score ?? 0).toFixed(2)}`}
+        subtitle={`ID: ${incidentId} | Target: ${incident.primary_source_ip || incident.correlation_key || 'Unknown'} | Risk Score: ${formatScore(incident?.risk_score, 2)}`}
         backLink="/incidents"
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -348,8 +351,8 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                 <div className="host-block-title">Deterministic Risk Scoring Breakdown</div>
                 <div className="host-stat-row">
                   <span>Calculated Risk Score:</span>
-                  <span className="host-stat-val" style={{ color: incident.risk_score >= 0.8 ? '#f43f5e' : '#38bdf8', fontWeight: 700 }}>
-                    {(incident.risk_score ?? 0).toFixed(4)}
+                  <span className="host-stat-val" style={{ color: (incident.risk_score || 0) >= 0.8 ? '#f43f5e' : '#38bdf8', fontWeight: 700 }}>
+                    {formatScore(incident.risk_score, 4)}
                   </span>
                 </div>
                 <div className="host-stat-row">
@@ -358,11 +361,11 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                 </div>
                 <div className="host-stat-row">
                   <span>Correlated Security Events:</span>
-                  <span className="host-stat-val">{incident.event_count}</span>
+                  <span className="host-stat-val">{formatNumber(incident.event_count, 0, '0')}</span>
                 </div>
                 <div className="host-stat-row">
                   <span>Mitigation Actions Enforced:</span>
-                  <span className="host-stat-val">{incident.firewall_action_count}</span>
+                  <span className="host-stat-val">{formatNumber(incident.firewall_action_count, 0, '0')}</span>
                 </div>
               </div>
 
@@ -538,7 +541,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                   </div>
                   <div className="host-stat-row">
                     <span>Confidence Score:</span>
-                    <span className="host-stat-val">{(tiMeta.confidence * 100).toFixed(1)}%</span>
+                    <span className="host-stat-val">{formatConfidence(tiMeta.confidence)}</span>
                   </div>
                   <div className="host-stat-row">
                     <span>Autonomous System (ASN):</span>

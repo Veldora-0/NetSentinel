@@ -29,6 +29,8 @@ import {
 } from '../services/api';
 import {
   formatFullTime,
+  formatScore,
+  formatNumber,
   getRiskBadgeClass,
   getIncidentStatusBadgeClass,
 } from '../utils/formatters';
@@ -299,10 +301,10 @@ export default function Incidents() {
                         style={{
                           fontFamily: 'monospace',
                           fontWeight: 600,
-                          color: inc.risk_score >= 0.8 ? '#f43f5e' : inc.risk_score >= 0.6 ? '#f97316' : '#38bdf8',
+                          color: (inc.risk_score || 0) >= 0.8 ? '#f43f5e' : (inc.risk_score || 0) >= 0.6 ? '#f97316' : '#38bdf8',
                         }}
                       >
-                        {(inc.risk_score ?? 0).toFixed(2)}
+                        {formatScore(inc.risk_score, 2)}
                       </td>
                       <td>
                         <span className={getIncidentStatusBadgeClass(inc.status)}>
@@ -310,7 +312,7 @@ export default function Incidents() {
                         </span>
                       </td>
                       <td style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                        {inc.event_count} ev / {inc.firewall_action_count} fw
+                        {formatNumber(inc.event_count, 0, '0')} ev / {formatNumber(inc.firewall_action_count, 0, '0')} fw
                       </td>
                       <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
                         {formatFullTime(inc.last_seen)}

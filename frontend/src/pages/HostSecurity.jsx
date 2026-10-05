@@ -7,9 +7,7 @@ import {
   AlertTriangle,
   Cpu,
   ShieldAlert,
-  HardDrive,
   Activity,
-  Layers,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
@@ -29,6 +27,8 @@ import {
 import {
   formatBytes,
   formatNumber,
+  formatPercent,
+  safeNumber,
   formatAlertTime,
   formatFullTime,
   getRiskBadgeClass,
@@ -118,12 +118,50 @@ export default function HostSecurity() {
   }
 
   if (error && !hostStatus && !fimStatus) {
-    return <ErrorState message={error} onRetry={loadData} />;
+    return <ErrorState error={error} onRetry={loadData} />;
   }
 
   const sshDetector = hostStatus?.ssh_detector || {};
   const procMonitor = hostStatus?.process_monitor || {};
   const isFimActive = fimStatus?.enabled ?? false;
+
+  // Semantic FIM Badge
+  const fimBadgeText = !fimStatus
+    ? 'CHECKING'
+    : !fimStatus.enabled
+    ? 'DISABLED'
+    : !fimStatus.baseline_ready
+    ? 'INITIALIZING'
+    : (fimStatus.changed_count || 0) > 0
+    ? 'ALTERED'
+    : 'VERIFIED';
+
+  const fimBadgeClass = !fimStatus
+    ? 'badge-warning'
+    : !fimStatus.enabled
+    ? 'badge-info'
+    : !fimStatus.baseline_ready
+    ? 'badge-warning'
+    : (fimStatus.changed_count || 0) > 0
+    ? 'badge-danger'
+    : 'badge-success';
+
+  // Semantic SSH Badge
+  const sshBadgeText = !sshDetector.status
+    ? 'STANDBY'
+    : (sshDetector.total_brute_force_detected || 0) > 0
+    ? 'ATTACKS DETECTED'
+    : sshDetector.status === 'RUNNING'
+    ? 'NORMAL'
+    : sshDetector.status;
+
+  const sshBadgeClass = !sshDetector.status
+    ? 'badge-info'
+    : (sshDetector.total_brute_force_detected || 0) > 0
+    ? 'badge-critical'
+    : sshDetector.status === 'RUNNING'
+    ? 'badge-success'
+    : 'badge-warning';
 
   return (
     <div className="page-container">
@@ -141,49 +179,39 @@ export default function HostSecurity() {
       <div className="metric-cards-grid">
         <MetricCard
           title="Monitored Files"
-          value={formatNumber(fimStatus?.baseline_file_count ?? 0)}
-          subtext={`${fimStatus?.monitored_path_count ?? 0} directory paths`}
+          value={formatNumber(fimStatus?.baseline_file_count, 0, '—')}
+          subtext={`${formatNumber(fimStatus?.monitored_path_count, 0, '0')} directory paths`}
           icon={FileText}
           badge={<StatusBadge status={isFimActive ? 'HEALTHY' : 'DISABLED'} text={isFimActive ? 'FIM ACTIVE' : 'FIM OFF'} />}
         />
         <MetricCard
           title="SSH Auth Failures"
-          value={formatNumber(sshDetector.total_failures ?? 0)}
-          subtext={`${sshDetector.total_brute_force_detected ?? 0} brute-force alerts`}
+          value={formatNumber(sshDetector.total_failures, 0, '0')}
+          subtext={`${formatNumber(sshDetector.total_brute_force_detected, 0, '0')} brute-force alerts`}
           icon={Terminal}
-          badge={
-            (sshDetector.total_brute_force_detected ?? 0) > 0 ? (
-              <span className="badge badge-critical">ATTACKS DETECTED</span>
-            ) : (
-              <span className="badge badge-success">NORMAL</span>
-            )
-          }
+          badge={<span className={`badge ${sshBadgeClass}`}>{sshBadgeText}</span>}
         />
         <MetricCard
           title="Suspicious Processes"
-          value={formatNumber(procMonitor.suspicious_processes_detected ?? 0)}
-          subtext={`${procMonitor.visible_processes ?? 0} total visible PIDs`}
+          value={formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
+          subtext={`${formatNumber(procMonitor.visible_processes, 0, '0')} total visible PIDs`}
           icon={ShieldAlert}
           badge={
-            (procMonitor.suspicious_processes_detected ?? 0) > 0 ? (
+            (procMonitor.suspicious_processes_detected || 0) > 0 ? (
               <span className="badge badge-critical">ACTION REQ</span>
-            ) : (
+            ) : procMonitor.status === 'RUNNING' ? (
               <span className="badge badge-success">CLEAN</span>
+            ) : (
+              <span className="badge badge-info">STANDBY</span>
             )
           }
         />
         <MetricCard
           title="Integrity Alterations"
-          value={formatNumber(fimStatus?.changed_count ?? 0)}
-          subtext={`${fimStatus?.missing_count ?? 0} deletions recorded`}
+          value={formatNumber(fimStatus?.changed_count, 0, '0')}
+          subtext={`${formatNumber(fimStatus?.missing_count, 0, '0')} deletions recorded`}
           icon={AlertTriangle}
-          badge={
-            (fimStatus?.changed_count ?? 0) > 0 ? (
-              <span className="badge badge-danger">ALTERED</span>
-            ) : (
-              <span className="badge badge-success">VERIFIED</span>
-            )
-          }
+          badge={<span className={`badge ${fimBadgeClass}`}>{fimBadgeText}</span>}
         />
       </div>
 
@@ -196,12 +224,12 @@ export default function HostSecurity() {
               <div className="resource-gauge-item">
                 <div className="gauge-header">
                   <span>CPU Utilization</span>
-                  <span className="gauge-value">{Number(hostTelemetry.cpu_percent || 0).toFixed(1)}%</span>
+                  <span className="gauge-value">{formatPercent(hostTelemetry.cpu_percent, 1)}</span>
                 </div>
                 <div className="gauge-track">
                   <div
-                    className={`gauge-fill cpu ${hostTelemetry.cpu_percent > 90 ? 'danger' : hostTelemetry.cpu_percent > 75 ? 'warning' : ''}`}
-                    style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.cpu_percent || 0))}%` }}
+                    className={`gauge-fill cpu ${safeNumber(hostTelemetry.cpu_percent) > 90 ? 'danger' : safeNumber(hostTelemetry.cpu_percent) > 75 ? 'warning' : ''}`}
+                    style={{ width: `${Math.min(100, Math.max(0, safeNumber(hostTelemetry.cpu_percent)))}%` }}
                   />
                 </div>
               </div>
@@ -211,13 +239,13 @@ export default function HostSecurity() {
                 <div className="gauge-header">
                   <span>RAM Memory</span>
                   <span className="gauge-value">
-                    {Number(hostTelemetry.memory_percent || 0).toFixed(1)}% ({formatBytes(hostTelemetry.memory_used_bytes)} / {formatBytes((hostTelemetry.memory_used_bytes || 0) + (hostTelemetry.memory_available_bytes || 0))})
+                    {formatPercent(hostTelemetry.memory_percent, 1)} ({formatBytes(hostTelemetry.memory_used_bytes)} / {formatBytes(safeNumber(hostTelemetry.memory_used_bytes) + safeNumber(hostTelemetry.memory_available_bytes))})
                   </span>
                 </div>
                 <div className="gauge-track">
                   <div
-                    className={`gauge-fill mem ${hostTelemetry.memory_percent > 90 ? 'danger' : hostTelemetry.memory_percent > 80 ? 'warning' : ''}`}
-                    style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.memory_percent || 0))}%` }}
+                    className={`gauge-fill mem ${safeNumber(hostTelemetry.memory_percent) > 90 ? 'danger' : safeNumber(hostTelemetry.memory_percent) > 80 ? 'warning' : ''}`}
+                    style={{ width: `${Math.min(100, Math.max(0, safeNumber(hostTelemetry.memory_percent)))}%` }}
                   />
                 </div>
               </div>
@@ -227,13 +255,13 @@ export default function HostSecurity() {
                 <div className="gauge-header">
                   <span>Disk Space</span>
                   <span className="gauge-value">
-                    {Number(hostTelemetry.disk_percent || 0).toFixed(1)}% ({formatBytes(hostTelemetry.disk_used_bytes)} used)
+                    {formatPercent(hostTelemetry.disk_percent, 1)} ({formatBytes(hostTelemetry.disk_used_bytes)} used)
                   </span>
                 </div>
                 <div className="gauge-track">
                   <div
-                    className={`gauge-fill disk ${hostTelemetry.disk_percent > 90 ? 'danger' : hostTelemetry.disk_percent > 80 ? 'warning' : ''}`}
-                    style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.disk_percent || 0))}%` }}
+                    className={`gauge-fill disk ${safeNumber(hostTelemetry.disk_percent) > 90 ? 'danger' : safeNumber(hostTelemetry.disk_percent) > 80 ? 'warning' : ''}`}
+                    style={{ width: `${Math.min(100, Math.max(0, safeNumber(hostTelemetry.disk_percent)))}%` }}
                   />
                 </div>
               </div>
@@ -281,17 +309,17 @@ export default function HostSecurity() {
               </div>
               <div className="host-stat-row">
                 <span>Auth Failures:</span>
-                <span className="host-stat-val">{sshDetector.total_failures || 0}</span>
+                <span className="host-stat-val">{formatNumber(sshDetector.total_failures, 0, '0')}</span>
               </div>
               <div className="host-stat-row">
                 <span>Brute-Force Detections:</span>
                 <span className="host-stat-val" style={{ color: (sshDetector.total_brute_force_detected || 0) > 0 ? 'var(--status-red)' : 'inherit' }}>
-                  {sshDetector.total_brute_force_detected || 0}
+                  {formatNumber(sshDetector.total_brute_force_detected, 0, '0')}
                 </span>
               </div>
               <div className="host-stat-row">
                 <span>Tracked Attacker IPs:</span>
-                <span className="host-stat-val">{sshDetector.tracked_sources_count || 0}</span>
+                <span className="host-stat-val">{formatNumber(sshDetector.tracked_sources_count, 0, '0')}</span>
               </div>
             </div>
           </div>
@@ -311,21 +339,21 @@ export default function HostSecurity() {
               </div>
               <div className="host-stat-row">
                 <span>Baseline Active PIDs:</span>
-                <span className="host-stat-val">{procMonitor.baseline_pids_count || 0}</span>
+                <span className="host-stat-val">{formatNumber(procMonitor.baseline_pids_count, 0, '0')}</span>
               </div>
               <div className="host-stat-row">
                 <span>Periodic Integrity Scans:</span>
-                <span className="host-stat-val">{procMonitor.total_scans || 0}</span>
+                <span className="host-stat-val">{formatNumber(procMonitor.total_scans, 0, '0')}</span>
               </div>
               <div className="host-stat-row">
                 <span>Suspicious Processes:</span>
                 <span className="host-stat-val" style={{ color: (procMonitor.suspicious_processes_detected || 0) > 0 ? 'var(--status-red)' : 'inherit' }}>
-                  {procMonitor.suspicious_processes_detected || 0}
+                  {formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
                 </span>
               </div>
               <div className="host-stat-row">
                 <span>Visible System PIDs:</span>
-                <span className="host-stat-val">{procMonitor.visible_processes || 0}</span>
+                <span className="host-stat-val">{formatNumber(procMonitor.visible_processes, 0, '0')}</span>
               </div>
             </div>
           </div>
@@ -385,14 +413,14 @@ export default function HostSecurity() {
 
                 <div className="fim-stat-card">
                   <div className="fim-stat-label">Monitored Files</div>
-                  <div className="fim-stat-value">{fimStatus.baseline_file_count ?? 0}</div>
-                  <div className="fim-stat-sub">{fimStatus.monitored_path_count ?? 0} target path(s)</div>
+                  <div className="fim-stat-value">{formatNumber(fimStatus.baseline_file_count, 0, '0')}</div>
+                  <div className="fim-stat-sub">{formatNumber(fimStatus.monitored_path_count, 0, '0')} target path(s)</div>
                 </div>
 
                 <div className="fim-stat-card">
                   <div className="fim-stat-label">Integrity Alterations</div>
                   <div className="fim-stat-value" style={{ color: (fimStatus.changed_count || 0) > 0 ? 'var(--status-red)' : 'var(--status-green)' }}>
-                    {fimStatus.changed_count ?? 0}
+                    {formatNumber(fimStatus.changed_count, 0, '0')}
                   </div>
                   <div className="fim-stat-sub">SHA-256 diffs</div>
                 </div>
@@ -400,7 +428,7 @@ export default function HostSecurity() {
                 <div className="fim-stat-card">
                   <div className="fim-stat-label">Missing Targets</div>
                   <div className="fim-stat-value" style={{ color: (fimStatus.missing_count || 0) > 0 ? 'var(--status-amber)' : 'inherit' }}>
-                    {fimStatus.missing_count ?? 0}
+                    {formatNumber(fimStatus.missing_count, 0, '0')}
                   </div>
                   <div className="fim-stat-sub">File deletions</div>
                 </div>
@@ -408,7 +436,7 @@ export default function HostSecurity() {
                 <div className="fim-stat-card">
                   <div className="fim-stat-label">Unreadable</div>
                   <div className="fim-stat-value" style={{ color: (fimStatus.unreadable_count || 0) > 0 ? 'var(--status-amber)' : 'inherit' }}>
-                    {fimStatus.unreadable_count ?? 0}
+                    {formatNumber(fimStatus.unreadable_count, 0, '0')}
                   </div>
                   <div className="fim-stat-sub">Permissions</div>
                 </div>

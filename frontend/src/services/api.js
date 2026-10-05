@@ -3,20 +3,33 @@
  * Interacts with the Flask backend API via relative endpoint paths (proxied by Vite).
  */
 
+async function parseResponseOrError(response) {
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    // Non-JSON or empty response
+  }
+
+  if (!response.ok) {
+    const errorMsg = data?.message || data?.error || `HTTP Error ${response.status}`;
+    const err = new Error(errorMsg);
+    err.status = response.status;
+    err.code = response.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
 export async function checkBackendHealth() {
   try {
     const response = await fetch('/api/health', {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return {
       connected: true,
       data: data,
@@ -33,16 +46,9 @@ export async function fetchTrafficMetrics() {
   try {
     const response = await fetch('/api/metrics', {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return null;
   }
@@ -52,16 +58,9 @@ export async function fetchSecurityAlerts(limit = 50) {
   try {
     const response = await fetch(`/api/alerts?limit=${limit}`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.alerts || [];
   } catch (error) {
     return [];
@@ -72,16 +71,9 @@ export async function fetchMLStatus() {
   try {
     const response = await fetch('/api/ml/status', {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return null;
   }
@@ -91,28 +83,21 @@ export async function fetchMLMetrics() {
   try {
     const response = await fetch('/api/ml/metrics', {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return null;
   }
 }
+
 export async function fetchRecentRisks(limit = 20) {
   try {
     const response = await fetch(`/api/risk/recent?limit=${limit}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.assessments || [];
   } catch (error) {
     return [];
@@ -125,8 +110,7 @@ export async function fetchRiskStats() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.stats || null;
   } catch (error) {
     return null;
@@ -139,8 +123,7 @@ export async function fetchFirewallStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.firewall || null;
   } catch (error) {
     return null;
@@ -153,8 +136,7 @@ export async function fetchBlockedIPs() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.blocked_ips || [];
   } catch (error) {
     return [];
@@ -166,9 +148,9 @@ export async function manualBlockIP(ip, reason = 'Operator Manual Block', durati
     const response = await fetch('/api/firewall/block', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ ip, reason, duration }),
+      body: JSON.stringify({ ip, reason: reason || 'Operator Manual Block', duration: Number(duration) || 300 }),
     });
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -181,7 +163,7 @@ export async function manualUnblockIP(ip) {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ ip }),
     });
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -206,10 +188,9 @@ export async function fetchSecurityEvents(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { status: 'error', total: 0, count: 0, events: [] };
+    return { status: 'error', total: 0, count: 0, events: [], error: error.message };
   }
 }
 
@@ -229,10 +210,9 @@ export async function fetchRiskHistory(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { status: 'error', total: 0, count: 0, assessments: [] };
+    return { status: 'error', total: 0, count: 0, assessments: [], error: error.message };
   }
 }
 
@@ -243,8 +223,7 @@ export async function fetchSecuritySummary(since = null) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.summary || null;
   } catch (error) {
     return null;
@@ -257,8 +236,7 @@ export async function fetchTelemetryCurrent() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.telemetry || null;
   } catch (error) {
     return null;
@@ -278,8 +256,7 @@ export async function fetchTelemetryHistory(limit = 60, since = null, until = nu
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.telemetry || [];
   } catch (error) {
     return [];
@@ -294,8 +271,7 @@ export async function fetchHostStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.host || null;
   } catch (error) {
     return null;
@@ -319,10 +295,9 @@ export async function fetchHostEvents(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { status: 'error', total: 0, count: 0, events: [] };
+    return { status: 'error', total: 0, count: 0, events: [], error: error.message };
   }
 }
 
@@ -334,8 +309,7 @@ export async function fetchNetworkStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return null;
   }
@@ -347,10 +321,9 @@ export async function fetchARPMappings(limit = 100) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { status: 'error', total: 0, count: 0, mappings: [] };
+    return { status: 'error', total: 0, count: 0, mappings: [], error: error.message };
   }
 }
 
@@ -374,10 +347,9 @@ export async function fetchIncidents(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { status: 'error', total: 0, count: 0, incidents: [] };
+    return { status: 'error', total: 0, count: 0, incidents: [], error: error.message };
   }
 }
 
@@ -388,8 +360,7 @@ export async function fetchIncidentStats(since = null) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.stats || null;
   } catch (error) {
     return null;
@@ -397,13 +368,13 @@ export async function fetchIncidentStats(since = null) {
 }
 
 export async function fetchIncidentDetail(incidentId) {
+  if (!incidentId) return null;
   try {
-    const response = await fetch(`/api/incidents/${incidentId}`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.incident || null;
   } catch (error) {
     return null;
@@ -411,13 +382,13 @@ export async function fetchIncidentDetail(incidentId) {
 }
 
 export async function fetchIncidentTimeline(incidentId) {
+  if (!incidentId) return [];
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/timeline`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/timeline`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.timeline || [];
   } catch (error) {
     return [];
@@ -425,13 +396,13 @@ export async function fetchIncidentTimeline(incidentId) {
 }
 
 export async function fetchIncidentSummary(incidentId) {
+  if (!incidentId) return null;
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/summary`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/summary`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.summary || null;
   } catch (error) {
     return null;
@@ -440,13 +411,12 @@ export async function fetchIncidentSummary(incidentId) {
 
 export async function updateIncidentStatus(incidentId, status, analystNote = '', resolution = '') {
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/status`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ status, analyst_note: analystNote, resolution }),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -454,13 +424,12 @@ export async function updateIncidentStatus(incidentId, status, analystNote = '',
 
 export async function acknowledgeIncident(incidentId, analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/acknowledge`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ analyst_note: analystNote }),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -468,13 +437,12 @@ export async function acknowledgeIncident(incidentId, analystNote = '') {
 
 export async function resolveIncident(incidentId, resolution = '', analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/resolve`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ resolution, analyst_note: analystNote }),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -482,13 +450,12 @@ export async function resolveIncident(incidentId, resolution = '', analystNote =
 
 export async function closeIncident(incidentId, resolution = '', analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/close`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ resolution, analyst_note: analystNote }),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -496,13 +463,12 @@ export async function closeIncident(incidentId, resolution = '', analystNote = '
 
 export async function reopenIncident(incidentId, analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${incidentId}/reopen`, {
+    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/reopen`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ analyst_note: analystNote }),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', message: error.message };
   }
@@ -516,8 +482,7 @@ export async function fetchFimStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { enabled: false, error: error.message };
   }
@@ -539,10 +504,9 @@ export async function fetchFimEvents(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { total: 0, limit: params.limit || 50, offset: params.offset || 0, events: [] };
+    return { total: 0, limit: params.limit || 50, offset: params.offset || 0, events: [], error: error.message };
   }
 }
 
@@ -560,10 +524,9 @@ export async function fetchFimBaseline(params = {}) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
-    return { total: 0, limit: params.limit || 100, offset: params.offset || 0, baseline: [] };
+    return { total: 0, limit: params.limit || 100, offset: params.offset || 0, baseline: [], error: error.message };
   }
 }
 
@@ -574,8 +537,7 @@ export async function triggerFimRebaseline(paths = null) {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(paths ? { paths } : {}),
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -591,8 +553,7 @@ export async function fetchThreatIntelStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
+    const data = await parseResponseOrError(response);
     return data.threat_intel || null;
   } catch (error) {
     return null;
@@ -606,8 +567,7 @@ export async function fetchThreatIntelIP(ip) {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return { status: 'error', available: false, error: error.message };
   }
@@ -620,10 +580,7 @@ export async function requestThreatIntelLookup(ip) {
       method: 'POST',
       headers: { 'Accept': 'application/json' },
     });
-    const data = await response.json();
-    if (!response.ok) {
-      return { success: false, message: data.message || `HTTP ${response.status}` };
-    }
+    const data = await parseResponseOrError(response);
     return { success: true, ...data };
   } catch (error) {
     return { success: false, message: error.message };
@@ -640,7 +597,7 @@ export async function fetchReadiness() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     return {
       ok: response.ok,
       status: response.status,
@@ -657,15 +614,8 @@ export async function fetchSystemStatus() {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    return await response.json();
+    return await parseResponseOrError(response);
   } catch (error) {
     return null;
   }
 }
-
-
-
-
-
-

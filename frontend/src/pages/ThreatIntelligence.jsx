@@ -26,6 +26,7 @@ import {
 import {
   formatNumber,
   formatPercent,
+  formatConfidence,
   getReputationBadgeClass,
 } from '../utils/formatters';
 
@@ -110,7 +111,7 @@ export default function ThreatIntelligence() {
         setLookupResult(cached);
         setLookupMessage({
           type: 'success',
-          text: `Found cached reputation record for ${ip} (Confidence: ${Math.round((cached.intelligence.confidence || 0) * 100)}%).`,
+          text: `Found cached reputation record for ${ip} (Confidence: ${formatConfidence(cached.intelligence.confidence)}).`,
         });
         setLookupLoading(false);
         return;
@@ -140,7 +141,7 @@ export default function ThreatIntelligence() {
       } else {
         setLookupMessage({
           type: 'error',
-          text: lookupReq?.message || `No reputation intelligence available for ${ip}.`,
+          text: lookupReq?.message || lookupReq?.error || `No reputation intelligence available for ${ip}.`,
         });
         setLookupLoading(false);
       }
@@ -313,7 +314,7 @@ export default function ThreatIntelligence() {
                     )}
                   </div>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                    Confidence: {Math.round((lookupResult.intelligence.confidence || 0) * 100)}%
+                    Confidence: {formatConfidence(lookupResult.intelligence.confidence)}
                   </span>
                 </div>
 

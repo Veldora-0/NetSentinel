@@ -14,11 +14,17 @@ export function MetricCard({ title, value, subtext, icon: Icon, badge, badgeClas
             {title}
           </span>
         </div>
-        {badge && <span className={`badge ${badgeClass}`}>{badge}</span>}
+        {badge && (
+          React.isValidElement(badge) ? (
+            badge
+          ) : (
+            <span className={`badge ${badgeClass}`}>{badge}</span>
+          )
+        )}
       </div>
       <div className="metric-value-container">
         <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-          {value !== null && value !== undefined ? value : '—'}
+          {value !== null && value !== undefined && value !== '' ? value : '—'}
         </div>
         {subtext && (
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -29,3 +35,5 @@ export function MetricCard({ title, value, subtext, icon: Icon, badge, badgeClas
     </div>
   );
 }
+
+export default MetricCard;
