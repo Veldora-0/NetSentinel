@@ -185,6 +185,115 @@ class HostTelemetryRecord(db.Model):
         }
 
 
+class IncidentRecord(db.Model):
+    """SQLAlchemy model for aggregated security incidents."""
+    __tablename__ = "incidents"
+
+    incident_id = db.Column(db.String(64), primary_key=True, index=True)
+    created_at = db.Column(db.Float, nullable=False, index=True)
+    updated_at = db.Column(db.Float, nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="OPEN", index=True)  # OPEN, ACKNOWLEDGED, RESOLVED, CLOSED
+    severity = db.Column(db.String(20), nullable=False, default="LOW", index=True)  # LOW, MEDIUM, HIGH, CRITICAL
+    risk_score = db.Column(db.Float, nullable=False, default=0.0)
+    title = db.Column(db.String(255), nullable=False)
+    summary = db.Column(db.Text, nullable=True)
+    primary_source_ip = db.Column(db.String(64), nullable=True, index=True)
+    correlation_key = db.Column(db.String(128), nullable=False, index=True)
+    attack_domains = db.Column(db.Text, nullable=True)  # JSON list e.g. ["network", "host"]
+    detection_types = db.Column(db.Text, nullable=True)  # JSON list e.g. ["PORT_SCAN", "SSH_BRUTE_FORCE"]
+    event_count = db.Column(db.Integer, nullable=False, default=0)
+    risk_assessment_count = db.Column(db.Integer, nullable=False, default=0)
+    firewall_action_count = db.Column(db.Integer, nullable=False, default=0)
+    first_seen = db.Column(db.Float, nullable=False, index=True)
+    last_seen = db.Column(db.Float, nullable=False, index=True)
+    closed_at = db.Column(db.Float, nullable=True)
+    resolution = db.Column(db.String(255), nullable=True)
+    analyst_note = db.Column(db.Text, nullable=True)
+    correlation_reason = db.Column(db.Text, nullable=True)
+
+    evidence_records = db.relationship(
+        "IncidentEvidenceRecord",
+        backref="incident",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="IncidentEvidenceRecord.timestamp.asc()",
+    )
+
+    def to_dict(self, include_evidence: bool = False) -> Dict[str, Any]:
+        """Convert incident record to JSON-serializable dictionary."""
+        d = {
+            "incident_id": self.incident_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "status": self.status,
+            "severity": self.severity,
+            "risk_score": round(self.risk_score, 4),
+            "title": self.title,
+            "summary": self.summary or "",
+            "primary_source_ip": self.primary_source_ip,
+            "correlation_key": self.correlation_key,
+            "attack_domains": json.loads(self.attack_domains) if self.attack_domains else [],
+            "detection_types": json.loads(self.detection_types) if self.detection_types else [],
+            "event_count": self.event_count,
+            "risk_assessment_count": self.risk_assessment_count,
+            "firewall_action_count": self.firewall_action_count,
+            "first_seen": self.first_seen,
+            "last_seen": self.last_seen,
+            "closed_at": self.closed_at,
+            "resolution": self.resolution,
+            "analyst_note": self.analyst_note,
+            "correlation_reason": self.correlation_reason or "",
+        }
+        if include_evidence:
+            d["evidence"] = [e.to_dict() for e in self.evidence_records.all()]
+        return d
+
+
+class IncidentEvidenceRecord(db.Model):
+    """SQLAlchemy model for linking security artifacts to an incident."""
+    __tablename__ = "incident_evidence"
+
+    id = db.Column(db.Integer, primary_key=True)
+    evidence_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    incident_id = db.Column(
+        db.String(64),
+        db.ForeignKey("incidents.incident_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    evidence_type = db.Column(db.String(32), nullable=False, index=True)  # SECURITY_EVENT, RISK_ASSESSMENT, FIREWALL_ACTION
+    reference_id = db.Column(db.String(64), nullable=False, index=True)
+    timestamp = db.Column(db.Float, nullable=False, index=True)
+    source_ip = db.Column(db.String(64), nullable=True)
+    detection_type = db.Column(db.String(50), nullable=True)
+    severity = db.Column(db.String(20), nullable=True)
+    risk_score = db.Column(db.Float, nullable=True)
+    summary = db.Column(db.String(255), nullable=False)
+    metadata_json = db.Column(db.Text, nullable=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert evidence record to dictionary."""
+        meta = {}
+        if self.metadata_json:
+            try:
+                meta = json.loads(self.metadata_json)
+            except Exception:
+                meta = {"raw": self.metadata_json}
+        return {
+            "evidence_id": self.evidence_id,
+            "incident_id": self.incident_id,
+            "evidence_type": self.evidence_type,
+            "reference_id": self.reference_id,
+            "timestamp": self.timestamp,
+            "source_ip": self.source_ip,
+            "detection_type": self.detection_type,
+            "severity": self.severity,
+            "risk_score": round(self.risk_score, 4) if self.risk_score is not None else None,
+            "summary": self.summary,
+            "metadata": meta,
+        }
+
+
 # ==============================================================================
 # Persistence Helper Functions
 # ==============================================================================
@@ -345,6 +454,182 @@ def save_host_telemetry_record(telemetry_data: Dict[str, Any]) -> bool:
         return False
 
 
+def save_incident_record(incident: Any) -> bool:
+    """Persist or update an IncidentRecord in SQLite safely."""
+    try:
+        if isinstance(incident, dict):
+            inc_id = incident.get("incident_id") or str(uuid.uuid4())
+            created_at = float(incident.get("created_at", time.time()))
+            updated_at = float(incident.get("updated_at", time.time()))
+            status = str(incident.get("status", "OPEN"))
+            severity = str(incident.get("severity", "LOW"))
+            risk_score = float(incident.get("risk_score", 0.0))
+            title = str(incident.get("title", f"Incident {inc_id}"))
+            summary = str(incident.get("summary", ""))
+            primary_source_ip = incident.get("primary_source_ip")
+            correlation_key = str(incident.get("correlation_key", primary_source_ip or inc_id))
+            attack_domains = incident.get("attack_domains", [])
+            if isinstance(attack_domains, (list, set)):
+                attack_domains_json = json.dumps(list(attack_domains))
+            else:
+                attack_domains_json = str(attack_domains)
+            detection_types = incident.get("detection_types", [])
+            if isinstance(detection_types, (list, set)):
+                detection_types_json = json.dumps(list(detection_types))
+            else:
+                detection_types_json = str(detection_types)
+            event_count = int(incident.get("event_count", 0))
+            risk_assessment_count = int(incident.get("risk_assessment_count", 0))
+            firewall_action_count = int(incident.get("firewall_action_count", 0))
+            first_seen = float(incident.get("first_seen", created_at))
+            last_seen = float(incident.get("last_seen", updated_at))
+            closed_at = incident.get("closed_at")
+            closed_at_val = float(closed_at) if closed_at is not None else None
+            resolution = incident.get("resolution")
+            analyst_note = incident.get("analyst_note")
+            correlation_reason = incident.get("correlation_reason")
+        else:
+            inc_id = getattr(incident, "incident_id", str(uuid.uuid4()))
+            created_at = float(getattr(incident, "created_at", time.time()))
+            updated_at = float(getattr(incident, "updated_at", time.time()))
+            status = str(getattr(incident, "status", "OPEN"))
+            severity = str(getattr(incident, "severity", "LOW"))
+            risk_score = float(getattr(incident, "risk_score", 0.0))
+            title = str(getattr(incident, "title", f"Incident {inc_id}"))
+            summary = str(getattr(incident, "summary", ""))
+            primary_source_ip = getattr(incident, "primary_source_ip", None)
+            correlation_key = str(getattr(incident, "correlation_key", primary_source_ip or inc_id))
+            ad = getattr(incident, "attack_domains", [])
+            attack_domains_json = json.dumps(list(ad)) if isinstance(ad, (list, set)) else str(ad)
+            dt = getattr(incident, "detection_types", [])
+            detection_types_json = json.dumps(list(dt)) if isinstance(dt, (list, set)) else str(dt)
+            event_count = int(getattr(incident, "event_count", 0))
+            risk_assessment_count = int(getattr(incident, "risk_assessment_count", 0))
+            firewall_action_count = int(getattr(incident, "firewall_action_count", 0))
+            first_seen = float(getattr(incident, "first_seen", created_at))
+            last_seen = float(getattr(incident, "last_seen", updated_at))
+            cl = getattr(incident, "closed_at", None)
+            closed_at_val = float(cl) if cl is not None else None
+            resolution = getattr(incident, "resolution", None)
+            analyst_note = getattr(incident, "analyst_note", None)
+            correlation_reason = getattr(incident, "correlation_reason", None)
+
+        existing = IncidentRecord.query.filter_by(incident_id=inc_id).first()
+        if existing:
+            existing.updated_at = updated_at
+            existing.status = status
+            existing.severity = severity
+            existing.risk_score = risk_score
+            existing.title = title
+            existing.summary = summary
+            existing.primary_source_ip = primary_source_ip
+            existing.correlation_key = correlation_key
+            existing.attack_domains = attack_domains_json
+            existing.detection_types = detection_types_json
+            existing.event_count = event_count
+            existing.risk_assessment_count = risk_assessment_count
+            existing.firewall_action_count = firewall_action_count
+            existing.first_seen = first_seen
+            existing.last_seen = last_seen
+            existing.closed_at = closed_at_val
+            existing.resolution = resolution
+            existing.analyst_note = analyst_note
+            existing.correlation_reason = correlation_reason
+        else:
+            rec = IncidentRecord(
+                incident_id=inc_id,
+                created_at=created_at,
+                updated_at=updated_at,
+                status=status,
+                severity=severity,
+                risk_score=risk_score,
+                title=title,
+                summary=summary,
+                primary_source_ip=primary_source_ip,
+                correlation_key=correlation_key,
+                attack_domains=attack_domains_json,
+                detection_types=detection_types_json,
+                event_count=event_count,
+                risk_assessment_count=risk_assessment_count,
+                firewall_action_count=firewall_action_count,
+                first_seen=first_seen,
+                last_seen=last_seen,
+                closed_at=closed_at_val,
+                resolution=resolution,
+                analyst_note=analyst_note,
+                correlation_reason=correlation_reason,
+            )
+            db.session.add(rec)
+
+        db.session.commit()
+        return True
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Database incident save failed: %s", ex)
+        return False
+
+
+def save_incident_evidence_record(evidence: Any) -> bool:
+    """Persist an IncidentEvidenceRecord in SQLite safely."""
+    try:
+        if isinstance(evidence, dict):
+            ev_id = evidence.get("evidence_id") or str(uuid.uuid4())
+            inc_id = str(evidence.get("incident_id"))
+            ev_type = str(evidence.get("evidence_type", "SECURITY_EVENT"))
+            ref_id = str(evidence.get("reference_id", ev_id))
+            ts = float(evidence.get("timestamp", time.time()))
+            src_ip = evidence.get("source_ip")
+            det_type = evidence.get("detection_type")
+            sev = evidence.get("severity")
+            risk_s = evidence.get("risk_score")
+            risk_val = float(risk_s) if risk_s is not None else None
+            summary = str(evidence.get("summary", ""))
+            meta = evidence.get("metadata", {})
+            meta_json = json.dumps(meta) if isinstance(meta, dict) else str(meta)
+        else:
+            ev_id = getattr(evidence, "evidence_id", str(uuid.uuid4()))
+            inc_id = str(getattr(evidence, "incident_id"))
+            ev_type = str(getattr(evidence, "evidence_type", "SECURITY_EVENT"))
+            ref_id = str(getattr(evidence, "reference_id", ev_id))
+            ts = float(getattr(evidence, "timestamp", time.time()))
+            src_ip = getattr(evidence, "source_ip", None)
+            det_type = getattr(evidence, "detection_type", None)
+            sev = getattr(evidence, "severity", None)
+            risk_s = getattr(evidence, "risk_score", None)
+            risk_val = float(risk_s) if risk_s is not None else None
+            summary = str(getattr(evidence, "summary", ""))
+            meta = getattr(evidence, "metadata", {})
+            meta_json = json.dumps(meta) if isinstance(meta, dict) else str(meta)
+
+        existing = IncidentEvidenceRecord.query.filter_by(evidence_id=ev_id).first()
+        if existing:
+            existing.summary = summary
+            existing.metadata_json = meta_json
+        else:
+            rec = IncidentEvidenceRecord(
+                evidence_id=ev_id,
+                incident_id=inc_id,
+                evidence_type=ev_type,
+                reference_id=ref_id,
+                timestamp=ts,
+                source_ip=src_ip,
+                detection_type=det_type,
+                severity=sev,
+                risk_score=risk_val,
+                summary=summary,
+                metadata_json=meta_json,
+            )
+            db.session.add(rec)
+
+        db.session.commit()
+        return True
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Database incident evidence save failed: %s", ex)
+        return False
+
+
+
 # ==============================================================================
 # Historical Query Functions
 # ==============================================================================
@@ -430,21 +715,140 @@ def query_risk_history(
         return {"total": 0, "count": 0, "limit": limit, "offset": offset, "assessments": []}
 
 
+def get_incident_by_id(incident_id: str, include_evidence: bool = True) -> Optional[Dict[str, Any]]:
+    """Retrieve an incident by its ID, optionally including associated evidence."""
+    try:
+        record = IncidentRecord.query.filter_by(incident_id=incident_id).first()
+        if not record:
+            return None
+        return record.to_dict(include_evidence=include_evidence)
+    except Exception as ex:
+        logger.debug("Database get incident by ID failed: %s", ex)
+        return None
+
+
+def query_incidents(
+    limit: int = 50,
+    offset: int = 0,
+    since: Optional[float] = None,
+    until: Optional[float] = None,
+    status: Optional[str] = None,
+    severity: Optional[str] = None,
+    primary_source_ip: Optional[str] = None,
+    correlation_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Query persisted incidents with filtering and pagination."""
+    try:
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
+
+        query = IncidentRecord.query
+
+        if since is not None:
+            query = query.filter(IncidentRecord.updated_at >= since)
+        if until is not None:
+            query = query.filter(IncidentRecord.updated_at <= until)
+        if status and status.strip():
+            query = query.filter(IncidentRecord.status == status.strip().upper())
+        if severity and severity.strip():
+            query = query.filter(IncidentRecord.severity == severity.strip().upper())
+        if primary_source_ip and primary_source_ip.strip():
+            query = query.filter(IncidentRecord.primary_source_ip == primary_source_ip.strip())
+        if correlation_key and correlation_key.strip():
+            query = query.filter(IncidentRecord.correlation_key == correlation_key.strip())
+
+        total = query.count()
+        records = query.order_by(IncidentRecord.updated_at.desc()).offset(offset).limit(limit).all()
+
+        return {
+            "total": total,
+            "count": len(records),
+            "limit": limit,
+            "offset": offset,
+            "incidents": [r.to_dict(include_evidence=False) for r in records],
+        }
+    except Exception as ex:
+        logger.debug("Database incidents query failed: %s", ex)
+        return {"total": 0, "count": 0, "limit": limit, "offset": offset, "incidents": []}
+
+
+def query_incident_stats(since_timestamp: Optional[float] = None) -> Dict[str, Any]:
+    """Query high-level incident metrics and distribution."""
+    try:
+        query = IncidentRecord.query
+        if since_timestamp is not None:
+            query = query.filter(IncidentRecord.created_at >= since_timestamp)
+
+        total_incidents = query.count()
+        open_count = query.filter(IncidentRecord.status == "OPEN").count()
+        acknowledged_count = query.filter(IncidentRecord.status == "ACKNOWLEDGED").count()
+        resolved_count = query.filter(IncidentRecord.status == "RESOLVED").count()
+        closed_count = query.filter(IncidentRecord.status == "CLOSED").count()
+
+        # Severity breakdown
+        sev_query = db.session.query(IncidentRecord.severity, db.func.count(IncidentRecord.incident_id))
+        if since_timestamp is not None:
+            sev_query = sev_query.filter(IncidentRecord.created_at >= since_timestamp)
+        severities = dict(sev_query.group_by(IncidentRecord.severity).all())
+
+        # Top sources
+        top_sources_query = (
+            db.session.query(IncidentRecord.primary_source_ip, db.func.count(IncidentRecord.incident_id))
+            .filter(IncidentRecord.primary_source_ip.isnot(None))
+        )
+        if since_timestamp is not None:
+            top_sources_query = top_sources_query.filter(IncidentRecord.created_at >= since_timestamp)
+        top_sources = [
+            {"source_ip": ip, "count": count}
+            for ip, count in top_sources_query.group_by(IncidentRecord.primary_source_ip)
+            .order_by(db.func.count(IncidentRecord.incident_id).desc())
+            .limit(5)
+            .all()
+        ]
+
+        return {
+            "total_incidents": total_incidents,
+            "open": open_count,
+            "acknowledged": acknowledged_count,
+            "resolved": resolved_count,
+            "closed": closed_count,
+            "severities": severities,
+            "top_sources": top_sources,
+        }
+    except Exception as ex:
+        logger.debug("Database incident stats query failed: %s", ex)
+        return {
+            "total_incidents": 0,
+            "open": 0,
+            "acknowledged": 0,
+            "resolved": 0,
+            "closed": 0,
+            "severities": {},
+            "top_sources": [],
+        }
+
+
 def query_security_summary(since_timestamp: Optional[float] = None) -> Dict[str, Any]:
-    """Generate aggregate statistics across security events, risks, and firewall actions."""
+    """Generate aggregate statistics across security events, risks, firewall actions, and incidents."""
     try:
         ev_query = SecurityEventRecord.query
         risk_query = RiskAssessmentRecord.query
         fw_query = FirewallActionRecord.query
+        inc_query = IncidentRecord.query
 
         if since_timestamp is not None:
             ev_query = ev_query.filter(SecurityEventRecord.timestamp >= since_timestamp)
             risk_query = risk_query.filter(RiskAssessmentRecord.timestamp >= since_timestamp)
             fw_query = fw_query.filter(FirewallActionRecord.timestamp >= since_timestamp)
+            inc_query = inc_query.filter(IncidentRecord.created_at >= since_timestamp)
 
         total_events = ev_query.count()
         total_assessments = risk_query.count()
         total_firewall_actions = fw_query.count()
+        incidents_total = inc_query.count()
+        incidents_open = inc_query.filter(IncidentRecord.status.in_(["OPEN", "ACKNOWLEDGED"])).count()
+        incidents_critical = inc_query.filter(IncidentRecord.severity == "CRITICAL").count()
+        incidents_resolved = inc_query.filter(IncidentRecord.status.in_(["RESOLVED", "CLOSED"])).count()
 
         # Breakdown by detection type
         type_counts_query = (
@@ -462,7 +866,7 @@ def query_security_summary(since_timestamp: Optional[float] = None) -> Dict[str,
             sev_counts_query = sev_counts_query.filter(SecurityEventRecord.timestamp >= since_timestamp)
         severities = dict(sev_counts_query.group_by(SecurityEventRecord.severity).all())
 
-        # Top 5 source IPs by incident count
+        # Top 5 source IPs by event count
         top_ips_query = (
             db.session.query(SecurityEventRecord.source_ip, db.func.count(SecurityEventRecord.id))
         )
@@ -472,6 +876,21 @@ def query_security_summary(since_timestamp: Optional[float] = None) -> Dict[str,
             {"source_ip": ip, "count": count}
             for ip, count in top_ips_query.group_by(SecurityEventRecord.source_ip)
             .order_by(db.func.count(SecurityEventRecord.id).desc())
+            .limit(5)
+            .all()
+        ]
+
+        # Top 5 source IPs by incident count
+        top_inc_sources_query = (
+            db.session.query(IncidentRecord.primary_source_ip, db.func.count(IncidentRecord.incident_id))
+            .filter(IncidentRecord.primary_source_ip.isnot(None))
+        )
+        if since_timestamp is not None:
+            top_inc_sources_query = top_inc_sources_query.filter(IncidentRecord.created_at >= since_timestamp)
+        top_inc_sources = [
+            {"source_ip": ip, "count": count}
+            for ip, count in top_inc_sources_query.group_by(IncidentRecord.primary_source_ip)
+            .order_by(db.func.count(IncidentRecord.incident_id).desc())
             .limit(5)
             .all()
         ]
@@ -496,9 +915,14 @@ def query_security_summary(since_timestamp: Optional[float] = None) -> Dict[str,
             "total_events": total_events,
             "total_assessments": total_assessments,
             "total_firewall_actions": total_firewall_actions,
+            "incidents_total": incidents_total,
+            "incidents_open": incidents_open,
+            "incidents_critical": incidents_critical,
+            "incidents_resolved": incidents_resolved,
             "detection_types": detection_types,
             "severities": severities,
             "top_source_ips": top_ips,
+            "top_incident_sources": top_inc_sources,
             "highest_risk_score": round(float(max_score or 0.0), 4),
             "average_risk_score": round(float(avg_score or 0.0), 4),
             "firewall_actions": fw_action_counts,
@@ -509,9 +933,14 @@ def query_security_summary(since_timestamp: Optional[float] = None) -> Dict[str,
             "total_events": 0,
             "total_assessments": 0,
             "total_firewall_actions": 0,
+            "incidents_total": 0,
+            "incidents_open": 0,
+            "incidents_critical": 0,
+            "incidents_resolved": 0,
             "detection_types": {},
             "severities": {},
             "top_source_ips": [],
+            "top_incident_sources": [],
             "highest_risk_score": 0.0,
             "average_risk_score": 0.0,
             "firewall_actions": {},
@@ -547,6 +976,8 @@ def query_telemetry_history(
 def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
     """Prune historical database records older than the retention threshold.
 
+    Preserves active (OPEN, ACKNOWLEDGED) incidents indefinitely. Only RESOLVED
+    and CLOSED incidents older than retention_days are pruned along with their evidence.
     Does not modify active in-memory firewall block state.
     """
     try:
@@ -572,21 +1003,39 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
                 synchronize_session=False
             )
         )
+        del_incidents = (
+            IncidentRecord.query.filter(
+                IncidentRecord.status.in_(["RESOLVED", "CLOSED"]),
+                IncidentRecord.updated_at < cutoff,
+            ).delete(synchronize_session=False)
+        )
+        del_evidence = (
+            IncidentEvidenceRecord.query.filter(
+                IncidentEvidenceRecord.timestamp < cutoff,
+                ~IncidentEvidenceRecord.incident_id.in_(
+                    db.session.query(IncidentRecord.incident_id)
+                ),
+            ).delete(synchronize_session=False)
+        )
 
         db.session.commit()
         logger.info(
-            "Retention cleanup completed (cutoff=%.0f): pruned %d events, %d risks, %d fw actions, %d telemetry records",
+            "Retention cleanup completed (cutoff=%.0f): pruned %d events, %d risks, %d fw actions, %d telemetry, %d incidents, %d evidence records",
             cutoff,
             del_events,
             del_risks,
             del_fw,
             del_telemetry,
+            del_incidents,
+            del_evidence,
         )
         return {
             "deleted_events": del_events,
             "deleted_risks": del_risks,
             "deleted_firewall_actions": del_fw,
             "deleted_telemetry": del_telemetry,
+            "deleted_incidents": del_incidents,
+            "deleted_evidence": del_evidence,
         }
     except Exception as ex:
         db.session.rollback()
@@ -596,6 +1045,8 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
             "deleted_risks": 0,
             "deleted_firewall_actions": 0,
             "deleted_telemetry": 0,
+            "deleted_incidents": 0,
+            "deleted_evidence": 0,
         }
 
 

@@ -25,7 +25,11 @@ export function initSocketConnection(
   onSecuritySummary,
   onHostSecurityEvent,
   onHostStatus,
-  onNetworkStatus
+  onNetworkStatus,
+  onIncidentCreated,
+  onIncidentUpdated,
+  onIncidentStatusChanged,
+  onIncidentStats
 ) {
   socket.on('connect', () => {
     if (onConnectChange) onConnectChange(true);
@@ -117,6 +121,30 @@ export function initSocketConnection(
     });
   }
 
+  if (onIncidentCreated) {
+    socket.on('incident_created', (data) => {
+      onIncidentCreated(data);
+    });
+  }
+
+  if (onIncidentUpdated) {
+    socket.on('incident_updated', (data) => {
+      onIncidentUpdated(data);
+    });
+  }
+
+  if (onIncidentStatusChanged) {
+    socket.on('incident_status_changed', (data) => {
+      onIncidentStatusChanged(data);
+    });
+  }
+
+  if (onIncidentStats) {
+    socket.on('incident_stats', (data) => {
+      onIncidentStats(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -134,5 +162,9 @@ export function initSocketConnection(
     if (onHostSecurityEvent) socket.off('host_security_event');
     if (onHostStatus) socket.off('host_status');
     if (onNetworkStatus) socket.off('network_status');
+    if (onIncidentCreated) socket.off('incident_created');
+    if (onIncidentUpdated) socket.off('incident_updated');
+    if (onIncidentStatusChanged) socket.off('incident_status_changed');
+    if (onIncidentStats) socket.off('incident_stats');
   };
 }

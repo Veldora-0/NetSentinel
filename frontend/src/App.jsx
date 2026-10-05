@@ -20,6 +20,12 @@ import {
   fetchHostEvents,
   fetchNetworkStatus,
   fetchARPMappings,
+  fetchIncidents,
+  fetchIncidentStats,
+  acknowledgeIncident,
+  resolveIncident,
+  closeIncident,
+  reopenIncident,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -50,6 +56,10 @@ export function App() {
   const [networkStatus, setNetworkStatus] = useState(null);
   const [arpMappings, setArpMappings] = useState([]);
 
+  // Phase 9: Incident Correlation & Investigation State
+  const [incidents, setIncidents] = useState([]);
+  const [incidentStats, setIncidentStats] = useState(null);
+
   const refreshFirewall = async () => {
     const fw = await fetchFirewallStatus();
     if (fw) setFirewallStatus(fw);
@@ -67,6 +77,49 @@ export function App() {
     if (res && res.events) {
       setHistoricalEvents(res.events);
     }
+  };
+
+  const refreshIncidents = async (params = {}) => {
+    const res = await fetchIncidents(params);
+    if (res && res.incidents) {
+      setIncidents(res.incidents);
+    }
+    const statsRes = await fetchIncidentStats();
+    if (statsRes) {
+      setIncidentStats(statsRes);
+    }
+  };
+
+  const handleAcknowledge = async (incidentId, note = '') => {
+    const res = await acknowledgeIncident(incidentId, note);
+    if (res.status === 'ok') {
+      await refreshIncidents();
+    }
+    return res;
+  };
+
+  const handleResolve = async (incidentId, resolution = '', note = '') => {
+    const res = await resolveIncident(incidentId, resolution, note);
+    if (res.status === 'ok') {
+      await refreshIncidents();
+    }
+    return res;
+  };
+
+  const handleClose = async (incidentId, resolution = '', note = '') => {
+    const res = await closeIncident(incidentId, resolution, note);
+    if (res.status === 'ok') {
+      await refreshIncidents();
+    }
+    return res;
+  };
+
+  const handleReopen = async (incidentId, note = '') => {
+    const res = await reopenIncident(incidentId, note);
+    if (res.status === 'ok') {
+      await refreshIncidents();
+    }
+    return res;
   };
 
   useEffect(() => {
@@ -137,6 +190,12 @@ export function App() {
 
         const arpRes = await fetchARPMappings(20);
         if (arpRes && arpRes.mappings) setArpMappings(arpRes.mappings);
+
+        const incRes = await fetchIncidents({ limit: 50 });
+        if (incRes && incRes.incidents) setIncidents(incRes.incidents);
+
+        const incStatsRes = await fetchIncidentStats();
+        if (incStatsRes) setIncidentStats(incStatsRes);
       }
     };
 
@@ -269,6 +328,47 @@ export function App() {
       },
       (netStatus) => {
         setNetworkStatus(netStatus);
+      },
+      (newIncident) => {
+        setIncidents((prev) => {
+          const idx = prev.findIndex((i) => i.incident_id === newIncident.incident_id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = newIncident;
+            return updated;
+          }
+          return [newIncident, ...prev].slice(0, 100);
+        });
+        fetchIncidentStats().then((st) => st && setIncidentStats(st));
+      },
+      (updatedIncident) => {
+        setIncidents((prev) => {
+          const idx = prev.findIndex((i) => i.incident_id === updatedIncident.incident_id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = updatedIncident;
+            return updated;
+          }
+          return [updatedIncident, ...prev].slice(0, 100);
+        });
+      },
+      (statusChange) => {
+        setIncidents((prev) =>
+          prev.map((inc) =>
+            inc.incident_id === statusChange.incident_id
+              ? {
+                  ...inc,
+                  status: statusChange.new_status,
+                  analyst_note: statusChange.analyst_note || inc.analyst_note,
+                  resolution: statusChange.resolution || inc.resolution,
+                }
+              : inc
+          )
+        );
+        fetchIncidentStats().then((st) => st && setIncidentStats(st));
+      },
+      (stats) => {
+        setIncidentStats(stats);
       }
     );
 
@@ -303,6 +403,13 @@ export function App() {
           hostStatus={hostStatus}
           networkStatus={networkStatus}
           arpMappings={arpMappings}
+          incidents={incidents}
+          incidentStats={incidentStats}
+          onRefreshIncidents={refreshIncidents}
+          onAcknowledgeIncident={handleAcknowledge}
+          onResolveIncident={handleResolve}
+          onCloseIncident={handleClose}
+          onReopenIncident={handleReopen}
         />
       </main>
     </div>

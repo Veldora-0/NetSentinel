@@ -354,4 +354,159 @@ export async function fetchARPMappings(limit = 100) {
   }
 }
 
+// Phase 9: Incident Correlation & Investigation APIs
+
+export async function fetchIncidents(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.since) query.append('since', params.since);
+    if (params.until) query.append('until', params.until);
+    if (params.status) query.append('status', params.status);
+    if (params.severity) query.append('severity', params.severity);
+    if (params.source_ip) query.append('source_ip', params.source_ip);
+    if (params.correlation_key) query.append('correlation_key', params.correlation_key);
+
+    const qs = query.toString();
+    const url = qs ? `/api/incidents?${qs}` : '/api/incidents';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', total: 0, count: 0, incidents: [] };
+  }
+}
+
+export async function fetchIncidentStats(since = null) {
+  try {
+    const url = since ? `/api/incidents/stats?since=${since}` : '/api/incidents/stats';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.stats || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchIncidentDetail(incidentId) {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.incident || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchIncidentTimeline(incidentId) {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/timeline`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.timeline || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function fetchIncidentSummary(incidentId) {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/summary`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.summary || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function updateIncidentStatus(incidentId, status, analystNote = '', resolution = '') {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ status, analyst_note: analystNote, resolution }),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+export async function acknowledgeIncident(incidentId, analystNote = '') {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ analyst_note: analystNote }),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+export async function resolveIncident(incidentId, resolution = '', analystNote = '') {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ resolution, analyst_note: analystNote }),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+export async function closeIncident(incidentId, resolution = '', analystNote = '') {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ resolution, analyst_note: analystNote }),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+export async function reopenIncident(incidentId, analystNote = '') {
+  try {
+    const response = await fetch(`/api/incidents/${incidentId}/reopen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ analyst_note: analystNote }),
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+
 

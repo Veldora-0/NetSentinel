@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status (Phase 8 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py` with Port Scan, SYN Flood, NULL Scan, XMAS Scan, and ICMP Sweep rules), an advanced **ARP Threat Detector** (`arp_detector.py` for ARP Spoofing/Poisoning and Identity Conflict detection), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), and a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`). HIDS monitors Linux authentication logs for SSH brute-force attempts, observes host process integrity for suspicious execution paths or unlinked binaries, and correlates cross-domain network reconnaissance and host authentication failures from the same source IP with an explainable risk boost. All components stream real-time events over Socket.IO and persist securely to SQLite.
+> **Implementation Status (Phase 9 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py` with Port Scan, SYN Flood, NULL Scan, XMAS Scan, and ICMP Sweep rules), an advanced **ARP Threat Detector** (`arp_detector.py` for ARP Spoofing/Poisoning and Identity Conflict detection), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), and an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`). The incident correlation engine groups related alerts, risk assessments, and firewall mitigation actions into contextual security incidents by source IP or host identity within bounded windows (300s). It computes monotonic risk scores with bounded cross-domain (+0.10) and multi-vector (+0.05) boosts clamped to [0.0, 1.0], generates objective explainable titles and correlation reasons, supports an operator status workflow (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), constructs unified chronological event timelines, generates SOC report summaries, and provides an interactive investigation workspace in the React dashboard. All components stream real-time events over Socket.IO and persist securely to SQLite.
 
 ---
 
@@ -15,12 +15,12 @@
 * **Linux `iptables`** - Packet filtering and mitigation via dedicated `NETSENTINEL` chain
 * **Scikit-learn** - Unsupervised `IsolationForest` anomaly detection
 * **NumPy & Joblib** - High-performance numerical feature arrays and model persistence
-* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`)
-* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `host_security_event`, `host_status`, `network_status`, `ml_anomaly`, `risk_assessment`, `firewall_action`, `host_telemetry`, `security_summary`)
-* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models (`SecurityEventRecord`, `RiskAssessmentRecord`, `FirewallActionRecord`, `HostTelemetryRecord`)
-* **SQLite** - Embedded database storage with automated time-based retention pruning
+* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`, `/api/incidents/*`)
+* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `host_security_event`, `host_status`, `network_status`, `ml_anomaly`, `risk_assessment`, `firewall_action`, `host_telemetry`, `security_summary`, `incident_created`, `incident_updated`, `incident_status_changed`, `incident_stats`)
+* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models (`SecurityEventRecord`, `RiskAssessmentRecord`, `FirewallActionRecord`, `HostTelemetryRecord`, `IncidentRecord`, `IncidentEvidenceRecord`)
+* **SQLite** - Embedded database storage with automated time-based retention pruning (preserves active incidents)
 * **psutil** - Host system telemetry monitoring (CPU, RAM, disk, load average, host I/O rates) & process integrity observation
-* **pytest** - Automated test suite (127 tests)
+* **pytest** - Automated test suite (150 tests)
 
 ### Frontend
 * **React 18** - UI framework
@@ -58,14 +58,15 @@ NetSentinel/
 │       ├── ssh_detector.py     # OpenSSH auth failure & brute-force detector with sliding window
 │       ├── process_monitor.py  # psutil process integrity observer (suspicious paths, unlinked binaries)
 │       └── manager.py          # HostDetectionManager coordinator & asynchronous worker
+│   └── incident_manager.py # Incident Correlation & Investigation Layer (Phase 9)
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/  # Modular UI components (Header, DashboardCard, etc.)
-│   │   ├── pages/       # Dashboard view (HIDS card, Network Traffic, ML, Risk, Firewall, Telemetry, History)
-│   │   ├── services/    # REST API & Socket.IO client connections (Events, Host, History, Telemetry, Risk & Firewall)
+│   │   ├── pages/       # Dashboard view with Incident Workspace, Investigation Modal, HIDS, Network, ML, Risk, Firewall, Telemetry, History
+│   │   ├── services/    # REST API & Socket.IO client connections (Incidents, Events, Host, History, Telemetry, Risk & Firewall)
 │   │   ├── App.jsx      # Root application component with live state sync
-│   │   ├── App.css      # SOC dark theme styling with correlation callouts, resource gauges & history table
+│   │   ├── App.css      # SOC dark theme styling with incident tables, investigation drawer, and timeline flow
 │   │   └── main.jsx     # React entry point
 │   ├── index.html       # HTML entry point
 │   ├── package.json     # Node dependencies and scripts
@@ -74,22 +75,30 @@ NetSentinel/
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit and integration tests (101 tests)
+├── tests/               # Automated unit and integration tests (150 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
+│   ├── test_arp_parser.py # Binary ARP packet parser tests
+│   ├── test_arp_detector.py # Stateful ARP threat detection tests
+│   ├── test_icmp_detector.py # ICMP sweep detection tests
+│   ├── test_network_api.py # Advanced network REST endpoints & RiskEngine classification tests
 │   ├── test_capture.py  # Traffic metrics & capture lifecycle tests
 │   ├── test_detector.py # Rule detection, cooldown, state cleanup, and alerts tests
 │   ├── test_ml.py       # ML feature extraction, model lifecycle, baseline collection & anomaly detection tests
 │   ├── test_risk.py     # Composite risk scoring, repeat frequency, clamping & boundary tests
 │   ├── test_firewall.py # IP validation, safety safeguards, dedicated chain & expiration tests
 │   ├── test_database.py # Database persistence models, filtering, pagination, and retention cleanup tests
-│   ├── test_telemetry.py# Host telemetry sampling, rate delta math, and worker lifecycle tests
+│   ├── test_telemetry.py# Host telemetry sampling via psutil, rate math, and thread lifecycle tests
 │   ├── test_history_api.py # Historical REST APIs, summary aggregates, and pipeline persistence tests
-│   ├── test_risk_firewall_api.py # Risk and firewall REST APIs and Socket.IO tests
+│   ├── test_risk_firewall_api.py # Risk and firewall REST APIs, manual block/unblock validation, and Socket.IO tests
 │   ├── test_ssh_detector.py # SSHLogReader rotation/truncation & SSHDetector brute-force tests
 │   ├── test_process_monitor.py # ProcessMonitor baseline, suspicious paths & unlinked binary tests
 │   ├── test_host_correlation.py # Cross-domain network + host event correlation and boost tests
 │   ├── test_host_api.py # Host REST endpoints and end-to-end pipeline persistence tests
+│   ├── test_incidents_db.py # Incident models, evidence cascade, queries, stats & retention pruning tests
+│   ├── test_incident_correlator.py # Correlation rules, multi-vector boosts, monotonicity & memory bound tests
+│   ├── test_incident_workflow.py # Status workflow transitions, timeline builder & report summary tests
+│   ├── test_incident_api.py # Incident REST APIs, action shortcuts & Socket.IO tests
 │   └── test_socket.py   # Test Socket.IO connection and ping
 ├── requirements.txt     # Python backend dependencies
 ├── .gitignore           # Git ignore configurations
@@ -268,7 +277,18 @@ sudo iptables -X NETSENTINEL
 * `GET /api/firewall/status`: Firewall operational mode, chain, and configuration.
 * `GET /api/firewall/blocked`: List of actively blocked IPs with reasons and expiration timestamps.
 * `POST /api/firewall/block`: Manually block an IP (`{"ip": "...", "reason": "...", "duration": 300}`).
+* `POST /api/firewall/block`: Manually block an IP (`{"ip": "...", "reason": "...", "duration": 300}`).
 * `POST /api/firewall/unblock`: Manually unblock an IP (`{"ip": "..."}`).
+* `GET /api/incidents`: Retrieve paginated and filtered security incidents (`limit`, `offset`, `status`, `severity`, `source_ip`, `correlation_key`, `since`, `until`).
+* `GET /api/incidents/<id>`: Retrieve comprehensive incident detail with correlated evidence items.
+* `GET /api/incidents/<id>/timeline`: Unified chronological timeline of all events, assessments, mitigations, and milestones.
+* `GET /api/incidents/<id>/summary`: SOC-ready executive report summary with ISO timestamps, duration, and mitigations.
+* `GET /api/incidents/stats`: High-level incident metrics (open/resolved counts, severity breakdown, top incident sources).
+* `POST /api/incidents/<id>/status`: Generic workflow transition endpoint (`{"status": "...", "analyst_note": "...", "resolution": "..."}`).
+* `POST /api/incidents/<id>/acknowledge`: Operator shortcut to acknowledge an incident.
+* `POST /api/incidents/<id>/resolve`: Operator shortcut to mark an incident resolved with resolution details.
+* `POST /api/incidents/<id>/close`: Operator shortcut to close an incident.
+* `POST /api/incidents/<id>/reopen`: Operator shortcut to reopen a resolved or closed incident.
 
 ### Socket.IO Real-Time Streams
 * `traffic_metrics`: Periodic traffic rate and protocol volume.
@@ -281,10 +301,44 @@ sudo iptables -X NETSENTINEL
 * `firewall_action`: Real-time block and unblock audit events.
 * `host_telemetry`: Periodic host system resource telemetry (CPU, RAM, disk, load, rates).
 * `security_summary`: Instantaneous update of aggregate security metrics.
+* `incident_created`: Real-time notification when a new correlated security incident is opened.
+* `incident_updated`: Live update when additional alerts, assessments, or firewall mitigations join an active incident.
+* `incident_status_changed`: Notification when an operator transitions an incident's lifecycle status.
+* `incident_stats`: High-level incident counts and severity distribution.
 
 ---
 
-## 10. Environment Setup & Execution
+## 10. Incident Correlation & Investigation Layer (Phase 9)
+
+NetSentinel's **Incident Correlation and Investigation Layer** transforms isolated, low-level detections into unified, contextual security incidents:
+
+1. **Correlation Key Mapping**:
+   * **Network Threats & External Reconnaissance**: Detections with a valid source IP (`PORT_SCAN`, `SYN_FLOOD`, `NULL_SCAN`, `XMAS_SCAN`, `ICMP_SWEEP`, `SSH_BRUTE_FORCE`, `ARP_SPOOFING`) are correlated by attacker IP (`ip:<source_ip>`).
+   * **Host-Internal Integrity Events**: Non-source host events such as `SUSPICIOUS_PROCESS` are explicitly mapped to the host identity (`host:<hostname>`), preventing artificial correlation with `127.0.0.1` or network attackers.
+
+2. **Temporal Correlation Window**:
+   * A bounded sliding window (`NETSENTINEL_INCIDENT_WINDOW`, default 300.0s) groups related detections, risk assessments, and firewall mitigation actions together. Subsequent alerts within the window update the existing incident; traffic arriving after expiration opens a fresh incident.
+
+3. **Deterministic & Monotonic Risk Aggregation**:
+   * Base risk score adopts the maximum severity score among correlated events:
+     $$\text{base\_score} = \max(\text{existing\_score}, \text{new\_event\_risk\_score})$$
+   * **Cross-Domain Boost**: If an attacker probes network services AND triggers host authentication failures, a +0.10 boost is applied.
+   * **Multi-Vector Boost**: If multiple distinct detection types occur (e.g. Port Scan + SYN Flood), a +0.05 boost is applied.
+   * Total boost is capped at +0.20, and final score is clamped to $[0.0, 1.0]$.
+   * **Monotonic Severity**: An active incident's severity is monotonic and will never downgrade below `CRITICAL` due to lower-severity follow-on events.
+
+4. **Objective, Explainable Context**:
+   * Generated titles and summaries are strictly factual (e.g., `"Correlated Cross-Domain Activity from 192.168.1.50"`, `"Multi-Vector Activity from 192.168.1.50 (Port Scan, SYN Flood)"`), avoiding speculative threat-actor or APT labels.
+   * `correlation_reason` provides transparent audit justifications for operators and viva presentation.
+
+5. **Operator Status Workflow & Deep Investigation**:
+   * Supports standard SOC lifecycle states: `OPEN` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `RESOLVED` $\rightarrow$ `CLOSED` with operator notes, resolution rationales, and reopen capabilities.
+   * `build_incident_timeline` compiles a unified chronological flow of milestones, detections, and firewall mitigations.
+   * React SOC Dashboard features an interactive incidents table, severity/status filters, and a full-featured Investigation Workspace Modal with visual timelines and operator action buttons.
+
+---
+
+## 11. Environment Setup & Execution
 
 ### Prerequisites
 * Linux operating system (kernel supporting `AF_PACKET` and `iptables`)
@@ -332,9 +386,9 @@ sudo iptables -X NETSENTINEL
 
 ---
 
-## 11. Automated Testing
+## 12. Automated Testing
 
-All 127 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
+All 150 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
 ```bash
 pytest -v tests/
 ```
@@ -343,7 +397,7 @@ Test coverage:
 * `tests/test_parser.py`: Binary frame parsing across Ethernet, IPv4, IPv6, TCP, UDP, ICMP.
 * `tests/test_arp_parser.py`: Binary ARP frame parsing (RFC 826 request/reply, gratuitous ARP, truncated frames, invalid hardware/protocol sizes).
 * `tests/test_arp_detector.py`: Baseline establishment, repeat claims, ARP spoofing detection, alert cooldowns, static trusted bindings, state timeout expiration, and identity conflict thresholds.
-* `tests/test_icmp_detector.py`: ICMP sweep detection, unique destination counting, duplicate probe deduplication, time window expiration, alert cooldown, and edge-case filtering (broadcast, multicast, loopback, link-local).
+* `tests/test_icmp_detector.py`: ICMP sweep detection, unique destination counting, duplicate probe deduplication, time window expiration, alert cooldown, and edge-case filtering.
 * `tests/test_network_api.py`: Advanced network REST endpoints (`/api/network/status`, `/api/network/arp`), pipeline persistence, and RiskEngine domain classification.
 * `tests/test_capture.py`: Raw socket lifecycle, error handling, unprivileged fallbacks, and rolling metrics (including ARP frames).
 * `tests/test_detector.py`: Port scan, SYN flood, NULL scan, XMAS scan, window expiration, alert cooldowns, and memory bounds.
@@ -358,11 +412,16 @@ Test coverage:
 * `tests/test_process_monitor.py`: Process baseline initialization, temporary execution path detection, unlinked binary detection, exception handling, and non-destructive observation.
 * `tests/test_host_correlation.py`: Cross-domain network and host correlation, score boost calculation, window expiration, and explainable reason formulation.
 * `tests/test_host_api.py`: HIDS REST endpoints (`/api/host/status`, `/api/host/events`), and end-to-end pipeline persistence.
+* `tests/test_incidents_db.py`: Incident & evidence models, cascading deletion, filtering, pagination, incident statistics, and selective retention cleanup (protecting active incidents).
+* `tests/test_incident_correlator.py`: Correlation key resolution, time window expiration, cross-domain boost (+0.10), multi-vector boost (+0.05), monotonic severity clamping, host process identity isolation, firewall action correlation, and bounded memory eviction.
+* `tests/test_incident_workflow.py`: Status transitions (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), invalid transition rejection, reopening, chronological timeline generation, and SOC executive report generation.
+* `tests/test_incident_api.py`: Incident REST endpoints (`/api/incidents/*`, `/api/incidents/stats`, `/api/incidents/<id>/timeline`, `/api/incidents/<id>/summary`), action shortcuts, and Socket.IO live emissions.
 * `tests/test_health.py` & `tests/test_socket.py`: Health endpoint and WebSocket connection tests.
 
 ---
 
-## 12. Current Scope Limitations & Future Roadmap
+## 13. Current Scope Limitations & Future Roadmap
 
-* **Phase 9 - Attack Simulation, Live Validation, and Hardening**: Live automated testing scripts, multi-vector attack simulations, end-to-end detection and mitigation verification, and system hardening.
+* **Phase 10 - Attack Simulation, Live Validation, and Hardening**: Live automated testing scripts, multi-vector attack simulations, end-to-end detection and mitigation verification, and system hardening.
+
 

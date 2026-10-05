@@ -217,3 +217,17 @@ class Config:
     ARP_STATE_TIMEOUT = ARP_DETECTION_SETTINGS["arp_state_timeout"]
     ARP_CONFLICT_THRESHOLD = ARP_DETECTION_SETTINGS["arp_conflict_threshold"]
 
+    # Incident Correlation & Investigation Settings (Phase 9)
+    INCIDENT_SETTINGS = {
+        "incident_window_sec": float(os.environ.get("NETSENTINEL_INCIDENT_WINDOW", "300.0")),
+        "max_active_incidents": int(os.environ.get("NETSENTINEL_MAX_ACTIVE_INCIDENTS", "1000")),
+        "cross_domain_boost": float(os.environ.get("NETSENTINEL_INCIDENT_CROSS_DOMAIN_BOOST", "0.10")),
+        "multi_vector_boost": float(os.environ.get("NETSENTINEL_INCIDENT_MULTI_VECTOR_BOOST", "0.05")),
+        "max_incident_boost": float(os.environ.get("NETSENTINEL_MAX_INCIDENT_BOOST", "0.20")),
+        "auto_resolve_sec": float(os.environ.get("NETSENTINEL_INCIDENT_AUTO_RESOLVE_SEC", "86400.0")),
+    }
+
+    INCIDENT_WINDOW_SECONDS = INCIDENT_SETTINGS["incident_window_sec"]
+    MAX_ACTIVE_INCIDENTS = INCIDENT_SETTINGS["max_active_incidents"]
+
+

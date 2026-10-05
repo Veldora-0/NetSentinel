@@ -19,10 +19,22 @@ import {
   History,
   Filter,
   Terminal,
-  Radio
+  Radio,
+  AlertOctagon,
+  Layers,
+  FileText,
+  CheckCircle2,
+  X,
+  ExternalLink,
+  Search
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
+import {
+  fetchIncidentDetail,
+  fetchIncidentTimeline,
+  fetchIncidentSummary,
+} from '../services/api';
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -53,6 +65,16 @@ function getRiskBadgeClass(level) {
   }
 }
 
+function getIncidentStatusBadgeClass(status) {
+  switch ((status || '').toUpperCase()) {
+    case 'OPEN': return 'badge-status-open';
+    case 'ACKNOWLEDGED': return 'badge-status-acknowledged';
+    case 'RESOLVED': return 'badge-status-resolved';
+    case 'CLOSED': return 'badge-status-closed';
+    default: return 'badge-status-open';
+  }
+}
+
 export function Dashboard({ 
   apiStatus, 
   socketConnected, 
@@ -74,6 +96,13 @@ export function Dashboard({
   hostStatus = null,
   networkStatus = null,
   arpMappings = [],
+  incidents = [],
+  incidentStats = null,
+  onRefreshIncidents = null,
+  onAcknowledgeIncident = null,
+  onResolveIncident = null,
+  onCloseIncident = null,
+  onReopenIncident = null,
 }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
@@ -99,6 +128,87 @@ export function Dashboard({
     if (historySearchIP.trim() && !(ev.source_ip || 'local').toLowerCase().includes(historySearchIP.trim().toLowerCase())) return false;
     return true;
   });
+
+  // Phase 9: Incident Filters and Investigation State
+  const [incidentStatusFilter, setIncidentStatusFilter] = useState('ALL');
+  const [incidentSeverityFilter, setIncidentSeverityFilter] = useState('ALL');
+  const [incidentSearchQuery, setIncidentSearchQuery] = useState('');
+
+  // Investigation Modal / Drawer State
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
+  const [incidentDetail, setIncidentDetail] = useState(null);
+  const [incidentTimeline, setIncidentTimeline] = useState([]);
+  const [incidentSummaryReport, setIncidentSummaryReport] = useState(null);
+  const [modalTab, setModalTab] = useState('timeline');
+  const [analystNoteInput, setAnalystNoteInput] = useState('');
+  const [resolutionInput, setResolutionInput] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Filter incidents for table display
+  const displayedIncidents = incidents.filter((inc) => {
+    if (incidentStatusFilter !== 'ALL' && inc.status !== incidentStatusFilter) return false;
+    if (incidentSeverityFilter !== 'ALL' && inc.severity !== incidentSeverityFilter) return false;
+    if (incidentSearchQuery.trim()) {
+      const q = incidentSearchQuery.trim().toLowerCase();
+      const matchIP = (inc.primary_source_ip || '').toLowerCase().includes(q);
+      const matchKey = (inc.correlation_key || '').toLowerCase().includes(q);
+      const matchTitle = (inc.title || '').toLowerCase().includes(q);
+      const matchId = (inc.incident_id || '').toLowerCase().includes(q);
+      if (!matchIP && !matchKey && !matchTitle && !matchId) return false;
+    }
+    return true;
+  });
+
+  const handleOpenInvestigate = async (incId) => {
+    setSelectedIncidentId(incId);
+    setIncidentDetail(null);
+    setIncidentTimeline([]);
+    setIncidentSummaryReport(null);
+    setAnalystNoteInput('');
+    setResolutionInput('');
+    setModalTab('timeline');
+
+    try {
+      const [detail, timeline, summary] = await Promise.all([
+        fetchIncidentDetail(incId),
+        fetchIncidentTimeline(incId),
+        fetchIncidentSummary(incId),
+      ]);
+      if (detail) setIncidentDetail(detail);
+      if (timeline) setIncidentTimeline(timeline);
+      if (summary) setIncidentSummaryReport(summary);
+    } catch (err) {
+      console.error('Error fetching incident investigation data:', err);
+    }
+  };
+
+  const handleAction = async (type) => {
+    if (!selectedIncidentId) return;
+    setActionLoading(true);
+    try {
+      if (type === 'acknowledge' && onAcknowledgeIncident) {
+        await onAcknowledgeIncident(selectedIncidentId, analystNoteInput || 'Acknowledged by operator');
+      } else if (type === 'resolve' && onResolveIncident) {
+        await onResolveIncident(selectedIncidentId, resolutionInput || 'Resolved by operator', analystNoteInput);
+      } else if (type === 'close' && onCloseIncident) {
+        await onCloseIncident(selectedIncidentId, resolutionInput || 'Closed by operator', analystNoteInput);
+      } else if (type === 'reopen' && onReopenIncident) {
+        await onReopenIncident(selectedIncidentId, analystNoteInput || 'Reopened by operator');
+      }
+      const [detail, timeline, summary] = await Promise.all([
+        fetchIncidentDetail(selectedIncidentId),
+        fetchIncidentTimeline(selectedIncidentId),
+        fetchIncidentSummary(selectedIncidentId),
+      ]);
+      if (detail) setIncidentDetail(detail);
+      if (timeline) setIncidentTimeline(timeline);
+      if (summary) setIncidentSummaryReport(summary);
+    } catch (err) {
+      console.error('Error performing incident action:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="dashboard-container">
@@ -897,7 +1007,486 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 9. Security History & Activity Log (Phase 6) */}
+        {/* Phase 9: Incident Correlation & Investigation Section */}
+        <div className="incident-section">
+          <DashboardCard title={`Security Incidents & Investigation Workspace (${displayedIncidents.length} of ${incidents.length})`} icon={AlertOctagon}>
+            <div className="telemetry-card-container">
+              {/* Incident High-Level KPIs */}
+              <div className="incident-kpis-grid">
+                <div className="incident-kpi-card">
+                  <span className="incident-kpi-label">Total Incidents</span>
+                  <span className="incident-kpi-value">{incidentStats?.total_incidents ?? incidents.length}</span>
+                </div>
+                <div className="incident-kpi-card">
+                  <span className="incident-kpi-label">Open / Active</span>
+                  <span className="incident-kpi-value open">{incidentStats?.open ?? incidents.filter(i => i.status === 'OPEN').length}</span>
+                </div>
+                <div className="incident-kpi-card">
+                  <span className="incident-kpi-label">Acknowledged</span>
+                  <span className="incident-kpi-value" style={{ color: '#fbbf24' }}>
+                    {incidentStats?.acknowledged ?? incidents.filter(i => i.status === 'ACKNOWLEDGED').length}
+                  </span>
+                </div>
+                <div className="incident-kpi-card">
+                  <span className="incident-kpi-label">Critical Severity</span>
+                  <span className="incident-kpi-value critical">
+                    {incidentStats?.severities?.CRITICAL ?? incidents.filter(i => i.severity === 'CRITICAL').length}
+                  </span>
+                </div>
+                <div className="incident-kpi-card">
+                  <span className="incident-kpi-label">Resolved / Closed</span>
+                  <span className="incident-kpi-value resolved">
+                    {((incidentStats?.resolved ?? 0) + (incidentStats?.closed ?? 0)) || incidents.filter(i => i.status === 'RESOLVED' || i.status === 'CLOSED').length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Toolbar & Filters */}
+              <div className="incident-toolbar">
+                <div className="incident-filters">
+                  <Filter size={14} color="#64748b" />
+                  <select
+                    className="history-filter-select"
+                    value={incidentStatusFilter}
+                    onChange={(e) => setIncidentStatusFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="OPEN">Open</option>
+                    <option value="ACKNOWLEDGED">Acknowledged</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+
+                  <select
+                    className="history-filter-select"
+                    value={incidentSeverityFilter}
+                    onChange={(e) => setIncidentSeverityFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+
+                  <div className="incident-search-box">
+                    <Search size={13} color="#64748b" />
+                    <input
+                      type="text"
+                      className="incident-search-input"
+                      placeholder="Search IP, Host, or ID..."
+                      value={incidentSearchQuery}
+                      onChange={(e) => setIncidentSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {onRefreshIncidents && (
+                  <button
+                    className="btn-refresh"
+                    onClick={() => onRefreshIncidents()}
+                    title="Refresh Correlated Incidents"
+                  >
+                    <RotateCcw size={13} />
+                    Refresh Incidents
+                  </button>
+                )}
+              </div>
+
+              {/* Incidents Table */}
+              <div className="history-table-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Incident ID</th>
+                      <th>Title & Threat Vectors</th>
+                      <th>Attacker / Target</th>
+                      <th>Severity</th>
+                      <th>Risk Score</th>
+                      <th>Status</th>
+                      <th>Events / FW</th>
+                      <th>Last Seen</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedIncidents.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="history-empty-row">
+                          No correlated incidents matching current criteria
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedIncidents.map((inc) => (
+                        <tr key={inc.incident_id}>
+                          <td style={{ fontFamily: 'monospace', color: '#94a3b8', fontSize: '0.7rem' }}>
+                            {inc.incident_id}
+                          </td>
+                          <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.75rem' }}>
+                              {inc.title}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                              {(inc.detection_types || []).map((dt) => (
+                                <span key={dt} className="badge badge-rule" style={{ fontSize: '0.6rem', padding: '0.1rem 0.35rem' }}>
+                                  {dt}
+                                </span>
+                              ))}
+                              {(inc.attack_domains || []).map((dom) => (
+                                <span key={dom} style={{ fontSize: '0.6rem', padding: '0.1rem 0.35rem', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderRadius: '3px' }}>
+                                  {dom}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', color: '#38bdf8', fontWeight: 600 }}>
+                            {inc.primary_source_ip || inc.correlation_key}
+                          </td>
+                          <td>
+                            <span className={getRiskBadgeClass(inc.severity)} style={{ fontSize: '0.65rem' }}>
+                              {inc.severity}
+                            </span>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 600, color: inc.risk_score >= 0.8 ? '#f43f5e' : inc.risk_score >= 0.6 ? '#f97316' : '#38bdf8' }}>
+                            {(inc.risk_score ?? 0).toFixed(2)}
+                          </td>
+                          <td>
+                            <span className={getIncidentStatusBadgeClass(inc.status)}>
+                              {inc.status}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                            {inc.event_count} ev / {inc.firewall_action_count} fw
+                          </td>
+                          <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
+                            {formatFullTime(inc.last_seen)}
+                          </td>
+                          <td>
+                            <button
+                              className="btn-investigate"
+                              onClick={() => handleOpenInvestigate(inc.incident_id)}
+                              title="Investigate Incident"
+                            >
+                              <Layers size={12} />
+                              Investigate
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </DashboardCard>
+        </div>
+
+        {/* Phase 9: Deep Investigation Modal / Drawer */}
+        {selectedIncidentId && (
+          <div className="investigation-backdrop" onClick={() => setSelectedIncidentId(null)}>
+            <div className="investigation-modal" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="investigation-modal-header">
+                <div className="modal-header-info">
+                  <div className="modal-title-row">
+                    <span className="modal-title">
+                      {incidentDetail?.title || `Incident ${selectedIncidentId}`}
+                    </span>
+                    {incidentDetail && (
+                      <>
+                        <span className={getIncidentStatusBadgeClass(incidentDetail.status)}>
+                          {incidentDetail.status}
+                        </span>
+                        <span className={getRiskBadgeClass(incidentDetail.severity)}>
+                          {incidentDetail.severity}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="modal-subtitle">
+                    ID: {selectedIncidentId} | Target: {incidentDetail?.primary_source_ip || incidentDetail?.correlation_key || 'Unknown'} | Risk Score: {(incidentDetail?.risk_score ?? 0).toFixed(2)}
+                  </div>
+                </div>
+                <button
+                  className="modal-close-btn"
+                  onClick={() => setSelectedIncidentId(null)}
+                  title="Close Investigation Modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Correlation Reason Callout */}
+              {incidentDetail?.correlation_reason && (
+                <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.6rem 0.85rem', backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', fontSize: '0.75rem', color: '#bae6fd', lineHeight: 1.4 }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.2rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <AlertCircle size={14} /> Correlation Explanation
+                  </div>
+                  {incidentDetail.correlation_reason}
+                </div>
+              )}
+
+              {/* Tabs Navigation */}
+              <div className="investigation-tabs-nav">
+                <button
+                  className={`investigation-tab-btn ${modalTab === 'timeline' ? 'active' : ''}`}
+                  onClick={() => setModalTab('timeline')}
+                >
+                  <Clock size={14} /> Unified Timeline ({incidentTimeline.length})
+                </button>
+                <button
+                  className={`investigation-tab-btn ${modalTab === 'context' ? 'active' : ''}`}
+                  onClick={() => setModalTab('context')}
+                >
+                  <Layers size={14} /> Attack Context & Vectors
+                </button>
+                <button
+                  className={`investigation-tab-btn ${modalTab === 'evidence' ? 'active' : ''}`}
+                  onClick={() => setModalTab('evidence')}
+                >
+                  <FileText size={14} /> Evidence Artifacts ({incidentDetail?.evidence?.length ?? 0})
+                </button>
+                <button
+                  className={`investigation-tab-btn ${modalTab === 'report' ? 'active' : ''}`}
+                  onClick={() => setModalTab('report')}
+                >
+                  <CheckCircle2 size={14} /> SOC Report Summary
+                </button>
+              </div>
+
+              {/* Tab Contents */}
+              <div className="investigation-modal-body">
+                {modalTab === 'timeline' && (
+                  <div className="timeline-container">
+                    {incidentTimeline.length === 0 ? (
+                      <div style={{ color: '#94a3b8', fontSize: '0.8rem', padding: '1rem', textAlign: 'center' }}>
+                        Loading timeline events...
+                      </div>
+                    ) : (
+                      incidentTimeline.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className={`timeline-item ${item.type === 'MILESTONE' ? 'milestone' : item.type === 'FIREWALL_ACTION' ? 'firewall' : ''}`}
+                        >
+                          <div className="timeline-top-row">
+                            <span className="timeline-title">{item.title}</span>
+                            <span className="timeline-time">{formatFullTime(item.timestamp)}</span>
+                          </div>
+                          <div className="timeline-desc">{item.description}</div>
+                          {item.metadata && Object.keys(item.metadata).length > 0 && (
+                            <pre className="evidence-meta-pre">
+                              {JSON.stringify(item.metadata, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {modalTab === 'context' && incidentDetail && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.8rem' }}>
+                    <div className="host-section-block">
+                      <div className="host-block-title">Attacker & Target Identification</div>
+                      <div className="host-stat-row">
+                        <span>Correlation Key:</span>
+                        <span className="host-stat-val">{incidentDetail.correlation_key}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Primary Source IP:</span>
+                        <span className="host-stat-val">{incidentDetail.primary_source_ip || 'None (Host-Internal Identity)'}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Attack Domains:</span>
+                        <span className="host-stat-val">{(incidentDetail.attack_domains || []).join(', ') || 'network'}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Detection Vectors:</span>
+                        <span className="host-stat-val">{(incidentDetail.detection_types || []).join(', ')}</span>
+                      </div>
+                    </div>
+
+                    <div className="host-section-block">
+                      <div className="host-block-title">Deterministic Risk Profile</div>
+                      <div className="host-stat-row">
+                        <span>Risk Score:</span>
+                        <span className="host-stat-val">{(incidentDetail.risk_score ?? 0).toFixed(4)}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Calculated Severity:</span>
+                        <span className="host-stat-val">{incidentDetail.severity}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Correlated Alert Count:</span>
+                        <span className="host-stat-val">{incidentDetail.event_count}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Mitigation Action Count:</span>
+                        <span className="host-stat-val">{incidentDetail.firewall_action_count}</span>
+                      </div>
+                    </div>
+
+                    {incidentDetail.analyst_note && (
+                      <div className="host-section-block">
+                        <div className="host-block-title">Analyst Notes</div>
+                        <div style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>{incidentDetail.analyst_note}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {modalTab === 'evidence' && (
+                  <div className="history-table-container">
+                    <table className="history-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Evidence Type</th>
+                          <th>Detection / Action</th>
+                          <th>Severity</th>
+                          <th>Summary</th>
+                          <th>Reference ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(incidentDetail?.evidence || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="history-empty-row">No evidence items attached.</td>
+                          </tr>
+                        ) : (
+                          (incidentDetail?.evidence || []).map((e) => (
+                            <tr key={e.evidence_id}>
+                              <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{formatFullTime(e.timestamp)}</td>
+                              <td><span className="badge badge-rule">{e.evidence_type}</span></td>
+                              <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{e.detection_type || e.metadata?.action || '-'}</td>
+                              <td>
+                                {e.severity ? (
+                                  <span className={getRiskBadgeClass(e.severity)} style={{ fontSize: '0.65rem' }}>
+                                    {e.severity}
+                                  </span>
+                                ) : '-'}
+                              </td>
+                              <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.summary}</td>
+                              <td style={{ fontFamily: 'monospace', color: '#64748b', fontSize: '0.65rem' }}>{e.reference_id}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {modalTab === 'report' && incidentSummaryReport && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.8rem' }}>
+                    <div className="host-section-block">
+                      <div className="host-block-title">Executive Incident Summary</div>
+                      <div className="host-stat-row">
+                        <span>First Seen (UTC):</span>
+                        <span className="host-stat-val">{incidentSummaryReport.first_seen_iso || '-'}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Last Seen (UTC):</span>
+                        <span className="host-stat-val">{incidentSummaryReport.last_seen_iso || '-'}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Attack Duration:</span>
+                        <span className="host-stat-val">{incidentSummaryReport.duration_seconds} seconds</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Attack Vectors:</span>
+                        <span className="host-stat-val">{(incidentSummaryReport.attack_vectors || []).join(', ')}</span>
+                      </div>
+                      <div className="host-stat-row">
+                        <span>Mitigations Applied:</span>
+                        <span className="host-stat-val">{(incidentSummaryReport.mitigations_applied || []).length} action(s)</span>
+                      </div>
+                    </div>
+
+                    {(incidentSummaryReport.mitigations_applied || []).length > 0 && (
+                      <div className="host-section-block">
+                        <div className="host-block-title">Mitigations Applied</div>
+                        {incidentSummaryReport.mitigations_applied.map((m, idx) => (
+                          <div key={idx} className="host-stat-row" style={{ padding: '0.2rem 0' }}>
+                            <span style={{ color: '#f43f5e', fontWeight: 600 }}>{(m.action || 'action').toUpperCase()}</span>
+                            <span>{m.summary} ({formatFullTime(m.timestamp)})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Operator Action Controls */}
+              <div className="investigation-actions-panel">
+                <div className="action-inputs-row">
+                  <input
+                    type="text"
+                    className="action-text-input"
+                    placeholder="Add analyst investigation note..."
+                    value={analystNoteInput}
+                    onChange={(e) => setAnalystNoteInput(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="action-text-input"
+                    placeholder="Resolution summary (e.g. Block applied, harmless scan dismissed)..."
+                    value={resolutionInput}
+                    onChange={(e) => setResolutionInput(e.target.value)}
+                  />
+                </div>
+
+                <div className="action-buttons-row">
+                  {incidentDetail?.status === 'OPEN' && (
+                    <button
+                      className="btn-action-ack"
+                      disabled={actionLoading}
+                      onClick={() => handleAction('acknowledge')}
+                    >
+                      Acknowledge Incident
+                    </button>
+                  )}
+
+                  {incidentDetail?.status !== 'RESOLVED' && incidentDetail?.status !== 'CLOSED' && (
+                    <button
+                      className="btn-action-resolve"
+                      disabled={actionLoading}
+                      onClick={() => handleAction('resolve')}
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
+
+                  {incidentDetail?.status !== 'CLOSED' && (
+                    <button
+                      className="btn-action-close"
+                      disabled={actionLoading}
+                      onClick={() => handleAction('close')}
+                    >
+                      Close Incident
+                    </button>
+                  )}
+
+                  {(incidentDetail?.status === 'RESOLVED' || incidentDetail?.status === 'CLOSED') && (
+                    <button
+                      className="btn-action-reopen"
+                      disabled={actionLoading}
+                      onClick={() => handleAction('reopen')}
+                    >
+                      Reopen Incident
+                    </button>
+                  )}
+
+                  <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8' }}>
+                    Status: <strong style={{ color: '#f8fafc' }}>{incidentDetail?.status}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 10. Security History & Activity Log (Phase 6) */}
         <div className="history-section">
           <DashboardCard title={`Security Event History (${displayedHistory.length} of ${historicalEvents.length})`} icon={History}>
             <div className="telemetry-card-container">

@@ -20,6 +20,11 @@ from database import (
     save_assessment_record,
     save_security_event_record,
     save_firewall_action_record,
+    save_incident_record,
+    save_incident_evidence_record,
+    get_incident_by_id,
+    query_incidents,
+    query_incident_stats,
     query_security_events,
     query_risk_history,
     query_security_summary,
@@ -34,6 +39,7 @@ from firewall import FirewallManager
 from telemetry import TelemetryWorker
 from host import HostDetectionManager
 from arp_detector import ARPDetector
+from incident_manager import IncidentManager
 
 # Global server components
 packet_capture: PacketCapture = None
@@ -44,12 +50,14 @@ firewall: FirewallManager = None
 telemetry_worker: TelemetryWorker = None
 host_manager: HostDetectionManager = None
 arp_detector: ARPDetector = None
+incident_manager: IncidentManager = None
 metrics_thread: threading.Thread = None
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, metrics_thread
+    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, incident_manager, metrics_thread
+
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -94,6 +102,15 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # 7. Initialize Advanced ARP Threat Detector (Phase 8)
     arp_detector = ARPDetector(config=app.config.get("ARP_DETECTION_SETTINGS"))
     app.arp_detector = arp_detector
+
+    # 8. Initialize Incident Manager (Phase 9)
+    incident_manager = IncidentManager(
+        config=app.config.get("INCIDENT_SETTINGS"),
+        on_incident_created=lambda inc: socketio.emit("incident_created", inc),
+        on_incident_updated=lambda inc: socketio.emit("incident_updated", inc),
+        on_incident_status_changed=lambda data: socketio.emit("incident_status_changed", data),
+    )
+    app.incident_manager = incident_manager
 
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
@@ -158,6 +175,14 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                             "reason": block_res.get("message"),
                         })
 
+                        incident_manager.correlate_firewall_action(
+                            action="block",
+                            source_ip=event.source_ip,
+                            reason=block_res.get("message", "Auto Block"),
+                            duration=firewall.block_duration,
+                            timestamp=time.time(),
+                        )
+
                 # Persist assessment record to database
                 save_assessment_record(
                     assessment,
@@ -168,8 +193,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 # Emit real-time risk assessment over Socket.IO
                 socketio.emit("risk_assessment", assessment.to_dict())
 
+                # Phase 9: Correlate into Incident
+                incident_manager.correlate_security_event(event, risk_assessment=assessment)
+
         except Exception as ex:
-            app.logger.debug("Error in risk assessment pipeline: %s", ex)
+            app.logger.debug("Error in risk assessment/incident pipeline: %s", ex)
 
     detector.add_event_callback(_on_security_event)
 
@@ -183,8 +211,10 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         try:
             with app.app_context():
                 save_security_event_record(event)
+                incident_manager.correlate_security_event(event)
         except Exception as ex:
             app.logger.debug("Error persisting ML anomaly: %s", ex)
+
 
     ml_detector.add_anomaly_callback(_on_ml_anomaly)
 
@@ -489,6 +519,14 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 "expires_at": result.get("expires_at"),
                 "reason": reason,
             })
+
+            incident_manager.correlate_firewall_action(
+                action="block",
+                source_ip=ip,
+                reason=f"Operator Manual Block: {reason}",
+                duration=duration,
+                timestamp=time.time(),
+            )
             return jsonify({"status": "ok", "result": result}), 200
         else:
             return jsonify({"status": "error", "result": result}), 400
@@ -522,9 +560,166 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 "expires_at": None,
                 "reason": "Operator Manual Unblock",
             })
+
+            incident_manager.correlate_firewall_action(
+                action="unblock",
+                source_ip=ip,
+                reason="Operator Manual Unblock",
+                timestamp=time.time(),
+            )
             return jsonify({"status": "ok", "result": result}), 200
         else:
             return jsonify({"status": "error", "result": result}), 400
+
+    # ==========================================================================
+    # Incident Correlation & Investigation Endpoints (Phase 9)
+    # ==========================================================================
+    @app.route("/api/incidents", methods=["GET"])
+    def get_incidents():
+        """Retrieve paginated and filtered security incidents."""
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        since = request.args.get("since", None, type=float)
+        until = request.args.get("until", None, type=float)
+        status = request.args.get("status", None, type=str)
+        severity = request.args.get("severity", None, type=str)
+        source_ip = request.args.get("source_ip", None, type=str) or request.args.get("primary_source_ip", None, type=str)
+        correlation_key = request.args.get("correlation_key", None, type=str)
+
+        result = query_incidents(
+            limit=limit,
+            offset=offset,
+            since=since,
+            until=until,
+            status=status,
+            severity=severity,
+            primary_source_ip=source_ip,
+            correlation_key=correlation_key,
+        )
+        return jsonify({"status": "ok", **result}), 200
+
+    @app.route("/api/incidents/stats", methods=["GET"])
+    def get_incident_stats():
+        """Retrieve aggregated incident metrics (open/resolved counts, severity breakdown, top sources)."""
+        since = request.args.get("since", None, type=float)
+        stats = query_incident_stats(since_timestamp=since)
+        return jsonify({"status": "ok", "stats": stats}), 200
+
+    @app.route("/api/incidents/<incident_id>", methods=["GET"])
+    def get_incident_detail(incident_id: str):
+        """Retrieve comprehensive incident record including correlated evidence items."""
+        inc = incident_manager.get_incident(incident_id, include_evidence=True)
+        if not inc:
+            return jsonify({"status": "error", "message": f"Incident '{incident_id}' not found"}), 404
+        return jsonify({"status": "ok", "incident": inc}), 200
+
+    @app.route("/api/incidents/<incident_id>/timeline", methods=["GET"])
+    def get_incident_timeline(incident_id: str):
+        """Retrieve unified chronological timeline of all events and mitigation actions."""
+        inc = incident_manager.get_incident(incident_id, include_evidence=False)
+        if not inc:
+            return jsonify({"status": "error", "message": f"Incident '{incident_id}' not found"}), 404
+        timeline = incident_manager.build_incident_timeline(incident_id)
+        return jsonify({
+            "status": "ok",
+            "incident_id": incident_id,
+            "count": len(timeline),
+            "timeline": timeline,
+        }), 200
+
+    @app.route("/api/incidents/<incident_id>/summary", methods=["GET"])
+    def get_incident_summary_report(incident_id: str):
+        """Retrieve SOC-ready report summary for an incident."""
+        summary = incident_manager.get_incident_summary(incident_id)
+        if not summary:
+            return jsonify({"status": "error", "message": f"Incident '{incident_id}' not found"}), 404
+        return jsonify({"status": "ok", "summary": summary}), 200
+
+    @app.route("/api/incidents/<incident_id>/status", methods=["POST"])
+    def update_incident_status(incident_id: str):
+        """Update incident workflow status and optional analyst notes."""
+        data = request.get_json(silent=True) or {}
+        target_status = data.get("status")
+        if not target_status:
+            return jsonify({"status": "error", "message": "Missing 'status' field in request body"}), 400
+        analyst_note = data.get("analyst_note")
+        resolution = data.get("resolution")
+
+        success, msg, inc_data = incident_manager.transition_status(
+            incident_id=incident_id,
+            target_status=target_status,
+            analyst_note=analyst_note,
+            resolution=resolution,
+        )
+        if not success:
+            code = 404 if "not found" in msg.lower() else 400
+            return jsonify({"status": "error", "message": msg}), code
+
+        return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
+
+    @app.route("/api/incidents/<incident_id>/acknowledge", methods=["POST"])
+    def acknowledge_incident(incident_id: str):
+        """Operator shortcut to acknowledge an incident."""
+        data = request.get_json(silent=True) or {}
+        note = data.get("analyst_note", "Incident acknowledged by operator")
+        success, msg, inc_data = incident_manager.transition_status(
+            incident_id=incident_id,
+            target_status="ACKNOWLEDGED",
+            analyst_note=note,
+        )
+        if not success:
+            code = 404 if "not found" in msg.lower() else 400
+            return jsonify({"status": "error", "message": msg}), code
+        return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
+
+    @app.route("/api/incidents/<incident_id>/resolve", methods=["POST"])
+    def resolve_incident(incident_id: str):
+        """Operator shortcut to resolve an incident with resolution reason."""
+        data = request.get_json(silent=True) or {}
+        resolution = data.get("resolution", "Resolved by operator")
+        note = data.get("analyst_note")
+        success, msg, inc_data = incident_manager.transition_status(
+            incident_id=incident_id,
+            target_status="RESOLVED",
+            analyst_note=note,
+            resolution=resolution,
+        )
+        if not success:
+            code = 404 if "not found" in msg.lower() else 400
+            return jsonify({"status": "error", "message": msg}), code
+        return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
+
+    @app.route("/api/incidents/<incident_id>/close", methods=["POST"])
+    def close_incident(incident_id: str):
+        """Operator shortcut to close an incident."""
+        data = request.get_json(silent=True) or {}
+        resolution = data.get("resolution", "Closed by operator")
+        note = data.get("analyst_note")
+        success, msg, inc_data = incident_manager.transition_status(
+            incident_id=incident_id,
+            target_status="CLOSED",
+            analyst_note=note,
+            resolution=resolution,
+        )
+        if not success:
+            code = 404 if "not found" in msg.lower() else 400
+            return jsonify({"status": "error", "message": msg}), code
+        return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
+
+    @app.route("/api/incidents/<incident_id>/reopen", methods=["POST"])
+    def reopen_incident(incident_id: str):
+        """Operator shortcut to reopen a resolved or closed incident."""
+        data = request.get_json(silent=True) or {}
+        note = data.get("analyst_note", "Reopened by operator")
+        success, msg, inc_data = incident_manager.transition_status(
+            incident_id=incident_id,
+            target_status="OPEN",
+            analyst_note=note,
+        )
+        if not success:
+            code = 404 if "not found" in msg.lower() else 400
+            return jsonify({"status": "error", "message": msg}), code
+        return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
     # Socket.IO Event Handlers
     @socketio.on("connect")
@@ -534,6 +729,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "status": "connected",
             "message": "Connected to NetSentinel Socket.IO Server"
         })
+
         # Provide immediate initial snapshot to newly connected dashboard
         emit("traffic_metrics", packet_capture.get_metrics())
         emit("ml_status", ml_detector.get_status())
@@ -556,6 +752,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             })
         try:
             emit("security_summary", query_security_summary())
+            emit("incident_stats", query_incident_stats())
         except Exception:
             pass
 
