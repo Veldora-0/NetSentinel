@@ -67,3 +67,42 @@ export async function fetchSecurityAlerts(limit = 50) {
     return [];
   }
 }
+
+export async function fetchMLStatus() {
+  try {
+    const response = await fetch('/api/ml/status', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchMLMetrics() {
+  try {
+    const response = await fetch('/api/ml/metrics', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+

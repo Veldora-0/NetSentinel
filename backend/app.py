@@ -1,7 +1,7 @@
 """NetSentinel Flask Backend Application.
 
 Main entry point for the NetSentinel REST API, real-time Socket.IO connection server,
-packet capture lifecycle, rule-based intrusion detection, and live security event streaming.
+packet capture lifecycle, rule-based intrusion detection, and unsupervised ML anomaly detection.
 """
 
 import threading
@@ -16,16 +16,18 @@ from config import Config, resolve_network_interface
 from database import init_db
 from capture import PacketCapture
 from detector import TrafficDetector, SecurityEvent
+from ml.detector import MLAnomalyDetector, MLAnomalyEvent
 
 # Global server components
 packet_capture: PacketCapture = None
 detector: TrafficDetector = None
+ml_detector: MLAnomalyDetector = None
 metrics_thread: threading.Thread = None
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, detector, metrics_thread
+    global packet_capture, detector, ml_detector, metrics_thread
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -39,11 +41,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # Initialize Flask-SocketIO
     socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-    # Initialize Intrusion Detection Engine
+    # 1. Initialize Rule-Based Intrusion Detection Engine
     detector = TrafficDetector(config=app.config.get("DETECTOR_THRESHOLDS"))
     app.detector = detector
 
-    # Broadcast generated security events over Socket.IO
+    # Broadcast rule-based security events over Socket.IO
     def _on_security_event(event: SecurityEvent) -> None:
         try:
             socketio.emit("security_event", event.to_dict())
@@ -52,13 +54,27 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     detector.add_event_callback(_on_security_event)
 
-    # Resolve network interface & initialize PacketCapture
+    # 2. Initialize Machine Learning Anomaly Detector (Isolation Forest)
+    ml_detector = MLAnomalyDetector(config=app.config.get("ML_SETTINGS"))
+    app.ml_detector = ml_detector
+
+    # Broadcast ML anomaly events over Socket.IO
+    def _on_ml_anomaly(event: MLAnomalyEvent) -> None:
+        try:
+            socketio.emit("ml_anomaly", event.to_dict())
+        except Exception:
+            pass
+
+    ml_detector.add_anomaly_callback(_on_ml_anomaly)
+
+    # 3. Resolve network interface & initialize PacketCapture
     active_iface = resolve_network_interface(app.config.get("NETWORK_INTERFACE"))
     packet_capture = PacketCapture(interface=active_iface)
     app.packet_capture = packet_capture
 
-    # Connect detector as observer to packet capture stream
+    # Connect rule detector and ML detector as observers to the single raw packet stream
     packet_capture.add_packet_callback(detector.analyze_packet)
+    packet_capture.add_packet_callback(ml_detector.process_packet)
 
     # Register API Routes
     @app.route("/api/health", methods=["GET"])
@@ -85,6 +101,16 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "alerts": alerts,
         }), 200
 
+    @app.route("/api/ml/status", methods=["GET"])
+    def get_ml_status():
+        """REST endpoint to retrieve ML anomaly detection model status."""
+        return jsonify(ml_detector.get_status()), 200
+
+    @app.route("/api/ml/metrics", methods=["GET"])
+    def get_ml_metrics():
+        """REST endpoint to retrieve ML window history and recent anomalies."""
+        return jsonify(ml_detector.get_metrics()), 200
+
     # Socket.IO Event Handlers
     @socketio.on("connect")
     def handle_connect():
@@ -95,6 +121,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         })
         # Provide immediate initial snapshot to newly connected dashboard
         emit("traffic_metrics", packet_capture.get_metrics())
+        emit("ml_status", ml_detector.get_status())
 
     @socketio.on("disconnect")
     def handle_disconnect():
@@ -106,10 +133,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Handle optional client ping test."""
         emit("pong_client", {"response": "pong", "received": data})
 
-    # Start live capture and metrics emitter if requested and not in testing mode
+    # Start live capture, ML worker, and metrics emitter if requested and not in testing mode
     is_testing = app.config.get("TESTING", False)
     if start_capture and not is_testing:
         packet_capture.start()
+        ml_detector.start()
 
         def _metrics_emitter():
             interval = app.config.get("METRICS_EMIT_INTERVAL", 1.0)
@@ -140,3 +168,5 @@ if __name__ == "__main__":
     finally:
         if packet_capture:
             packet_capture.stop()
+        if ml_detector:
+            ml_detector.stop()

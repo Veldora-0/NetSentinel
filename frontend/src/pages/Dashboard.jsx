@@ -8,9 +8,10 @@ import {
   BarChart2,
   AlertCircle,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Brain
 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
 
 function formatBytes(bytes) {
@@ -27,7 +28,15 @@ function formatAlertTime(timestamp) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficHistory = [], alerts = [] }) {
+export function Dashboard({ 
+  apiStatus, 
+  socketConnected, 
+  trafficMetrics, 
+  trafficHistory = [], 
+  alerts = [],
+  mlStatus = null,
+  mlMetrics = { window_history: [], recent_anomalies: [] }
+}) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
 
@@ -218,14 +227,126 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
           )}
         </DashboardCard>
 
-        {/* 4. Blocked IPs */}
+        {/* 4. Anomaly Detection (Isolation Forest) */}
+        <DashboardCard title="Anomaly Detection (Isolation Forest)" icon={Brain}>
+          {!mlStatus ? (
+            <div className="placeholder-state">
+              <Brain size={36} className="placeholder-icon pulse" />
+              <p className="placeholder-text">Waiting for ML anomaly telemetry</p>
+            </div>
+          ) : (
+            <div className="ml-card-container">
+              {/* Header Status */}
+              <div className="ml-header-status">
+                <span className="detail-label">Model Status:</span>
+                <span className={`badge ${
+                  mlStatus.model_status === 'READY' ? 'badge-success' :
+                  mlStatus.model_status === 'COLLECTING_BASELINE' ? 'badge-info' :
+                  mlStatus.model_status === 'ERROR' ? 'badge-danger' : 'badge-neutral'
+                }`}>
+                  {mlStatus.model_status}
+                </span>
+              </div>
+
+              {/* Baseline Collection Progress */}
+              {mlStatus.model_status === 'COLLECTING_BASELINE' && (
+                <div className="ml-baseline-progress">
+                  <div className="progress-header">
+                    <span>Baseline Profile Collection</span>
+                    <span className="progress-percent">
+                      {mlStatus.baseline_samples_collected} / {mlStatus.baseline_target_samples}
+                    </span>
+                  </div>
+                  <div className="progress-track">
+                    <div 
+                      className="progress-bar-fill" 
+                      style={{ 
+                        width: `${Math.min(100, Math.round((mlStatus.baseline_samples_collected / Math.max(1, mlStatus.baseline_target_samples)) * 100))}%` 
+                      }}
+                    />
+                  </div>
+                  <span className="detail-value" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    Gathering normal traffic characteristics before enabling unsupervised outlier detection.
+                  </span>
+                </div>
+              )}
+
+              {/* Metric Box Grid */}
+              <div className="metrics-grid">
+                <div className="metric-box">
+                  <span className="metric-label">Latest Prediction</span>
+                  <span className={`metric-value ${mlStatus.latest_prediction === 'ANOMALY' ? 'score-badge-anomaly' : 'score-badge-normal'}`}>
+                    {mlStatus.latest_prediction}
+                  </span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Anomaly Score</span>
+                  <span className="metric-value">
+                    {typeof mlStatus.latest_anomaly_score === 'number' ? mlStatus.latest_anomaly_score.toFixed(4) : '0.0000'}
+                  </span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Anomalies Detected</span>
+                  <span className="metric-value">{mlStatus.total_anomalies_detected || 0}</span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Window Size</span>
+                  <span className="metric-value">{mlStatus.window_seconds ? `${mlStatus.window_seconds}s` : '5s'}</span>
+                </div>
+              </div>
+
+              {/* Score Trend Area Chart */}
+              {mlMetrics?.window_history && mlMetrics.window_history.length > 1 ? (
+                <div className="traffic-chart-wrapper">
+                  <div className="chart-header">
+                    <span className="chart-title">Window Anomaly Score Trend (Threshold = 0.5)</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={90}>
+                    <AreaChart 
+                      data={mlMetrics.window_history.map((w, i) => ({
+                        idx: i,
+                        score: w.anomaly_score,
+                      }))} 
+                      margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="idx" hide={true} />
+                      <YAxis stroke="#64748b" fontSize={10} domain={[0.0, 1.0]} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0b0f19', borderColor: '#1e293b', fontSize: '12px' }}
+                        labelStyle={{ color: '#94a3b8' }}
+                      />
+                      <ReferenceLine y={0.5} stroke="#ef4444" strokeDasharray="3 3" />
+                      <Area 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#8b5cf6" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#scoreGradient)" 
+                        isAnimationActive={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </DashboardCard>
+
+        {/* 5. Blocked IPs */}
         <DashboardCard title="Blocked IPs" icon={ShieldAlert}>
           <div className="placeholder-state">
             <p className="placeholder-text">No blocked IPs</p>
           </div>
         </DashboardCard>
 
-        {/* 5. System Resources */}
+        {/* 6. System Resources */}
         <DashboardCard title="System Resources" icon={Cpu}>
           <div className="placeholder-state">
             <Cpu size={36} className="placeholder-icon" />
@@ -233,9 +354,9 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
           </div>
         </DashboardCard>
 
-        {/* 6. Detection Statistics */}
+        {/* 7. Detection Statistics */}
         <DashboardCard title="Detection Statistics" icon={BarChart2}>
-          {alerts.length === 0 ? (
+          {alerts.length === 0 && (!mlStatus || mlStatus.total_anomalies_detected === 0) ? (
             <div className="placeholder-state">
               <BarChart2 size={36} className="placeholder-icon" />
               <p className="placeholder-text">Waiting for detection events</p>
@@ -244,7 +365,7 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
             <div className="detection-stats-container">
               <div className="stats-metric-row">
                 <span className="stat-label">Total Events Detected:</span>
-                <span className="stat-number">{alerts.length}</span>
+                <span className="stat-number">{alerts.length + (mlStatus?.total_anomalies_detected || 0)}</span>
               </div>
               <div className="stats-breakdown-list">
                 <div className="stat-pill">
@@ -262,6 +383,10 @@ export function Dashboard({ apiStatus, socketConnected, trafficMetrics, trafficH
                 <div className="stat-pill">
                   <span className="stat-pill-name">XMAS Scan</span>
                   <span className="stat-pill-val">{stats.XMAS_SCAN || 0}</span>
+                </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">ML Anomaly</span>
+                  <span className="stat-pill-val">{mlStatus?.total_anomalies_detected || 0}</span>
                 </div>
               </div>
             </div>

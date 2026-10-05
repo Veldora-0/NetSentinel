@@ -7,10 +7,14 @@ venv/
 ENV/
 .pytest_cache/
 
-# Data
+# Data & Models
 data/*.db
 data/*.sqlite
+data/models/*.joblib
+data/models/*.pkl
+data/models/*.json
 !data/.gitkeep
+!data/models/.gitkeep
 
 # Frontend / Node
 frontend/node_modules/

@@ -11,7 +11,13 @@ export const socket = io({
   transports: ['websocket', 'polling'],
 });
 
-export function initSocketConnection(onConnectChange, onTrafficMetrics, onSecurityEvent) {
+export function initSocketConnection(
+  onConnectChange,
+  onTrafficMetrics,
+  onSecurityEvent,
+  onMLAnomaly,
+  onMLStatus
+) {
   socket.on('connect', () => {
     if (onConnectChange) onConnectChange(true);
   });
@@ -36,11 +42,25 @@ export function initSocketConnection(onConnectChange, onTrafficMetrics, onSecuri
     });
   }
 
+  if (onMLAnomaly) {
+    socket.on('ml_anomaly', (data) => {
+      onMLAnomaly(data);
+    });
+  }
+
+  if (onMLStatus) {
+    socket.on('ml_status', (data) => {
+      onMLStatus(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
     socket.off('connect_error');
     if (onTrafficMetrics) socket.off('traffic_metrics');
     if (onSecurityEvent) socket.off('security_event');
+    if (onMLAnomaly) socket.off('ml_anomaly');
+    if (onMLStatus) socket.off('ml_status');
   };
 }

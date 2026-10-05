@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './pages/Dashboard';
-import { checkBackendHealth, fetchTrafficMetrics, fetchSecurityAlerts } from './services/api';
+import { checkBackendHealth, fetchTrafficMetrics, fetchSecurityAlerts, fetchMLStatus, fetchMLMetrics } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
 
@@ -11,9 +11,11 @@ export function App() {
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [mlStatus, setMlStatus] = useState(null);
+  const [mlMetrics, setMlMetrics] = useState({ window_history: [], recent_anomalies: [] });
 
   useEffect(() => {
-    // Check initial API health, fetch metrics, and fetch recent alerts
+    // Check initial API health, fetch metrics, alerts, and ML data
     const fetchHealthAndData = async () => {
       const res = await checkBackendHealth();
       setApiStatus(res);
@@ -28,13 +30,23 @@ export function App() {
         if (initialAlerts && initialAlerts.length > 0) {
           setAlerts(initialAlerts);
         }
+
+        const initialMLStatus = await fetchMLStatus();
+        if (initialMLStatus) {
+          setMlStatus(initialMLStatus);
+        }
+
+        const initialMLMetrics = await fetchMLMetrics();
+        if (initialMLMetrics) {
+          setMlMetrics(initialMLMetrics);
+        }
       }
     };
 
     fetchHealthAndData();
     const interval = setInterval(fetchHealthAndData, 5000);
 
-    // Initialize Socket.IO connection handlers, traffic metrics, and security events
+    // Initialize Socket.IO connection handlers, traffic metrics, security events, and ML events
     const cleanupSocket = initSocketConnection(
       (connected) => {
         setSocketConnected(connected);
@@ -64,12 +76,36 @@ export function App() {
       (newAlert) => {
         // Prepend new security alert to list (keep latest 100)
         setAlerts((prev) => {
-          // Avoid duplicate event_id if already present
           if (prev.some((a) => a.event_id === newAlert.event_id)) {
             return prev;
           }
           return [newAlert, ...prev].slice(0, 100);
         });
+      },
+      (newMLAnomaly) => {
+        // Prepend new ML anomaly to recent_anomalies list
+        setMlMetrics((prev) => {
+          const existing = prev.recent_anomalies || [];
+          if (existing.some((a) => a.event_id === newMLAnomaly.event_id)) {
+            return prev;
+          }
+          return {
+            ...prev,
+            recent_anomalies: [newMLAnomaly, ...existing].slice(0, 50),
+          };
+        });
+
+        // Update mlStatus latest anomaly score
+        setMlStatus((prev) => prev ? {
+          ...prev,
+          total_anomalies_detected: (prev.total_anomalies_detected || 0) + 1,
+          latest_prediction: 'ANOMALY',
+          latest_anomaly_score: newMLAnomaly.anomaly_score,
+          latest_raw_score: newMLAnomaly.raw_score,
+        } : prev);
+      },
+      (statusUpdate) => {
+        setMlStatus(statusUpdate);
       }
     );
 
@@ -92,6 +128,8 @@ export function App() {
           trafficMetrics={trafficMetrics}
           trafficHistory={trafficHistory}
           alerts={alerts}
+          mlStatus={mlStatus}
+          mlMetrics={mlMetrics}
         />
       </main>
     </div>

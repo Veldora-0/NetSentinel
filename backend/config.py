@@ -1,7 +1,8 @@
 """NetSentinel Configuration Module.
 
 Centralizes backend settings, environment configurations, SQLite database URLs,
-network interface configuration, and rule-based intrusion detection thresholds.
+network interface configuration, rule-based detection thresholds, and
+unsupervised machine learning anomaly detection settings.
 """
 
 import os
@@ -11,6 +12,7 @@ import psutil
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+MODELS_DIR = os.path.join(DATA_DIR, "models")
 
 
 def resolve_network_interface(configured_iface: Optional[str] = None) -> str:
@@ -93,9 +95,35 @@ class Config:
     ALERT_COOLDOWN_SECONDS = DETECTOR_THRESHOLDS["alert_cooldown_sec"]
     MAX_ALERT_HISTORY = DETECTOR_THRESHOLDS["max_alert_history"]
 
-    # Reserved Configuration: Machine Learning & Risk Engine (Future Phase)
+    # Unsupervised Anomaly Detection Settings (Phase 4 - Isolation Forest)
+    ML_SETTINGS = {
+        "enabled": os.environ.get("ML_ENABLED", "True").lower() in ("true", "1", "t"),
+        # Duration of each traffic aggregation window in seconds
+        "window_seconds": float(os.environ.get("ML_WINDOW_SECONDS", "5.0")),
+        # Target number of normal traffic windows required to fit the baseline model
+        "baseline_windows": int(os.environ.get("ML_BASELINE_WINDOWS", "10")),
+        # Isolation Forest hyperparameters
+        "n_estimators": int(os.environ.get("ML_N_ESTIMATORS", "100")),
+        "contamination": os.environ.get("ML_CONTAMINATION", "auto"),
+        "random_state": int(os.environ.get("ML_RANDOM_STATE", "42")),
+        # Anomaly alert suppression cooldown in seconds
+        "alert_cooldown_seconds": float(os.environ.get("ML_ALERT_COOLDOWN_SEC", "15.0")),
+        # Model persistence filesystem paths
+        "model_path": os.path.join(MODELS_DIR, "isolation_forest.joblib"),
+        "metadata_path": os.path.join(MODELS_DIR, "model_metadata.json"),
+    }
+
+    ML_WINDOW_SECONDS = ML_SETTINGS["window_seconds"]
+    ML_BASELINE_WINDOWS = ML_SETTINGS["baseline_windows"]
+    ML_N_ESTIMATORS = ML_SETTINGS["n_estimators"]
+    ML_CONTAMINATION = ML_SETTINGS["contamination"]
+    ML_RANDOM_STATE = ML_SETTINGS["random_state"]
+    ML_ALERT_COOLDOWN_SECONDS = ML_SETTINGS["alert_cooldown_seconds"]
+    ML_MODEL_PATH = ML_SETTINGS["model_path"]
+    ML_METADATA_PATH = ML_SETTINGS["metadata_path"]
+
+    # Reserved Configuration: Risk Engine & Correlation (Future Phase)
     RISK_ENGINE_SETTINGS = {
-        "isolation_forest_contamination": 0.01,
         "high_risk_threshold": 0.75,
         "auto_block_enabled": False,
     }
