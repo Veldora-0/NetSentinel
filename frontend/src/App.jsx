@@ -12,6 +12,10 @@ import {
   fetchFirewallStatus,
   fetchBlockedIPs,
   manualUnblockIP,
+  fetchSecurityEvents,
+  fetchSecuritySummary,
+  fetchTelemetryCurrent,
+  fetchTelemetryHistory,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -29,6 +33,12 @@ export function App() {
   const [firewallStatus, setFirewallStatus] = useState(null);
   const [blockedIPs, setBlockedIPs] = useState([]);
 
+  // Phase 6: Host Telemetry & Historical Persistence States
+  const [hostTelemetry, setHostTelemetry] = useState(null);
+  const [telemetryHistory, setTelemetryHistory] = useState([]);
+  const [securitySummary, setSecuritySummary] = useState(null);
+  const [historicalEvents, setHistoricalEvents] = useState([]);
+
   const refreshFirewall = async () => {
     const fw = await fetchFirewallStatus();
     if (fw) setFirewallStatus(fw);
@@ -41,8 +51,15 @@ export function App() {
     await refreshFirewall();
   };
 
+  const refreshHistory = async (params = {}) => {
+    const res = await fetchSecurityEvents(params);
+    if (res && res.events) {
+      setHistoricalEvents(res.events);
+    }
+  };
+
   useEffect(() => {
-    // Check initial API health, metrics, alerts, ML, risk, and firewall
+    // Check initial API health and fetch component datasets
     const fetchHealthAndData = async () => {
       const res = await checkBackendHealth();
       setApiStatus(res);
@@ -71,6 +88,35 @@ export function App() {
 
         const initialBlocked = await fetchBlockedIPs();
         if (initialBlocked) setBlockedIPs(initialBlocked);
+
+        // Phase 6 Initial Fetches
+        const curTelem = await fetchTelemetryCurrent();
+        if (curTelem) setHostTelemetry(curTelem);
+
+        const histTelem = await fetchTelemetryHistory(30);
+        if (histTelem && histTelem.length > 0) {
+          setTelemetryHistory(
+            histTelem.map((t) => ({
+              time: new Date(t.timestamp * 1000).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              }),
+              cpu: t.cpu_percent,
+              ram: t.memory_percent,
+              tx_bps: t.host_tx_bps,
+              rx_bps: t.host_rx_bps,
+              tx_pps: t.host_tx_pps,
+              rx_pps: t.host_rx_pps,
+            }))
+          );
+        }
+
+        const summary = await fetchSecuritySummary();
+        if (summary) setSecuritySummary(summary);
+
+        const eventsRes = await fetchSecurityEvents({ limit: 50 });
+        if (eventsRes && eventsRes.events) setHistoricalEvents(eventsRes.events);
       }
     };
 
@@ -105,6 +151,10 @@ export function App() {
       (newAlert) => {
         setAlerts((prev) => {
           if (prev.some((a) => a.event_id === newAlert.event_id)) return prev;
+          return [newAlert, ...prev].slice(0, 100);
+        });
+        setHistoricalEvents((prev) => {
+          if (prev.some((e) => e.event_id === newAlert.event_id)) return prev;
           return [newAlert, ...prev].slice(0, 100);
         });
       },
@@ -156,6 +206,32 @@ export function App() {
       },
       (blocked) => {
         setBlockedIPs(blocked);
+      },
+      (telem) => {
+        setHostTelemetry(telem);
+        const nowStr = new Date(telem.timestamp * 1000).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        setTelemetryHistory((prev) => {
+          const updated = [
+            ...prev,
+            {
+              time: nowStr,
+              cpu: telem.cpu_percent,
+              ram: telem.memory_percent,
+              tx_bps: telem.host_tx_bps,
+              rx_bps: telem.host_rx_bps,
+              tx_pps: telem.host_tx_pps,
+              rx_pps: telem.host_rx_pps,
+            },
+          ];
+          return updated.slice(-30);
+        });
+      },
+      (summary) => {
+        setSecuritySummary(summary);
       }
     );
 
@@ -182,6 +258,11 @@ export function App() {
           firewallStatus={firewallStatus}
           blockedIPs={blockedIPs}
           onUnblock={handleUnblock}
+          hostTelemetry={hostTelemetry}
+          telemetryHistory={telemetryHistory}
+          securitySummary={securitySummary}
+          historicalEvents={historicalEvents}
+          onRefreshHistory={refreshHistory}
         />
       </main>
     </div>

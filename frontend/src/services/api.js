@@ -186,3 +186,103 @@ export async function manualUnblockIP(ip) {
     return { status: 'error', message: error.message };
   }
 }
+
+// Phase 6: Historical Reporting & Host Telemetry APIs
+
+export async function fetchSecurityEvents(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.since) query.append('since', params.since);
+    if (params.until) query.append('until', params.until);
+    if (params.source_ip) query.append('source_ip', params.source_ip);
+    if (params.detection_type) query.append('detection_type', params.detection_type);
+    if (params.severity) query.append('severity', params.severity);
+
+    const qs = query.toString();
+    const url = qs ? `/api/events?${qs}` : '/api/events';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', total: 0, count: 0, events: [] };
+  }
+}
+
+export async function fetchRiskHistory(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    if (params.since) query.append('since', params.since);
+    if (params.until) query.append('until', params.until);
+    if (params.source_ip) query.append('source_ip', params.source_ip);
+    if (params.risk_level) query.append('risk_level', params.risk_level);
+
+    const qs = query.toString();
+    const url = qs ? `/api/risk/history?${qs}` : '/api/risk/history';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', total: 0, count: 0, assessments: [] };
+  }
+}
+
+export async function fetchSecuritySummary(since = null) {
+  try {
+    const url = since ? `/api/security/summary?since=${since}` : '/api/security/summary';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.summary || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchTelemetryCurrent() {
+  try {
+    const response = await fetch('/api/telemetry/current', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.telemetry || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchTelemetryHistory(limit = 60, since = null, until = null) {
+  try {
+    const query = new URLSearchParams();
+    if (limit) query.append('limit', limit);
+    if (since) query.append('since', since);
+    if (until) query.append('until', until);
+
+    const qs = query.toString();
+    const url = qs ? `/api/telemetry/history?${qs}` : '/api/telemetry/history';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.telemetry || [];
+  } catch (error) {
+    return [];
+  }
+}
+

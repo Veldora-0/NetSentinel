@@ -20,7 +20,9 @@ export function initSocketConnection(
   onRiskAssessment,
   onFirewallAction,
   onFirewallStatus,
-  onBlockedIPs
+  onBlockedIPs,
+  onHostTelemetry,
+  onSecuritySummary
 ) {
   socket.on('connect', () => {
     if (onConnectChange) onConnectChange(true);
@@ -82,6 +84,18 @@ export function initSocketConnection(
     });
   }
 
+  if (onHostTelemetry) {
+    socket.on('host_telemetry', (data) => {
+      onHostTelemetry(data);
+    });
+  }
+
+  if (onSecuritySummary) {
+    socket.on('security_summary', (data) => {
+      onSecuritySummary(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -94,5 +108,7 @@ export function initSocketConnection(
     if (onFirewallAction) socket.off('firewall_action');
     if (onFirewallStatus) socket.off('firewall_status');
     if (onBlockedIPs) socket.off('blocked_ips');
+    if (onHostTelemetry) socket.off('host_telemetry');
+    if (onSecuritySummary) socket.off('security_summary');
   };
 }

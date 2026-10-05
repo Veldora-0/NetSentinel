@@ -159,3 +159,15 @@ class Config:
         "max_blocked_ips": int(os.environ.get("NETSENTINEL_MAX_BLOCKED_IPS", "500")),
         "allowlist": _allowlist_items,
     }
+
+    # Host Telemetry & History Retention Settings (Phase 6)
+    TELEMETRY_SETTINGS = {
+        "interval": float(os.environ.get("NETSENTINEL_TELEMETRY_INTERVAL", "5.0")),
+        "persist_interval": float(os.environ.get("NETSENTINEL_TELEMETRY_PERSIST_INTERVAL", "15.0")),
+        "retention_days": int(os.environ.get("NETSENTINEL_RETENTION_DAYS", "7")),
+        "prune_interval": float(os.environ.get("NETSENTINEL_PRUNE_INTERVAL", "3600.0")),
+    }
+
+    TELEMETRY_INTERVAL = TELEMETRY_SETTINGS["interval"]
+    TELEMETRY_PERSIST_INTERVAL = TELEMETRY_SETTINGS["persist_interval"]
+    RETENTION_DAYS = TELEMETRY_SETTINGS["retention_days"]

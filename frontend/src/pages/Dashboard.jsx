@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Server, 
   AlertTriangle, 
@@ -13,7 +13,11 @@ import {
   ShieldCheck,
   Lock,
   Unlock,
-  Shield
+  Shield,
+  HardDrive,
+  RotateCcw,
+  History,
+  Filter
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -30,6 +34,12 @@ function formatAlertTime(timestamp) {
   if (!timestamp) return '';
   const d = new Date(timestamp * 1000);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function formatFullTime(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp * 1000);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function getRiskBadgeClass(level) {
@@ -54,11 +64,21 @@ export function Dashboard({
   firewallStatus = null,
   blockedIPs = [],
   onUnblock = null,
+  hostTelemetry = null,
+  telemetryHistory = [],
+  securitySummary = null,
+  historicalEvents = [],
+  onRefreshHistory = null,
 }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
 
-  // Compute real alert breakdown statistics from actual received events
+  // Filters for historical table
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('ALL');
+  const [historySeverityFilter, setHistorySeverityFilter] = useState('ALL');
+  const [historySearchIP, setHistorySearchIP] = useState('');
+
+  // Compute live alert breakdown statistics from actual received events
   const stats = alerts.reduce((acc, curr) => {
     const type = curr.detection_type;
     acc[type] = (acc[type] || 0) + 1;
@@ -66,6 +86,14 @@ export function Dashboard({
   }, {});
 
   const latestRisk = riskAssessments.length > 0 ? riskAssessments[0] : null;
+
+  // Filter historical events
+  const displayedHistory = historicalEvents.filter((ev) => {
+    if (historyTypeFilter !== 'ALL' && ev.detection_type !== historyTypeFilter) return false;
+    if (historySeverityFilter !== 'ALL' && ev.severity !== historySeverityFilter) return false;
+    if (historySearchIP.trim() && !ev.source_ip.toLowerCase().includes(historySearchIP.trim().toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div className="dashboard-container">
@@ -355,7 +383,7 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 5. Composite Risk Engine (Phase 5) */}
+        {/* 5. Composite Risk Engine */}
         <DashboardCard title="Composite Risk Engine" icon={ShieldCheck}>
           {!latestRisk ? (
             <div className="placeholder-state">
@@ -424,7 +452,7 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 6. Firewall Mitigation & Blocked IPs (Phase 5) */}
+        {/* 6. Firewall Mitigation & Blocked IPs */}
         <DashboardCard title={`Firewall Mitigation (${blockedIPs.length})`} icon={Shield}>
           <div className="firewall-card-container">
             <div className="ml-header-status">
@@ -480,17 +508,135 @@ export function Dashboard({
           </div>
         </DashboardCard>
 
-        {/* 7. System Resources */}
+        {/* 7. System Resources (Phase 6: Real Host Telemetry) */}
         <DashboardCard title="System Resources" icon={Cpu}>
-          <div className="placeholder-state">
-            <Cpu size={36} className="placeholder-icon" />
-            <p className="placeholder-text">Waiting for telemetry</p>
-          </div>
+          {!hostTelemetry ? (
+            <div className="placeholder-state">
+              <Cpu size={36} className="placeholder-icon pulse" />
+              <p className="placeholder-text">Waiting for host system telemetry</p>
+            </div>
+          ) : (
+            <div className="telemetry-card-container">
+              {/* Gauges for CPU, Memory, Disk */}
+              <div className="resource-gauges">
+                {/* CPU */}
+                <div className="resource-gauge-item">
+                  <div className="gauge-header">
+                    <span>CPU Utilization</span>
+                    <span className="gauge-value">{hostTelemetry.cpu_percent.toFixed(1)}%</span>
+                  </div>
+                  <div className="gauge-track">
+                    <div 
+                      className={`gauge-fill cpu ${hostTelemetry.cpu_percent > 90 ? 'danger' : hostTelemetry.cpu_percent > 75 ? 'warning' : ''}`}
+                      style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.cpu_percent))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* RAM */}
+                <div className="resource-gauge-item">
+                  <div className="gauge-header">
+                    <span>RAM Memory</span>
+                    <span className="gauge-value">
+                      {hostTelemetry.memory_percent.toFixed(1)}% ({formatBytes(hostTelemetry.memory_used_bytes)} / {formatBytes(hostTelemetry.memory_used_bytes + hostTelemetry.memory_available_bytes)})
+                    </span>
+                  </div>
+                  <div className="gauge-track">
+                    <div 
+                      className={`gauge-fill mem ${hostTelemetry.memory_percent > 90 ? 'danger' : hostTelemetry.memory_percent > 80 ? 'warning' : ''}`}
+                      style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.memory_percent))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Disk */}
+                <div className="resource-gauge-item">
+                  <div className="gauge-header">
+                    <span>Disk Space</span>
+                    <span className="gauge-value">
+                      {hostTelemetry.disk_percent.toFixed(1)}% ({formatBytes(hostTelemetry.disk_used_bytes)} used)
+                    </span>
+                  </div>
+                  <div className="gauge-track">
+                    <div 
+                      className={`gauge-fill disk ${hostTelemetry.disk_percent > 90 ? 'danger' : hostTelemetry.disk_percent > 80 ? 'warning' : ''}`}
+                      style={{ width: `${Math.min(100, Math.max(0, hostTelemetry.disk_percent))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Subgrid: OS Load & Host Network Throughput */}
+              <div className="telemetry-subgrid">
+                <div className="telemetry-mini-stat">
+                  <span className="mini-stat-label">OS Load (1m, 5m, 15m)</span>
+                  <span className="mini-stat-val">
+                    {hostTelemetry.load_1 ?? 0} / {hostTelemetry.load_5 ?? 0} / {hostTelemetry.load_15 ?? 0}
+                  </span>
+                </div>
+                <div className="telemetry-mini-stat">
+                  <span className="mini-stat-label">Host Network Rate</span>
+                  <span className="mini-stat-val" style={{ fontSize: '0.75rem' }}>
+                    ↑ {formatBytes(hostTelemetry.host_tx_bps)}/s | ↓ {formatBytes(hostTelemetry.host_rx_bps)}/s
+                  </span>
+                </div>
+              </div>
+
+              {/* Telemetry Trend Mini Chart */}
+              {telemetryHistory.length > 1 ? (
+                <div className="traffic-chart-wrapper">
+                  <div className="chart-header">
+                    <span className="chart-title">CPU (%) & RAM (%) Trend</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={80}>
+                    <AreaChart data={telemetryHistory} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="ramGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="time" hide={true} />
+                      <YAxis stroke="#64748b" fontSize={10} domain={[0, 100]} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0b0f19', borderColor: '#1e293b', fontSize: '12px' }}
+                        labelStyle={{ color: '#94a3b8' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="cpu" 
+                        name="CPU %" 
+                        stroke="#06b6d4" 
+                        strokeWidth={1.5} 
+                        fillOpacity={1} 
+                        fill="url(#cpuGradient)" 
+                        isAnimationActive={false} 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="ram" 
+                        name="RAM %" 
+                        stroke="#8b5cf6" 
+                        strokeWidth={1.5} 
+                        fillOpacity={1} 
+                        fill="url(#ramGradient)" 
+                        isAnimationActive={false} 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+            </div>
+          )}
         </DashboardCard>
 
         {/* 8. Detection & Mitigation Statistics */}
         <DashboardCard title="Detection Statistics" icon={BarChart2}>
-          {alerts.length === 0 && (!mlStatus || mlStatus.total_anomalies_detected === 0) && riskAssessments.length === 0 ? (
+          {alerts.length === 0 && (!mlStatus || mlStatus.total_anomalies_detected === 0) && riskAssessments.length === 0 && !securitySummary?.total_events ? (
             <div className="placeholder-state">
               <BarChart2 size={36} className="placeholder-icon" />
               <p className="placeholder-text">Waiting for detection events</p>
@@ -498,29 +644,41 @@ export function Dashboard({
           ) : (
             <div className="detection-stats-container">
               <div className="stats-metric-row">
-                <span className="stat-label">Total Events Detected:</span>
-                <span className="stat-number">{alerts.length + (mlStatus?.total_anomalies_detected || 0)}</span>
+                <span className="stat-label">Total Events Recorded:</span>
+                <span className="stat-number">
+                  {securitySummary?.total_events || (alerts.length + (mlStatus?.total_anomalies_detected || 0))}
+                </span>
               </div>
               <div className="stats-breakdown-list">
                 <div className="stat-pill">
                   <span className="stat-pill-name">Port Scan</span>
-                  <span className="stat-pill-val">{stats.PORT_SCAN || 0}</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.PORT_SCAN ?? stats.PORT_SCAN ?? 0}
+                  </span>
                 </div>
                 <div className="stat-pill">
                   <span className="stat-pill-name">SYN Flood</span>
-                  <span className="stat-pill-val">{stats.SYN_FLOOD || 0}</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.SYN_FLOOD ?? stats.SYN_FLOOD ?? 0}
+                  </span>
                 </div>
                 <div className="stat-pill">
                   <span className="stat-pill-name">NULL Scan</span>
-                  <span className="stat-pill-val">{stats.NULL_SCAN || 0}</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.NULL_SCAN ?? stats.NULL_SCAN ?? 0}
+                  </span>
                 </div>
                 <div className="stat-pill">
                   <span className="stat-pill-name">XMAS Scan</span>
-                  <span className="stat-pill-val">{stats.XMAS_SCAN || 0}</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.XMAS_SCAN ?? stats.XMAS_SCAN ?? 0}
+                  </span>
                 </div>
                 <div className="stat-pill">
                   <span className="stat-pill-name">ML Anomaly</span>
-                  <span className="stat-pill-val">{mlStatus?.total_anomalies_detected || 0}</span>
+                  <span className="stat-pill-val">
+                    {securitySummary?.detection_types?.ANOMALY ?? mlStatus?.total_anomalies_detected ?? 0}
+                  </span>
                 </div>
                 <div className="stat-pill">
                   <span className="stat-pill-name">Blocked IPs</span>
@@ -530,6 +688,113 @@ export function Dashboard({
             </div>
           )}
         </DashboardCard>
+
+        {/* 9. Security History & Activity Log (Phase 6) */}
+        <div className="history-section">
+          <DashboardCard title={`Security Event History (${displayedHistory.length} of ${historicalEvents.length})`} icon={History}>
+            <div className="telemetry-card-container">
+              <div className="history-card-header">
+                <div className="history-filters">
+                  <Filter size={14} color="#64748b" />
+                  <select 
+                    className="history-filter-select"
+                    value={historyTypeFilter}
+                    onChange={(e) => setHistoryTypeFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Types</option>
+                    <option value="PORT_SCAN">Port Scan</option>
+                    <option value="SYN_FLOOD">SYN Flood</option>
+                    <option value="NULL_SCAN">NULL Scan</option>
+                    <option value="XMAS_SCAN">XMAS Scan</option>
+                    <option value="ANOMALY">ML Anomaly</option>
+                  </select>
+
+                  <select 
+                    className="history-filter-select"
+                    value={historySeverityFilter}
+                    onChange={(e) => setHistorySeverityFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+
+                  <input 
+                    type="text"
+                    className="history-search-input"
+                    placeholder="Search source IP..."
+                    value={historySearchIP}
+                    onChange={(e) => setHistorySearchIP(e.target.value)}
+                  />
+                </div>
+
+                {onRefreshHistory && (
+                  <button 
+                    className="btn-refresh"
+                    onClick={() => onRefreshHistory()}
+                    title="Refresh persisted security history"
+                  >
+                    <RotateCcw size={13} />
+                    Refresh
+                  </button>
+                )}
+              </div>
+
+              <div className="history-table-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Type</th>
+                      <th>Severity</th>
+                      <th>Source IP</th>
+                      <th>Destination</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="history-empty-row">
+                          No historical security events matching current criteria
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedHistory.map((ev) => (
+                        <tr key={ev.event_id}>
+                          <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
+                            {formatFullTime(ev.timestamp)}
+                          </td>
+                          <td>
+                            <span className="badge badge-rule" style={{ fontSize: '0.65rem' }}>
+                              {ev.detection_type}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge badge-severity-${(ev.severity || 'low').toLowerCase()}`} style={{ fontSize: '0.65rem' }}>
+                              {ev.severity}
+                            </span>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>
+                            {ev.source_ip}
+                          </td>
+                          <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
+                            {ev.destination_ip ? `${ev.destination_ip}${ev.destination_port ? `:${ev.destination_port}` : ''}` : '-'}
+                          </td>
+                          <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ev.description}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </DashboardCard>
+        </div>
       </div>
     </div>
   );
