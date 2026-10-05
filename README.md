@@ -1,9 +1,9 @@
 # NetSentinel – Hybrid Network and Host Intrusion Detection and Prevention System
 
 ## 1. Project Description
-**NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates security risk levels, and automatically mitigates threats using Linux `iptables` firewall rules.
+**NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status (Phase 4 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser, real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), and an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`. The ML system learns baseline profiles from normal traffic windows, identifies significant behavioral deviations without classifying attack signatures, and streams `ml_anomaly` events to the React dashboard. Automated firewall blocking and threat intelligence are reserved for subsequent phases.
+> **Implementation Status (Phase 5 Completed):** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser, real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`) powered by Scikit-learn's `IsolationForest`, a deterministic **Composite Risk Engine** (`risk_engine.py`), and a safe **Linux iptables Firewall Manager** (`firewall.py`). The firewall features strict safeguards preventing host isolation and operates on a dedicated `NETSENTINEL` chain. Firewall integration remains disabled by default and requires explicit configuration.
 
 ---
 
@@ -12,14 +12,15 @@
 ### Backend
 * **Python 3**
 * **Linux `AF_PACKET` Raw Sockets** - Kernel-level raw Ethernet frame capture
+* **Linux `iptables`** - Packet filtering and mitigation via dedicated `NETSENTINEL` chain
 * **Scikit-learn** - Unsupervised `IsolationForest` anomaly detection
 * **NumPy & Joblib** - High-performance numerical feature arrays and model persistence
-* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/ml/status`, `/api/ml/metrics`)
-* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `ml_anomaly`, `ml_status`)
-* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM
-* **SQLite** - Embedded event & telemetry persistence foundation
-* **psutil** - System telemetry monitoring
-* **pytest** - Automated test suite (41 tests)
+* **Flask** - REST API framework (`/api/health`, `/api/metrics`, `/api/alerts`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`)
+* **Flask-SocketIO** - Real-time WebSocket event communication (`traffic_metrics`, `security_event`, `ml_anomaly`, `risk_assessment`, `firewall_action`)
+* **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & risk assessment persistence
+* **SQLite** - Embedded database storage
+* **psutil** - System telemetry monitoring and local host address resolution
+* **pytest** - Automated test suite (64 tests)
 
 ### Frontend
 * **React 18** - UI framework
@@ -37,7 +38,7 @@ NetSentinel/
 │
 ├── backend/
 │   ├── app.py           # Flask app factory, API routes, Socket.IO & capture lifecycle
-│   ├── config.py        # Centralized settings, network interface selection, detection thresholds & ML configuration
+│   ├── config.py        # Centralized settings, network interface selection, detection thresholds & ML/Risk/Firewall config
 │   ├── capture.py       # AF_PACKET raw socket capture engine & rolling metrics aggregator
 │   ├── parser.py        # Complete Ethernet, IPv4, IPv6, TCP, UDP, ICMP packet parser
 │   ├── detector.py      # Rule-based intrusion detection engine & state manager
@@ -46,18 +47,18 @@ NetSentinel/
 │   │   ├── feature_extractor.py # 13 numerical window traffic features & TrafficWindow buffer
 │   │   ├── model.py             # IsolationForestModel lifecycle, training, scoring & persistence
 │   │   └── detector.py          # MLAnomalyDetector coordinator, baseline collection, cooldown & events
-│   ├── risk_engine.py   # Composite threat risk evaluation skeleton (Phase 5)
-│   ├── firewall.py      # Linux iptables firewall manager skeleton (Phase 5)
-│   ├── database.py      # SQLAlchemy database configuration and model base
+│   ├── risk_engine.py   # Composite Risk Engine (rule + ML evidence correlation, repeat boost)
+│   ├── firewall.py      # Linux iptables firewall manager (dedicated chain, safeguards, expiration)
+│   ├── database.py      # SQLAlchemy database configuration and RiskAssessmentRecord model
 │   └── telemetry.py     # System telemetry & resource monitor module
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/  # Modular UI components (Header, DashboardCard, etc.)
-│   │   ├── pages/       # Page views (Dashboard with live alerts, ML anomaly telemetry & charts)
-│   │   ├── services/    # REST API & Socket.IO client connections (extended with ML endpoints)
+│   │   ├── pages/       # Dashboard view (Live alerts, ML anomaly telemetry, Composite Risk & Blocked IPs)
+│   │   ├── services/    # REST API & Socket.IO client connections (extended for Risk & Firewall)
 │   │   ├── App.jsx      # Root application component
-│   │   ├── App.css      # SOC dark theme styling with ML progress bar & badges
+│   │   ├── App.css      # SOC dark theme styling with Risk levels & Firewall action buttons
 │   │   └── main.jsx     # React entry point
 │   ├── index.html       # HTML entry point
 │   ├── package.json     # Node dependencies and scripts
@@ -66,12 +67,15 @@ NetSentinel/
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit tests (41 tests)
+├── tests/               # Automated unit tests (64 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_capture.py  # Traffic metrics & capture lifecycle tests
 │   ├── test_detector.py # Rule detection, cooldown, state cleanup, and alerts tests
 │   ├── test_ml.py       # ML feature extraction, model lifecycle, baseline collection & anomaly detection tests
+│   ├── test_risk.py     # Composite risk scoring, repeat frequency, clamping & boundary tests
+│   ├── test_firewall.py # IP validation, safety safeguards, dedicated chain & expiration tests
+│   ├── test_risk_firewall_api.py # REST API & Socket.IO integration tests
 │   └── test_socket.py   # Test Socket.IO connection and ping
 ├── requirements.txt     # Python backend dependencies
 ├── .gitignore           # Git ignore configurations
@@ -80,7 +84,7 @@ NetSentinel/
 
 ---
 
-## 4. Detection Architecture: Dual Pipeline (Rules + Machine Learning)
+## 4. Detection & Mitigation Pipeline
 
 ```text
 Linux Network Interface (e.g., enp0s3)
@@ -105,122 +109,165 @@ Structured SecurityEvent         Structured MLAnomalyEvent
        │                                  │
        └──────────────┬───────────────────┘
                       ↓
-          Flask-SocketIO & REST APIs
-   (security_event, ml_anomaly, ml_status)
-   (/api/alerts, /api/ml/status, /api/ml/metrics)
+          backend/risk_engine.py
+         (Composite Risk Engine)
                       ↓
-  React SOC Dashboard (Alerts & ML Anomaly Panel)
+           RiskAssessment Object
+    (Score: 0.0 - 1.0, Action: block/alert/log/monitor)
+                      ↓
+           backend/firewall.py
+        (Linux iptables Manager)
+      [Dedicated Chain: NETSENTINEL]
+                      ↓
+  ┌───────────────────┴───────────────────┐
+  ↓                                       ↓
+SQLite Database                  Flask-SocketIO & REST APIs
+(RiskAssessmentRecord)           (/api/risk/*, /api/firewall/*)
+                                          ↓
+                             React SOC Dashboard
+                  (Composite Risk & Firewall Mitigation Cards)
 ```
 
 ---
 
-## 5. Machine Learning Anomaly Detection (Isolation Forest)
+## 5. Composite Risk Engine
 
-Phase 4 introduces an unsupervised network traffic anomaly detector powered by Scikit-learn's `IsolationForest`. Unlike signature or rule-based matching, the ML model does not attempt to classify specific attacks. Instead, it evaluates:
+The Risk Engine (`backend/risk_engine.py`) computes a normalized composite risk score $[0.0, 1.0]$ by synthesizing deterministic rule detections with behavioral ML anomaly scores:
 
-> *"Does this aggregated traffic window look significantly different from learned normal traffic?"*
+### Scoring Formula
+$$\text{combined\_score} = \begin{cases} 
+0.65 \times \text{rule\_score} + 0.35 \times \text{ml\_anomaly\_score} & \text{if rule evidence exists} \\
+0.35 \times \text{ml\_anomaly\_score} & \text{if ML anomaly only}
+\end{cases}$$
 
-### Numerical Traffic Features (13 Features per Window)
-Raw packet bytes are aggregated into fixed-duration time windows (default: 5.0 seconds) and converted into 13 zero-division-safe numerical features:
+* **Rule Severity Scores**:
+  * `LOW` = $0.20$
+  * `MEDIUM` = $0.40$
+  * `HIGH` = $0.70$
+  * `CRITICAL` = $0.90$
+* **Repeated Detection Frequency Boost**: Each additional detection from the same source IP within a sliding 60-second window increments the base rule score by $+0.05$ (up to a bounded maximum boost of $+0.20$).
+* **ML Isolation**: Because ML anomaly alone is weighted at $0.35$, an ML anomaly by itself can never exceed $0.35$ (MEDIUM risk), mathematically preventing false-positive automatic blocks without rule corroboration.
+* **Score Clamping**: All calculated scores are strictly clamped to $[0.0, 1.0]$.
 
-1. `packets_per_second` (float): Total packets received divided by window duration.
-2. `bytes_per_second` (float): Total byte volume divided by window duration.
-3. `average_packet_size` (float): Mean packet size in bytes.
-4. `tcp_ratio` (float): Fraction of packets using TCP ($0.0$ to $1.0$).
-5. `udp_ratio` (float): Fraction of packets using UDP ($0.0$ to $1.0$).
-6. `icmp_ratio` (float): Fraction of packets using ICMP ($0.0$ to $1.0$).
-7. `syn_ratio` (float): Fraction of TCP packets with SYN flag set.
-8. `ack_ratio` (float): Fraction of TCP packets with ACK flag set.
-9. `rst_ratio` (float): Fraction of TCP packets with RST flag set.
-10. `fin_ratio` (float): Fraction of TCP packets with FIN flag set.
-11. `unique_destination_ports` (float): Count of distinct destination ports probed.
-12. `unique_source_ips` (float): Count of distinct source IP addresses.
-13. `unique_destination_ips` (float): Count of distinct destination IP addresses.
+### Risk Levels & Recommended Actions
 
-### Model Lifecycle & Baseline Training
-The detector operates through distinct lifecycle states (`ModelStatus`):
-* `MODEL_NOT_READY`: Model is initialized but not yet trained or loaded.
-* `COLLECTING_BASELINE`: Gathers normal traffic windows (default: 10 windows) during benign network conditions. Baseline training is performed **only on normal traffic**, never attack traffic.
-* `READY`: Baseline fit completed. Live windows are scored in real time.
-* `ERROR`: Model encountered an error or invalid feature matrix.
-
-### Scoring & Anomaly Threshold
-* **Scikit-learn Decision Function**: `decision_function(X)` returns negative values for outliers (anomalies) and positive values for normal inliers.
-* **Normalized Anomaly Score**: Scaled between $0.0$ (normal) and $1.0$ (anomalous):
-  $$\text{Normalized Score} = \text{clip}(0.5 - \text{raw\_score}, 0.0, 1.0)$$
-  Windows with normalized score $> 0.5$ indicate an outlier condition.
-* **Alert Cooldown**: Anomaly alerts enforce an alert cooldown (`ML_ALERT_COOLDOWN_SEC`, default: 15s) to prevent dashboard alert flooding during sustained anomalies.
-
-### ML REST Endpoints & Socket.IO Events
-* `GET /api/ml/status`: Returns model lifecycle status, baseline collection progress, total anomaly count, and latest score.
-* `GET /api/ml/metrics`: Returns recent window time series history and the latest 20 anomaly events.
-* `ml_anomaly` (Socket.IO event): Emits real-time `MLAnomalyEvent` dictionaries when an anomalous window occurs.
-* `ml_status` (Socket.IO event): Emits status updates on connection and lifecycle changes.
-
----
-
-## 6. Rule-Based Intrusion Detection
-
-The rule-based detector operates independently alongside the ML model:
-
-| Rule Name | Detection Type | Severity | Description & Criteria |
+| Score Range | Risk Level | Recommended Action | Operational Meaning |
 |---|---|---|---|
-| **`RULE_PORT_SCAN`** | `PORT_SCAN` | `MEDIUM` | Tracks distinct destination ports probed by a single source IP over a sliding time window. Triggers when unique ports $\ge$ `PORT_SCAN_UNIQUE_PORT_THRESHOLD`. |
-| **`RULE_SYN_FLOOD`** | `SYN_FLOOD` | `HIGH` | Tracks unmatched TCP SYN packets ($SYN=1, ACK=0$) per source IP over a sliding window. Triggers when SYN volume $\ge$ `SYN_FLOOD_PACKET_THRESHOLD`. |
-| **`RULE_NULL_SCAN`** | `NULL_SCAN` | `HIGH` | Detects stealth probe packets where all 6 TCP control flags ($SYN, ACK, FIN, RST, PSH, URG$) are set to 0. |
-| **`RULE_XMAS_SCAN`** | `XMAS_SCAN` | `HIGH` | Detects stealth probe packets where $FIN=1, PSH=1, URG=1$ (and $SYN=0, ACK=0, RST=0$). |
+| `0.00 – 0.29` | **`LOW`** | `monitor` | Normal/benign traffic; observation only |
+| `0.30 – 0.59` | **`MEDIUM`** | `log` | Minor anomaly or single low-severity probe; logged |
+| `0.60 – 0.79` | **`HIGH`** | `alert` | High-confidence intrusion attempt; active SOC alert |
+| `0.80 – 1.00` | **`CRITICAL`** | `block` | Severe attack pattern; candidate for automated blocking |
 
 ---
 
-## 7. Configuration & Thresholds
+## 6. Linux iptables Firewall Mitigation
 
-Centralized in `backend/config.py` and configurable via environment variables:
+NetSentinel implements safe, reversible packet filtering using Linux `iptables`.
 
-| Setting / Environment Variable | Default Value | Purpose |
+### Dedicated Managed Chain (`NETSENTINEL`)
+* All managed rules are placed in an isolated chain: `NETSENTINEL`.
+* The chain is inserted at position 1 of the `INPUT` chain:
+  `iptables -I INPUT 1 -j NETSENTINEL`
+* Blocking an IP inserts a drop rule:
+  `iptables -I NETSENTINEL 1 -s <IP> -j DROP`
+* Global chains (`INPUT`, `FORWARD`, `OUTPUT`) are **NEVER** flushed.
+* Clearing managed rules flushes only the dedicated chain:
+  `iptables -F NETSENTINEL`
+
+### Safety Safeguards
+The firewall manager verifies each IP against strict safety criteria before blocking:
+1. **Loopback Protection**: `127.0.0.0/8` and `::1` are strictly unblockable.
+2. **Local Machine Interface Protection**: Discovers all local host IP addresses (via `psutil.net_if_addrs()`) and prevents host self-isolation.
+3. **Multicast & Unspecified**: `224.0.0.0/4`, `ff00::/8`, `0.0.0.0`, and `::` are rejected.
+4. **Broadcast Protection**: Global broadcast `255.255.255.255` is rejected.
+5. **Operator Allowlist**: Configurable trusted IPs and CIDR subnets (`NETSENTINEL_FIREWALL_ALLOWLIST`).
+6. **Command Injection Prevention**: Executed strictly via argument arrays (`subprocess.run(["iptables", ...])`) without `shell=True`.
+
+### Temporary Block Expiration
+* IP blocks are temporary by default (`NETSENTINEL_BLOCK_DURATION`, default: 300 seconds / 5 minutes).
+* Active blocks are automatically unblocked upon expiration.
+* Duplicate blocks update the existing expiration timestamp rather than adding duplicate kernel rules.
+
+### Safe Default Behavior
+* **Firewall Disabled by Default**: `NETSENTINEL_FIREWALL_ENABLED=false` and `NETSENTINEL_AUTO_BLOCK=false`.
+* If disabled or in dry-run mode, risk assessments still compute recommended actions, and firewall actions are simulated in memory without invoking `iptables`.
+
+---
+
+## 7. How to Inspect & Manage Firewall Rules
+
+### Inspect Active NetSentinel Rules
+```bash
+sudo iptables -L NETSENTINEL -v -n --line-numbers
+```
+
+### Safely Flush NetSentinel Managed Rules (Without Touching System Rules)
+```bash
+sudo iptables -F NETSENTINEL
+```
+
+### Remove the NetSentinel Jump from INPUT
+```bash
+sudo iptables -D INPUT -j NETSENTINEL
+sudo iptables -X NETSENTINEL
+```
+
+---
+
+## 8. Configuration & Environment Variables
+
+| Variable | Default Value | Description |
 |---|---|---|
-| `PORT_SCAN_WINDOW_SEC` | `10.0` seconds | Sliding time window for tracking unique probed ports |
-| `PORT_SCAN_THRESHOLD` | `15` ports | Distinct destination ports required to trigger Port Scan alert |
-| `SYN_FLOOD_WINDOW_SEC` | `5.0` seconds | Sliding time window for tracking SYN volume |
-| `SYN_FLOOD_THRESHOLD` | `50` packets | Unmatched SYN packets required to trigger SYN Flood alert |
-| `ALERT_COOLDOWN_SEC` | `30.0` seconds | Minimum time between duplicate rule alerts for same IP |
-| `MAX_TRACKED_IPS` | `1000` | Upper bound on concurrently tracked source IPs |
-| `MAX_ALERT_HISTORY` | `100` | Capacity of in-memory security alert store |
-| `ML_ENABLED` | `True` | Enable or disable unsupervised Isolation Forest detector |
-| `ML_WINDOW_SECONDS` | `5.0` seconds | Aggregation duration for each traffic window |
-| `ML_BASELINE_WINDOWS` | `10` | Normal traffic windows required to fit baseline model |
-| `ML_N_ESTIMATORS` | `100` | Number of decision trees in Isolation Forest |
-| `ML_CONTAMINATION` | `auto` | Expected proportion of outliers in baseline |
-| `ML_ALERT_COOLDOWN_SEC`| `15.0` seconds | Cooldown interval between successive ML anomaly alerts |
-| `NETSENTINEL_INTERFACE` | `None` (auto) | Network capture interface (`enp0s3`, `lo`, etc.) |
+| `NETSENTINEL_FIREWALL_ENABLED` | `false` | Enable/disable real Linux iptables execution |
+| `NETSENTINEL_AUTO_BLOCK` | `false` | Enable/disable automated blocking on CRITICAL risk |
+| `NETSENTINEL_FIREWALL_DRY_RUN` | `true` | When true, simulates firewall actions without running iptables |
+| `NETSENTINEL_IPTABLES_CHAIN` | `NETSENTINEL` | Name of the dedicated iptables managed chain |
+| `NETSENTINEL_BLOCK_DURATION` | `300.0` | Default temporary block duration in seconds (5 min) |
+| `NETSENTINEL_MAX_BLOCKED_IPS` | `500` | Upper bound on concurrently managed blocked IPs |
+| `NETSENTINEL_FIREWALL_ALLOWLIST`| `127.0.0.1,::1` | Comma-separated list of unblockable IPs or CIDRs |
+| `RISK_RULE_WEIGHT` | `0.65` | Weight for rule detector evidence in composite score |
+| `RISK_ML_WEIGHT` | `0.35` | Weight for ML anomaly score in composite score |
+| `RISK_REPEAT_INCREMENT` | `0.05` | Score boost per repeated detection from same IP |
+| `RISK_MAX_REPEAT_BOOST` | `0.20` | Maximum cumulative repeat detection boost |
+| `RISK_HISTORY_WINDOW_SEC` | `60.0` | Time window for tracking repeated source IP detections |
+| `RISK_AUTO_BLOCK_THRESHOLD`| `0.80` | Composite risk score threshold required for auto-block |
 
 ---
 
-## 8. Linux Privileges and Capabilities
+## 9. REST API & Socket.IO Endpoints
 
-Opening Linux raw sockets (`AF_PACKET`) requires the `CAP_NET_RAW` Linux capability:
+### REST API Endpoints
+* `GET /api/health`: Health status.
+* `GET /api/metrics`: Live packet capture and protocol statistics.
+* `GET /api/alerts`: Recent rule-based security events (newest first).
+* `GET /api/ml/status`: Isolation Forest model lifecycle and baseline status.
+* `GET /api/ml/metrics`: ML window history and recent anomaly events.
+* `GET /api/risk/recent`: Recent composite risk assessments.
+* `GET /api/risk/stats`: Aggregate risk level breakdown and score averages.
+* `GET /api/firewall/status`: Firewall operational mode, chain, and configuration.
+* `GET /api/firewall/blocked`: List of actively blocked IPs with reasons and expiration timestamps.
+* `POST /api/firewall/block`: Manually block an IP (`{"ip": "...", "reason": "...", "duration": 300}`).
+* `POST /api/firewall/unblock`: Manually unblock an IP (`{"ip": "..."}`).
 
-**Recommended (Grant Linux Capability):**
-```bash
-sudo setcap cap_net_raw,cap_net_admin+eip .venv/bin/python3
-```
-
-**Development / Sudo alternative:**
-```bash
-sudo .venv/bin/python backend/app.py
-```
-If started unprivileged, the application remains fully functional, sets `status: "permission_denied"`, and informs the operator without crashing.
+### Socket.IO Real-Time Streams
+* `traffic_metrics`: Periodic traffic rate and protocol volume.
+* `security_event`: Live rule-based intrusion detection alerts.
+* `ml_anomaly`: Unsupervised ML anomaly detection alerts.
+* `ml_status`: ML model lifecycle state transitions.
+* `risk_assessment`: Live composite risk assessments with scores and actions.
+* `firewall_action`: Real-time block and unblock audit events.
 
 ---
 
-## 9. Environment Setup & Execution
+## 10. Environment Setup & Execution
 
 ### Prerequisites
-* Linux operating system (kernel supporting `AF_PACKET`)
+* Linux operating system (kernel supporting `AF_PACKET` and `iptables`)
 * Python 3.10+
 * Node.js v18+ & npm
 
 ### Backend Setup
-1. Create and activate a Python virtual environment:
+1. Create and activate virtual environment:
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
@@ -229,63 +276,56 @@ If started unprivileged, the application remains fully functional, sets `status:
    ```bash
    pip install -r requirements.txt
    ```
-3. Run automated unit tests:
+3. Run automated tests:
    ```bash
    pytest tests/
    ```
 4. Start backend server:
    ```bash
+   # Unprivileged / dry-run mode:
+   python backend/app.py
+
+   # With elevated capabilities for live AF_PACKET & iptables:
+   sudo setcap cap_net_raw,cap_net_admin+eip .venv/bin/python3
    python backend/app.py
    ```
-   Backend listens on `http://127.0.0.1:5000`.
 
 ### Frontend Setup
-1. Navigate to the `frontend/` directory:
+1. Navigate to `frontend/`:
    ```bash
    cd frontend
-   ```
-2. Install npm dependencies:
-   ```bash
    npm install
    ```
-3. Start Vite development server:
+2. Start Vite development server:
    ```bash
    npm run dev
    ```
-   Frontend runs on `http://localhost:5173`.
-4. Build production frontend assets:
+3. Build production assets:
    ```bash
    npm run build
    ```
 
 ---
 
-## 10. Automated Testing
+## 11. Automated Testing
 
-All 41 unit tests run deterministically without requiring live network traffic:
+All 64 unit tests run deterministically and mock `iptables` without requiring root privileges:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
-* `tests/test_parser.py`: Binary frame parsing across Ethernet, IPv4, IPv6, TCP, UDP, ICMP, and flag byte handling.
+* `tests/test_parser.py`: Binary frame parsing across Ethernet, IPv4, IPv6, TCP, UDP, ICMP.
 * `tests/test_capture.py`: Raw socket lifecycle, error handling, unprivileged fallbacks, and rolling metrics.
 * `tests/test_detector.py`: Port scan, SYN flood, NULL scan, XMAS scan, window expiration, alert cooldowns, and memory bounds.
 * `tests/test_ml.py`: 13-feature window extraction, zero-division safety, IsolationForest lifecycle, persistence, corrupted file safety, and anomaly detection.
-* `tests/test_health.py`: Health API endpoint.
-* `tests/test_socket.py`: Socket.IO handshake and ping/pong.
+* `tests/test_risk.py`: Severity scores, ML weighting, score clamping, boundary mapping, repeat frequency boost, and state pruning.
+* `tests/test_firewall.py`: IP validation, localhost/broadcast/multicast protection, allowlists, argument security (no shell=True), expiration, and isolated chain flushing.
+* `tests/test_risk_firewall_api.py`: Risk and firewall REST APIs, manual block/unblock validation, and Socket.IO pipeline integration.
+* `tests/test_health.py` & `tests/test_socket.py`: Health endpoint and WebSocket connection tests.
 
 ---
 
-## 11. Current Scope Limitations
+## 12. Current Scope Limitations & Future Roadmap
 
-* **No Automated IP Blocking**: Firewall mitigation via `iptables` is disabled until Phase 5.
-* **No Rule + ML Risk Correlation**: Unsupervised ML and rule detectors currently operate in parallel; composite risk correlation will be implemented in Phase 5.
-* **In-Memory Event Store**: SQLite persistent storage of security events will be integrated in Phase 6.
-
----
-
-## 12. Future Development Roadmap
-
-* **Phase 5 - Risk Engine & Automated IPS**: Correlate rule detections with ML anomaly scores to compute composite threat risk and automate Linux `iptables` blocking and unblocking.
-* **Phase 6 - Event Persistence & Telemetry Stream**: Store security events and firewall actions in SQLite, and stream complete telemetry to the React dashboard.
+* **Phase 6 - Event Persistence & Telemetry Stream**: Store security alerts, risk assessments, and firewall actions in SQLite with historical querying, and stream complete host telemetry (CPU, RAM, disk) to the React dashboard.

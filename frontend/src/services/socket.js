@@ -16,7 +16,11 @@ export function initSocketConnection(
   onTrafficMetrics,
   onSecurityEvent,
   onMLAnomaly,
-  onMLStatus
+  onMLStatus,
+  onRiskAssessment,
+  onFirewallAction,
+  onFirewallStatus,
+  onBlockedIPs
 ) {
   socket.on('connect', () => {
     if (onConnectChange) onConnectChange(true);
@@ -54,6 +58,30 @@ export function initSocketConnection(
     });
   }
 
+  if (onRiskAssessment) {
+    socket.on('risk_assessment', (data) => {
+      onRiskAssessment(data);
+    });
+  }
+
+  if (onFirewallAction) {
+    socket.on('firewall_action', (data) => {
+      onFirewallAction(data);
+    });
+  }
+
+  if (onFirewallStatus) {
+    socket.on('firewall_status', (data) => {
+      onFirewallStatus(data);
+    });
+  }
+
+  if (onBlockedIPs) {
+    socket.on('blocked_ips', (data) => {
+      onBlockedIPs(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -62,5 +90,9 @@ export function initSocketConnection(
     if (onSecurityEvent) socket.off('security_event');
     if (onMLAnomaly) socket.off('ml_anomaly');
     if (onMLStatus) socket.off('ml_status');
+    if (onRiskAssessment) socket.off('risk_assessment');
+    if (onFirewallAction) socket.off('firewall_action');
+    if (onFirewallStatus) socket.off('firewall_status');
+    if (onBlockedIPs) socket.off('blocked_ips');
   };
 }

@@ -122,14 +122,40 @@ class Config:
     ML_MODEL_PATH = ML_SETTINGS["model_path"]
     ML_METADATA_PATH = ML_SETTINGS["metadata_path"]
 
-    # Reserved Configuration: Risk Engine & Correlation (Future Phase)
-    RISK_ENGINE_SETTINGS = {
-        "high_risk_threshold": 0.75,
-        "auto_block_enabled": False,
+    # Composite Risk Engine Settings (Phase 5)
+    RISK_SETTINGS = {
+        "rule_weight": float(os.environ.get("RISK_RULE_WEIGHT", "0.65")),
+        "ml_weight": float(os.environ.get("RISK_ML_WEIGHT", "0.35")),
+        "severity_scores": {
+            "LOW": 0.20,
+            "MEDIUM": 0.40,
+            "HIGH": 0.70,
+            "CRITICAL": 0.90,
+        },
+        "repeat_increment": float(os.environ.get("RISK_REPEAT_INCREMENT", "0.05")),
+        "max_repeat_boost": float(os.environ.get("RISK_MAX_REPEAT_BOOST", "0.20")),
+        "history_window_seconds": float(os.environ.get("RISK_HISTORY_WINDOW_SEC", "60.0")),
+        "auto_block_threshold": float(os.environ.get("RISK_AUTO_BLOCK_THRESHOLD", "0.80")),
+        "max_tracked_ips": int(os.environ.get("RISK_MAX_TRACKED_IPS", "1000")),
+        "max_assessment_history": int(os.environ.get("RISK_MAX_HISTORY", "100")),
     }
 
-    # Reserved Configuration: Firewall Settings (Future Phase)
+    RISK_ENGINE_SETTINGS = RISK_SETTINGS
+
+    # Linux iptables Firewall Settings (Phase 5)
+    _raw_allowlist = os.environ.get("NETSENTINEL_FIREWALL_ALLOWLIST", "127.0.0.1,::1")
+    _allowlist_items = [x.strip() for x in _raw_allowlist.split(",") if x.strip()]
+    if "127.0.0.1" not in _allowlist_items:
+        _allowlist_items.append("127.0.0.1")
+    if "::1" not in _allowlist_items:
+        _allowlist_items.append("::1")
+
     FIREWALL_SETTINGS = {
-        "iptables_chain": "NETSENTINEL_INPUT",
-        "dry_run": True,
+        "enabled": os.environ.get("NETSENTINEL_FIREWALL_ENABLED", "False").lower() in ("true", "1", "t"),
+        "auto_block": os.environ.get("NETSENTINEL_AUTO_BLOCK", "False").lower() in ("true", "1", "t"),
+        "dry_run": os.environ.get("NETSENTINEL_FIREWALL_DRY_RUN", "True").lower() in ("true", "1", "t"),
+        "chain": os.environ.get("NETSENTINEL_IPTABLES_CHAIN", "NETSENTINEL"),
+        "block_duration": float(os.environ.get("NETSENTINEL_BLOCK_DURATION", "300.0")),
+        "max_blocked_ips": int(os.environ.get("NETSENTINEL_MAX_BLOCKED_IPS", "500")),
+        "allowlist": _allowlist_items,
     }

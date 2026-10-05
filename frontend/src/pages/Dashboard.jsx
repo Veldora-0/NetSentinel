@@ -5,11 +5,15 @@ import {
   Activity, 
   ShieldAlert, 
   Cpu, 
-  BarChart2,
-  AlertCircle,
-  Clock,
-  ArrowRight,
-  Brain
+  BarChart2, 
+  AlertCircle, 
+  Clock, 
+  ArrowRight, 
+  Brain,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  Shield
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -28,6 +32,15 @@ function formatAlertTime(timestamp) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function getRiskBadgeClass(level) {
+  switch ((level || '').toUpperCase()) {
+    case 'CRITICAL': return 'badge-critical';
+    case 'HIGH': return 'badge-high';
+    case 'MEDIUM': return 'badge-medium';
+    default: return 'badge-low';
+  }
+}
+
 export function Dashboard({ 
   apiStatus, 
   socketConnected, 
@@ -35,7 +48,12 @@ export function Dashboard({
   trafficHistory = [], 
   alerts = [],
   mlStatus = null,
-  mlMetrics = { window_history: [], recent_anomalies: [] }
+  mlMetrics = { window_history: [], recent_anomalies: [] },
+  riskAssessments = [],
+  riskStats = null,
+  firewallStatus = null,
+  blockedIPs = [],
+  onUnblock = null,
 }) {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
@@ -46,6 +64,8 @@ export function Dashboard({
     acc[type] = (acc[type] || 0) + 1;
     return acc;
   }, {});
+
+  const latestRisk = riskAssessments.length > 0 ? riskAssessments[0] : null;
 
   return (
     <div className="dashboard-container">
@@ -236,7 +256,6 @@ export function Dashboard({
             </div>
           ) : (
             <div className="ml-card-container">
-              {/* Header Status */}
               <div className="ml-header-status">
                 <span className="detail-label">Model Status:</span>
                 <span className={`badge ${
@@ -248,7 +267,6 @@ export function Dashboard({
                 </span>
               </div>
 
-              {/* Baseline Collection Progress */}
               {mlStatus.model_status === 'COLLECTING_BASELINE' && (
                 <div className="ml-baseline-progress">
                   <div className="progress-header">
@@ -271,7 +289,6 @@ export function Dashboard({
                 </div>
               )}
 
-              {/* Metric Box Grid */}
               <div className="metrics-grid">
                 <div className="metric-box">
                   <span className="metric-label">Latest Prediction</span>
@@ -295,7 +312,6 @@ export function Dashboard({
                 </div>
               </div>
 
-              {/* Score Trend Area Chart */}
               {mlMetrics?.window_history && mlMetrics.window_history.length > 1 ? (
                 <div className="traffic-chart-wrapper">
                   <div className="chart-header">
@@ -339,14 +355,132 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 5. Blocked IPs */}
-        <DashboardCard title="Blocked IPs" icon={ShieldAlert}>
-          <div className="placeholder-state">
-            <p className="placeholder-text">No blocked IPs</p>
+        {/* 5. Composite Risk Engine (Phase 5) */}
+        <DashboardCard title="Composite Risk Engine" icon={ShieldCheck}>
+          {!latestRisk ? (
+            <div className="placeholder-state">
+              <ShieldCheck size={36} className="placeholder-icon" />
+              <p className="placeholder-text">Waiting for threat assessments</p>
+            </div>
+          ) : (
+            <div className="risk-card-container">
+              <div className="ml-header-status">
+                <span className="detail-label">Current Threat Level:</span>
+                <span className={`badge ${getRiskBadgeClass(latestRisk.risk_level)}`}>
+                  {latestRisk.risk_level}
+                </span>
+              </div>
+
+              <div className="metrics-grid">
+                <div className="metric-box">
+                  <span className="metric-label">Combined Score</span>
+                  <span className="metric-value">{latestRisk.combined_score.toFixed(4)}</span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Action</span>
+                  <span className={`metric-value ${latestRisk.recommended_action === 'block' ? 'score-badge-anomaly' : 'score-badge-normal'}`}>
+                    {latestRisk.recommended_action.toUpperCase()}
+                  </span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Source IP</span>
+                  <span className="metric-value" style={{ fontSize: '0.95rem' }}>{latestRisk.source_ip}</span>
+                </div>
+                <div className="metric-box">
+                  <span className="metric-label">Total Evaluated</span>
+                  <span className="metric-value">{riskStats?.total_assessments || riskAssessments.length}</span>
+                </div>
+              </div>
+
+              {/* Score formula breakdown */}
+              <div className="risk-breakdown-bar">
+                <div className="breakdown-row">
+                  <span>Rule Contribution (65%):</span>
+                  <span className="breakdown-val">{(0.65 * latestRisk.rule_score).toFixed(3)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>ML Anomaly Contribution (35%):</span>
+                  <span className="breakdown-val">{(0.35 * latestRisk.ml_anomaly_score).toFixed(3)}</span>
+                </div>
+              </div>
+
+              {/* Recent assessments mini list */}
+              <div className="risk-scroll-list">
+                {riskAssessments.slice(0, 5).map((r) => (
+                  <div key={r.assessment_id} className="risk-item">
+                    <div className="risk-item-left">
+                      <span className={`badge ${getRiskBadgeClass(r.risk_level)}`} style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem' }}>
+                        {r.risk_level}
+                      </span>
+                      <span className="risk-item-ip">{r.source_ip}</span>
+                    </div>
+                    <span className="detail-value" style={{ fontSize: '0.75rem' }}>
+                      Score: {r.combined_score.toFixed(2)} → {r.recommended_action}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DashboardCard>
+
+        {/* 6. Firewall Mitigation & Blocked IPs (Phase 5) */}
+        <DashboardCard title={`Firewall Mitigation (${blockedIPs.length})`} icon={Shield}>
+          <div className="firewall-card-container">
+            <div className="ml-header-status">
+              <span className="detail-label">iptables Integration:</span>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <span className={`badge ${firewallStatus?.enabled ? 'badge-success' : 'badge-neutral'}`}>
+                  {firewallStatus?.enabled ? 'ENABLED' : 'DISABLED'}
+                </span>
+                <span className={`badge ${firewallStatus?.auto_block ? 'badge-critical' : 'badge-neutral'}`}>
+                  {firewallStatus?.auto_block ? 'AUTO-BLOCK ON' : 'AUTO-BLOCK OFF'}
+                </span>
+              </div>
+            </div>
+
+            <div className="detail-item" style={{ fontSize: '0.75rem' }}>
+              <span className="detail-label">Managed Chain:</span>
+              <span className="detail-value">{firewallStatus?.chain || 'NETSENTINEL'}</span>
+              <span className="detail-label" style={{ marginLeft: '1rem' }}>Mode:</span>
+              <span className="detail-value">{firewallStatus?.dry_run ? 'Dry-Run (Simulated)' : 'Live Kernel'}</span>
+            </div>
+
+            {blockedIPs.length === 0 ? (
+              <div className="placeholder-state" style={{ padding: '1rem 0' }}>
+                <Lock size={32} className="placeholder-icon" />
+                <p className="placeholder-text">No actively blocked IP addresses</p>
+              </div>
+            ) : (
+              <div className="blocked-ip-list">
+                {blockedIPs.map((blk) => (
+                  <div key={blk.ip} className="blocked-ip-item">
+                    <div className="blocked-ip-info">
+                      <span className="blocked-ip-addr">{blk.ip}</span>
+                      <span className="blocked-ip-reason">{blk.reason}</span>
+                      {blk.expires_at && (
+                        <span className="blocked-ip-reason">
+                          Expires: {new Date(blk.expires_at * 1000).toLocaleTimeString()}
+                        </span>
+                      )}
+                    </div>
+                    {onUnblock && (
+                      <button 
+                        className="btn-unblock"
+                        onClick={() => onUnblock(blk.ip)}
+                        title="Unblock IP"
+                      >
+                        Unblock
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </DashboardCard>
 
-        {/* 6. System Resources */}
+        {/* 7. System Resources */}
         <DashboardCard title="System Resources" icon={Cpu}>
           <div className="placeholder-state">
             <Cpu size={36} className="placeholder-icon" />
@@ -354,9 +488,9 @@ export function Dashboard({
           </div>
         </DashboardCard>
 
-        {/* 7. Detection Statistics */}
+        {/* 8. Detection & Mitigation Statistics */}
         <DashboardCard title="Detection Statistics" icon={BarChart2}>
-          {alerts.length === 0 && (!mlStatus || mlStatus.total_anomalies_detected === 0) ? (
+          {alerts.length === 0 && (!mlStatus || mlStatus.total_anomalies_detected === 0) && riskAssessments.length === 0 ? (
             <div className="placeholder-state">
               <BarChart2 size={36} className="placeholder-icon" />
               <p className="placeholder-text">Waiting for detection events</p>
@@ -388,6 +522,10 @@ export function Dashboard({
                   <span className="stat-pill-name">ML Anomaly</span>
                   <span className="stat-pill-val">{mlStatus?.total_anomalies_detected || 0}</span>
                 </div>
+                <div className="stat-pill">
+                  <span className="stat-pill-name">Blocked IPs</span>
+                  <span className="stat-pill-val">{blockedIPs.length}</span>
+                </div>
               </div>
             </div>
           )}
@@ -396,3 +534,5 @@ export function Dashboard({
     </div>
   );
 }
+
+export default Dashboard;

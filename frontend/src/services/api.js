@@ -105,4 +105,84 @@ export async function fetchMLMetrics() {
     return null;
   }
 }
+export async function fetchRecentRisks(limit = 20) {
+  try {
+    const response = await fetch(`/api/risk/recent?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.assessments || [];
+  } catch (error) {
+    return [];
+  }
+}
 
+export async function fetchRiskStats() {
+  try {
+    const response = await fetch('/api/risk/stats', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.stats || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchFirewallStatus() {
+  try {
+    const response = await fetch('/api/firewall/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.firewall || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchBlockedIPs() {
+  try {
+    const response = await fetch('/api/firewall/blocked', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.blocked_ips || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function manualBlockIP(ip, reason = 'Operator Manual Block', duration = 300) {
+  try {
+    const response = await fetch('/api/firewall/block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ ip, reason, duration }),
+    });
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+export async function manualUnblockIP(ip) {
+  try {
+    const response = await fetch('/api/firewall/unblock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ ip }),
+    });
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
