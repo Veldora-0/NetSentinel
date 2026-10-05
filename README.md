@@ -23,7 +23,8 @@
 * **pytest** - Automated test suite (239 tests)
 
 ### Frontend
-* **React 18** - UI framework
+* **React 18** - UI component framework
+* **React Router v7 (`react-router-dom`)** - Multi-workspace client-side routing & deep linking
 * **Vite** - High-performance frontend build tool & proxy server
 * **JavaScript (ES6+ / JSX)** - Core frontend scripting
 * **Recharts** - Real-time traffic rate, anomaly score trend, and CPU/RAM resource trend charts
@@ -62,11 +63,15 @@ NetSentinel/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── components/  # Modular UI components (Header, DashboardCard, etc.)
-│   │   ├── pages/       # Dashboard view with Incident Workspace, Investigation Modal, HIDS, Network, ML, Risk, Firewall, Telemetry, History
+│   │   ├── components/
+│   │   │   ├── layout/  # Persistent AppLayout, NavLink Sidebar, Topbar, and PageHeader
+│   │   │   └── common/  # Reusable MetricCard, SeverityBadge, StatusBadge, LoadingState, EmptyState, ErrorState
+│   │   ├── hooks/       # Custom React hooks (useSocketEvent with lifecycle auto-cleanup)
+│   │   ├── pages/       # Dedicated routed workspaces (Overview, Network, Detection, HostSecurity, Incidents, IncidentDetail, ThreatIntelligence, Firewall, History, System, NotFound)
 │   │   ├── services/    # REST API & Socket.IO client connections (Incidents, Events, Host, History, Telemetry, Risk & Firewall)
-│   │   ├── App.jsx      # Root application component with live state sync
-│   │   ├── App.css      # SOC dark theme styling with incident tables, investigation drawer, and timeline flow
+│   │   ├── utils/       # Safe formatting utilities (formatBytes, formatNumber, formatPercent, formatAlertTime)
+│   │   ├── App.jsx      # Root routing controller with BrowserRouter, AppLayout, and workspace routes
+│   │   ├── App.css      # SOC dark theme styling with responsive sidebar, topbar, incident tables, and workspace layouts
 │   │   └── main.jsx     # React entry point
 │   ├── index.html       # HTML entry point
 │   ├── package.json     # Node dependencies and scripts
