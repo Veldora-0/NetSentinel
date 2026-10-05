@@ -581,6 +581,56 @@ export async function triggerFimRebaseline(paths = null) {
   }
 }
 
+// ==============================================================================
+// Threat Intelligence API (Phase 11)
+// ==============================================================================
+
+export async function fetchThreatIntelStatus() {
+  try {
+    const response = await fetch('/api/threat-intel/status', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    const data = await response.json();
+    return data.threat_intel || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchThreatIntelIP(ip) {
+  if (!ip) return null;
+  try {
+    const response = await fetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return { status: 'error', available: false, error: error.message };
+  }
+}
+
+export async function requestThreatIntelLookup(ip) {
+  if (!ip) return { status: 'error', message: 'No IP provided' };
+  try {
+    const response = await fetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}/lookup`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, message: data.message || `HTTP ${response.status}` };
+    }
+    return { success: true, ...data };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+
 
 
 

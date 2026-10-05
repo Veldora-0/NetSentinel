@@ -26,7 +26,8 @@ import {
   CheckCircle2,
   X,
   ExternalLink,
-  Search
+  Search,
+  Globe
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DashboardCard } from '../components/DashboardCard';
@@ -75,6 +76,16 @@ function getIncidentStatusBadgeClass(status) {
   }
 }
 
+function getReputationBadgeClass(rep) {
+  switch ((rep || '').toUpperCase()) {
+    case 'MALICIOUS': return 'badge-ti-malicious';
+    case 'SUSPICIOUS': return 'badge-ti-suspicious';
+    case 'CLEAN': return 'badge-ti-clean';
+    case 'CONFLICTING': return 'badge-ti-conflicting';
+    default: return 'badge-ti-unknown';
+  }
+}
+
 export function Dashboard({ 
   apiStatus, 
   socketConnected, 
@@ -107,12 +118,52 @@ export function Dashboard({
   fimEvents = [],
   onRefreshFim = null,
   onFimRebaseline = null,
+  threatIntelStatus = null,
+  onRequestTILookup = null,
+  onFetchTIIP = null,
 }) {
 
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
 
+  // Phase 11: Threat Intelligence lookup state
+  const [tiQueryIP, setTiQueryIP] = useState('');
+  const [tiQueryResult, setTiQueryResult] = useState(null);
+  const [tiLoading, setTiLoading] = useState(false);
+  const [tiLookupMsg, setTiLookupMsg] = useState(null);
+
+  const handleRunTILookup = async () => {
+    if (!tiQueryIP.trim()) return;
+    setTiLoading(true);
+    setTiLookupMsg(null);
+    try {
+      if (onFetchTIIP) {
+        const res = await onFetchTIIP(tiQueryIP.trim());
+        setTiQueryResult(res);
+        if (res && res.intelligence) {
+          setTiLookupMsg({ type: 'success', text: `Reputation: ${res.intelligence.reputation}` });
+        } else if (res && !res.eligible) {
+          setTiLookupMsg({ type: 'warning', text: res.message || 'IP is not eligible for public TI lookup' });
+        } else if (res && !res.available) {
+          if (onRequestTILookup) {
+            const queueRes = await onRequestTILookup(tiQueryIP.trim());
+            if (queueRes && queueRes.success) {
+              setTiLookupMsg({ type: 'info', text: 'Enrichment request queued. Awaiting provider response...' });
+            } else {
+              setTiLookupMsg({ type: 'error', text: queueRes?.message || 'Lookup queue request failed' });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setTiLookupMsg({ type: 'error', text: err.message });
+    } finally {
+      setTiLoading(false);
+    }
+  };
+
   // Filters for historical table
+
   const [historyTypeFilter, setHistoryTypeFilter] = useState('ALL');
   const [historySeverityFilter, setHistorySeverityFilter] = useState('ALL');
   const [historySearchIP, setHistorySearchIP] = useState('');
@@ -570,7 +621,18 @@ export function Dashboard({
                     <span className="breakdown-val" style={{ color: '#f97316' }}>+{latestRisk.evidence.correlation_boost.toFixed(2)}</span>
                   </div>
                 )}
+                <div className="breakdown-row">
+                  <span>Threat Intelligence:</span>
+                  <span className="breakdown-val">
+                    {latestRisk.evidence?.ti_score_modifier > 0
+                      ? `+${latestRisk.evidence.ti_score_modifier.toFixed(2)} (${latestRisk.evidence.ti_reputation})`
+                      : latestRisk.evidence?.ti_available
+                      ? `+0.00 (${latestRisk.evidence.ti_reputation || 'CLEAN'})`
+                      : 'Unavailable'}
+                  </span>
+                </div>
               </div>
+
 
               {/* Recent assessments mini list */}
               <div className="risk-scroll-list">
@@ -981,8 +1043,183 @@ export function Dashboard({
           )}
         </DashboardCard>
 
-        {/* 10. System Resources (Phase 6: Real Host Telemetry) */}
+        {/* 10. Threat Intelligence Enrichment (Phase 11) */}
+        <DashboardCard title="Threat Intelligence Enrichment" icon={Globe}>
+          <div className="ti-container">
+            {/* Engine Overview Banner */}
+            <div className="ti-meta-banner">
+              <div>
+                <span className="ti-banner-label">Engine Status: </span>
+                <span className={`badge ${threatIntelStatus?.enabled ? 'badge-status-open' : 'badge-low'}`} style={{ padding: '0.15rem 0.45rem', fontSize: '0.65rem' }}>
+                  {threatIntelStatus?.enabled ? 'ACTIVE' : 'DISABLED (STANDBY)'}
+                </span>
+              </div>
+              <div>
+                <span className="ti-banner-label">Configured Providers: </span>
+                <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>
+                  {threatIntelStatus?.configured_providers?.length > 0
+                    ? threatIntelStatus.configured_providers.join(', ')
+                    : 'None (Operating in local/offline detection mode)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Live KPI Stat Cards */}
+            <div className="ti-stats-grid">
+              <div className="ti-stat-card">
+                <span className="ti-stat-label">Providers Ready</span>
+                <span className="ti-stat-val" style={{ color: (threatIntelStatus?.available_providers?.length || 0) > 0 ? '#10b981' : '#94a3b8' }}>
+                  {threatIntelStatus?.available_providers?.length || 0} / {threatIntelStatus?.configured_providers?.length || 0}
+                </span>
+              </div>
+              <div className="ti-stat-card">
+                <span className="ti-stat-label">Queue Load</span>
+                <span className="ti-stat-val" style={{ color: (threatIntelStatus?.queue_size || 0) > 100 ? '#f59e0b' : '#38bdf8' }}>
+                  {threatIntelStatus?.queue_size || 0} / {threatIntelStatus?.queue_capacity || 500}
+                </span>
+              </div>
+              <div className="ti-stat-card">
+                <span className="ti-stat-label">Cache Entries</span>
+                <span className="ti-stat-val" style={{ color: '#a855f7' }}>
+                  {threatIntelStatus?.cache_entries || 0} ({threatIntelStatus?.fresh_cache_entries || 0} fresh)
+                </span>
+              </div>
+              <div className="ti-stat-card">
+                <span className="ti-stat-label">Lookups</span>
+                <span className="ti-stat-val" style={{ color: '#38bdf8' }}>
+                  {threatIntelStatus?.successful_lookups || 0} ok / {threatIntelStatus?.failed_lookups || 0} err
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Public IP Inspector Tool */}
+            <div className="ti-inspector-box">
+              <div className="ti-inspector-header">
+                <span style={{ fontWeight: 600, fontSize: '0.8rem', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Search size={14} /> Indicator Reputation Inspector
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Public IPv4/IPv6 indicators only</span>
+              </div>
+
+              <div className="ti-search-bar">
+                <input
+                  type="text"
+                  className="ti-search-input"
+                  placeholder="Enter external IP (e.g. 198.51.100.25)..."
+                  value={tiQueryIP}
+                  onChange={(e) => setTiQueryIP(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRunTILookup()}
+                />
+                <button
+                  type="button"
+                  className="ti-btn-primary"
+                  onClick={handleRunTILookup}
+                  disabled={tiLoading || !tiQueryIP.trim()}
+                >
+                  {tiLoading ? 'Checking...' : 'Check Reputation'}
+                </button>
+              </div>
+
+              {tiLookupMsg && (
+                <div className={`ti-msg-banner ${tiLookupMsg.type}`}>
+                  {tiLookupMsg.text}
+                </div>
+              )}
+
+              {tiQueryResult?.intelligence && (
+                <div className="ti-result-card">
+                  <div className="ti-result-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', color: '#f8fafc' }}>
+                        {tiQueryResult.intelligence.ip}
+                      </span>
+                      <span className={`badge ${getReputationBadgeClass(tiQueryResult.intelligence.reputation)}`}>
+                        {tiQueryResult.intelligence.reputation}
+                      </span>
+                      <span className="badge badge-consensus" style={{ fontSize: '0.65rem' }}>
+                        {tiQueryResult.intelligence.consensus}
+                      </span>
+                      {tiQueryResult.intelligence.stale && (
+                        <span className="badge badge-stale" style={{ fontSize: '0.65rem', backgroundColor: '#475569', color: '#cbd5e1' }}>
+                          STALE
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      Confidence: {(tiQueryResult.intelligence.confidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+
+                  <div className="ti-details-grid">
+                    <div className="ti-detail-item">
+                      <span className="ti-detail-label">Abuse Score</span>
+                      <span className="ti-detail-val">
+                        {tiQueryResult.intelligence.abuse_score !== null && tiQueryResult.intelligence.abuse_score !== undefined
+                          ? `${tiQueryResult.intelligence.abuse_score}/100`
+                          : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="ti-detail-item">
+                      <span className="ti-detail-label">Report Count</span>
+                      <span className="ti-detail-val">{tiQueryResult.intelligence.report_count ?? 0}</span>
+                    </div>
+                    <div className="ti-detail-item">
+                      <span className="ti-detail-label">Country</span>
+                      <span className="ti-detail-val">{tiQueryResult.intelligence.country || 'Unknown'}</span>
+                    </div>
+                    <div className="ti-detail-item">
+                      <span className="ti-detail-label">ASN / Owner</span>
+                      <span className="ti-detail-val">
+                        {tiQueryResult.intelligence.asn ? `AS${tiQueryResult.intelligence.asn} ` : ''}
+                        {tiQueryResult.intelligence.as_owner || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Provider Breakdown Cards */}
+                  {Object.keys(tiQueryResult.intelligence.provider_results || {}).length > 0 && (
+                    <div className="ti-provider-results-list">
+                      {Object.entries(tiQueryResult.intelligence.provider_results).map(([pName, pRes]) => (
+                        <div key={pName} className="ti-provider-card">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.75rem' }}>{pName}</span>
+                            <span className={`badge ${getReputationBadgeClass(pRes.reputation)}`} style={{ fontSize: '0.6rem', padding: '0.1rem 0.35rem' }}>
+                              {pRes.reputation}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', gap: '0.75rem', marginTop: '0.2rem' }}>
+                            {pRes.abuse_confidence !== undefined && (
+                              <span>Abuse Conf: {pRes.abuse_confidence}%</span>
+                            )}
+                            {pRes.report_count !== undefined && (
+                              <span>Reports: {pRes.report_count}</span>
+                            )}
+                            {pRes.malicious_score !== undefined && pName === 'VirusTotal' && (
+                              <span>Detections: {pRes.malicious_score}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Cautious Contextual Disclaimer */}
+                  <div className="ti-disclaimer">
+                    <AlertCircle size={12} style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <span>
+                      External reputation sources report this IP as {tiQueryResult.intelligence.reputation.toLowerCase()}.
+                      Threat intelligence is contextual evidence and does not constitute proof of compromise.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DashboardCard>
+
+        {/* 11. System Resources (Phase 6: Real Host Telemetry) */}
         <DashboardCard title="System Resources" icon={Cpu}>
+
 
           {!hostTelemetry ? (
             <div className="placeholder-state">
@@ -1426,6 +1663,12 @@ export function Dashboard({
                 >
                   <CheckCircle2 size={14} /> SOC Report Summary
                 </button>
+                <button
+                  className={`investigation-tab-btn ${modalTab === 'threat-intel' ? 'active' : ''}`}
+                  onClick={() => setModalTab('threat-intel')}
+                >
+                  <Globe size={14} /> Threat Intelligence
+                </button>
               </div>
 
               {/* Tab Contents */}
@@ -1613,6 +1856,95 @@ export function Dashboard({
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {modalTab === 'threat-intel' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.8rem' }}>
+                    <div className="host-section-block">
+                      <div className="host-block-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Globe size={15} color="#38bdf8" />
+                        External IP Reputation &amp; Intelligence
+                      </div>
+                      {(() => {
+                        const tiEvidence = (incidentDetail?.evidence || []).find((e) => e.evidence_type === 'THREAT_INTELLIGENCE');
+                        const tiMeta = tiEvidence?.metadata || null;
+                        const srcIp = incidentDetail?.primary_source_ip;
+
+                        if (!tiMeta) {
+                          return (
+                            <div style={{ padding: '1rem', color: '#94a3b8', textAlign: 'center' }}>
+                              <p>No threat intelligence evidence has been recorded for source IP <code>{srcIp || 'N/A'}</code>.</p>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#64748b' }}>
+                                (Threat intelligence lookups are performed for eligible public IPv4/IPv6 addresses when configured.)
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div>
+                            <div className="host-stat-row">
+                              <span>Assessed Source IP:</span>
+                              <span className="host-stat-val" style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{tiMeta.ip}</span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Consensus Reputation:</span>
+                              <span className={`badge ${getReputationBadgeClass(tiMeta.reputation)}`}>
+                                {tiMeta.reputation}
+                              </span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Consensus Verdict:</span>
+                              <span className="host-stat-val">{tiMeta.consensus}</span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Confidence Score:</span>
+                              <span className="host-stat-val">{(tiMeta.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Autonomous System (ASN):</span>
+                              <span className="host-stat-val">{tiMeta.asn || 'N/A'}</span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Country:</span>
+                              <span className="host-stat-val">{tiMeta.country_code || 'N/A'}</span>
+                            </div>
+                            <div className="host-stat-row">
+                              <span>Cached / Freshness:</span>
+                              <span className="host-stat-val">{tiMeta.is_stale ? 'Stale / Expired' : 'Fresh'}</span>
+                            </div>
+
+                            {tiMeta.provider_results && Object.keys(tiMeta.provider_results).length > 0 && (
+                              <div style={{ marginTop: '0.75rem' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.4rem' }}>
+                                  Provider Observations
+                                </div>
+                                <div className="ti-provider-results-list">
+                                  {Object.entries(tiMeta.provider_results).map(([providerName, pRes]) => (
+                                    <div key={providerName} className="ti-provider-card">
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{providerName}</span>
+                                        <span className={`badge ${getReputationBadgeClass(pRes?.reputation)}`}>
+                                          {pRes?.reputation || 'UNKNOWN'}
+                                        </span>
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                        Score: {pRes?.score !== null && pRes?.score !== undefined ? `${pRes.score}/100` : 'N/A'} | Malicious: {pRes?.malicious_votes ?? 0} | Suspicious: {pRes?.suspicious_votes ?? 0}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="ti-disclaimer" style={{ marginTop: '0.75rem' }}>
+                              Threat intelligence provides external contextual correlation and does not constitute absolute proof of compromise.
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>

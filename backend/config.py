@@ -262,4 +262,34 @@ class Config:
     FIM_MAX_FILE_SIZE = FIM_SETTINGS["fim_max_file_size"]
     FIM_CRITICAL_PATHS = FIM_SETTINGS["fim_critical_paths"]
 
+    # Threat Intelligence (TI) Enrichment Settings (Phase 11)
+    TI_SETTINGS = {
+        "ti_enabled": os.environ.get("NETSENTINEL_TI_ENABLED", "False").lower() in ("true", "1", "t"),
+        "ti_queue_max": int(os.environ.get("NETSENTINEL_TI_QUEUE_MAX", "500")),
+        "ti_workers": int(os.environ.get("NETSENTINEL_TI_WORKERS", "1")),
+        "ti_cache_ttl": float(os.environ.get("NETSENTINEL_TI_CACHE_TTL", "3600.0")),  # 1 hour
+        "ti_min_request_interval": float(os.environ.get("NETSENTINEL_TI_MIN_REQUEST_INTERVAL", "15.0")),
+        "ti_request_timeout": float(os.environ.get("NETSENTINEL_TI_REQUEST_TIMEOUT", "8.0")),
+        # Provider 1: AbuseIPDB
+        "abuseipdb_enabled": os.environ.get("NETSENTINEL_TI_ABUSEIPDB_ENABLED", "False").lower() in ("true", "1", "t"),
+        "abuseipdb_api_key": os.environ.get("NETSENTINEL_TI_ABUSEIPDB_API_KEY", "").strip(),
+        "abuseipdb_max_age_days": int(os.environ.get("NETSENTINEL_TI_ABUSEIPDB_MAX_AGE_DAYS", "90")),
+        # Provider 2: VirusTotal
+        "vt_enabled": os.environ.get("NETSENTINEL_TI_VT_ENABLED", "False").lower() in ("true", "1", "t"),
+        "vt_api_key": os.environ.get("NETSENTINEL_TI_VT_API_KEY", "").strip(),
+    }
+
+    TI_ENABLED = TI_SETTINGS["ti_enabled"]
+    TI_QUEUE_MAX = TI_SETTINGS["ti_queue_max"]
+    TI_WORKERS = TI_SETTINGS["ti_workers"]
+    TI_CACHE_TTL = TI_SETTINGS["ti_cache_ttl"]
+    TI_MIN_REQUEST_INTERVAL = TI_SETTINGS["ti_min_request_interval"]
+    TI_REQUEST_TIMEOUT = TI_SETTINGS["ti_request_timeout"]
+    TI_ABUSEIPDB_ENABLED = TI_SETTINGS["abuseipdb_enabled"]
+    TI_ABUSEIPDB_API_KEY = TI_SETTINGS["abuseipdb_api_key"]
+    TI_ABUSEIPDB_MAX_AGE_DAYS = TI_SETTINGS["abuseipdb_max_age_days"]
+    TI_VT_ENABLED = TI_SETTINGS["vt_enabled"]
+    TI_VT_API_KEY = TI_SETTINGS["vt_api_key"]
+
+
 

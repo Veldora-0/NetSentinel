@@ -1522,6 +1522,205 @@ body {
   gap: 0.2rem;
 }
 
+/* Threat Intelligence Enrichment (Phase 11) */
+.ti-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ti-meta-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background-color: rgba(30, 41, 59, 0.4);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.ti-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+}
+
+.ti-stat-card {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ti-stat-label {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ti-stat-val {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-family: monospace;
+}
+
+.ti-inspector-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background-color: rgba(15, 23, 42, 0.4);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.ti-search-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ti-search-input {
+  flex: 1;
+  background-color: #0b0f19;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.ti-search-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px #38bdf8;
+}
+
+.ti-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ti-btn-primary:hover:not(:disabled) {
+  background-color: #0369a1;
+}
+
+.ti-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ti-msg-banner {
+  padding: 0.45rem 0.75rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  background-color: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+}
+
+.ti-result-card {
+  background-color: #0b0f19;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ti-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 0.4rem;
+}
+
+.ti-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+
+.ti-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ti-provider-results-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.ti-provider-card {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+  border-radius: 5px;
+  padding: 0.5rem 0.65rem;
+}
+
+.ti-disclaimer {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-style: italic;
+  padding-top: 0.25rem;
+  border-top: 1px solid #1e293b;
+}
+
+/* Reputation Badges */
+.badge-ti-malicious {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.badge-ti-suspicious {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.badge-ti-clean {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.badge-ti-conflicting {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.badge-ti-unknown {
+  background-color: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+
 
 
 

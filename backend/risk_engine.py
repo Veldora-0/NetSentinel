@@ -118,7 +118,10 @@ class RiskEngine:
         self._ip_history[source_ip].append(now)
 
     def calculate_risk_score(
-        self, rule_alerts: Optional[List[Dict[str, Any]]] = None, ml_anomaly_score: float = 0.0
+        self,
+        rule_alerts: Optional[List[Dict[str, Any]]] = None,
+        ml_anomaly_score: float = 0.0,
+        ti_summary: Optional[Any] = None,
     ) -> float:
         """Calculate composite risk score without updating state."""
         ml_score = max(0.0, min(1.0, float(ml_anomaly_score or 0.0)))
@@ -126,17 +129,25 @@ class RiskEngine:
 
         if not alerts:
             combined = self.ml_weight * ml_score
-            return round(max(0.0, min(1.0, combined)), 4)
+        else:
+            base_rule_score = 0.0
+            for alert in alerts:
+                sev = alert.get("severity", "LOW") if isinstance(alert, dict) else getattr(alert, "severity", "LOW")
+                score = self.severity_scores.get(sev.upper(), 0.20)
+                if score > base_rule_score:
+                    base_rule_score = score
+            combined = (self.rule_weight * base_rule_score) + (self.ml_weight * ml_score)
 
-        base_rule_score = 0.0
-        for alert in alerts:
-            sev = alert.get("severity", "LOW") if isinstance(alert, dict) else getattr(alert, "severity", "LOW")
-            score = self.severity_scores.get(sev.upper(), 0.20)
-            if score > base_rule_score:
-                base_rule_score = score
+        if ti_summary:
+            ti_data = ti_summary.to_dict() if hasattr(ti_summary, "to_dict") else ti_summary
+            ti_rep = str(ti_data.get("reputation", "UNKNOWN")).upper()
+            ti_stale = bool(ti_data.get("stale", False))
+            base_ti_mod = self.TI_MODIFIERS.get(ti_rep, 0.0)
+            ti_mod = round(base_ti_mod * 0.5, 4) if ti_stale else base_ti_mod
+            combined = min(1.0, combined + ti_mod)
 
-        combined = (self.rule_weight * base_rule_score) + (self.ml_weight * ml_score)
         return round(max(0.0, min(1.0, combined)), 4)
+
 
     NETWORK_DETECTION_TYPES = {
         "PORT_SCAN", "SYN_FLOOD", "NULL_SCAN", "XMAS_SCAN",
@@ -207,10 +218,19 @@ class RiskEngine:
 
         return False, 0.0, ""
 
+    TI_MODIFIERS = {
+        "MALICIOUS": 0.15,
+        "SUSPICIOUS": 0.05,
+        "CONFLICTING": 0.02,
+        "CLEAN": 0.00,
+        "UNKNOWN": 0.00,
+    }
+
     def assess_rule_event(
         self,
         event: Any,
         ml_anomaly_score: float = 0.0,
+        ti_summary: Optional[Any] = None,
     ) -> RiskAssessment:
         """Convenience method to evaluate a single SecurityEvent instance."""
         src_ip = getattr(event, "source_ip", None) or "127.0.0.1"
@@ -220,6 +240,7 @@ class RiskEngine:
             destination_ip=dst_ip,
             rule_alerts=[event],
             ml_anomaly_score=ml_anomaly_score,
+            ti_summary=ti_summary,
         )
 
     def assess(
@@ -228,7 +249,9 @@ class RiskEngine:
         destination_ip: Optional[str] = None,
         rule_alerts: Optional[List[Any]] = None,
         ml_anomaly_score: float = 0.0,
+        ti_summary: Optional[Any] = None,
     ) -> RiskAssessment:
+
         """Evaluate overall threat level, compute composite score, and record assessment."""
         now = time.time()
         safe_source_ip = source_ip if (source_ip and source_ip.strip()) else "127.0.0.1"
@@ -276,6 +299,21 @@ class RiskEngine:
             if is_correlated and correlation_boost > 0.0:
                 combined = min(1.0, combined + correlation_boost)
 
+            # Phase 11: Threat Intelligence Bounded Modifier
+            ti_data = ti_summary.to_dict() if hasattr(ti_summary, "to_dict") else (ti_summary or {})
+            ti_rep = str(ti_data.get("reputation", "UNKNOWN")).upper()
+            ti_stale = bool(ti_data.get("stale", False))
+            ti_conf = float(ti_data.get("confidence", 0.0))
+            ti_avail = bool(ti_data.get("available", True)) and (ti_rep != "UNKNOWN" or bool(ti_data.get("providers_checked", 0)))
+            ti_providers = int(ti_data.get("providers_checked", 0) or len(ti_data.get("provider_results", {})))
+            ti_consensus = str(ti_data.get("consensus", "UNKNOWN"))
+
+            base_ti_mod = self.TI_MODIFIERS.get(ti_rep, 0.0)
+            ti_boost = round(base_ti_mod * 0.5, 4) if ti_stale else base_ti_mod
+
+            if ti_boost > 0.0:
+                combined = min(1.0, combined + ti_boost)
+
             combined_clamped = round(max(0.0, min(1.0, combined)), 4)
             risk_level, action = self._determine_risk_level_and_action(combined_clamped)
 
@@ -286,6 +324,9 @@ class RiskEngine:
                 reason_parts.append(f"{correlation_note} (+{correlation_boost:.2f})")
             if repeat_boost > 0.0:
                 reason_parts.append(f"repeated activity (+{repeat_boost:.2f})")
+            if ti_boost > 0.0:
+                stale_tag = " (stale)" if ti_stale else ""
+                reason_parts.append(f"Threat Intelligence: {ti_rep}{stale_tag} (+{ti_boost:.2f})")
             if ml_score > 0.0:
                 reason_parts.append(f"ML anomaly score: {ml_score:.2f}")
 
@@ -309,6 +350,13 @@ class RiskEngine:
                     "correlated": is_correlated,
                     "correlation_note": correlation_note if is_correlated else None,
                     "correlation_reason": correlation_note if is_correlated else None,
+                    "ti_reputation": ti_rep,
+                    "ti_score_modifier": ti_boost,
+                    "ti_confidence": round(ti_conf, 4),
+                    "ti_provider_count": ti_providers,
+                    "ti_stale": ti_stale,
+                    "ti_consensus": ti_consensus,
+                    "ti_available": ti_avail,
                     "rule_weight": self.rule_weight,
                     "ml_weight": self.ml_weight,
                     "alert_count": len(alerts),
@@ -317,6 +365,7 @@ class RiskEngine:
                 blocked=False,
                 reason=reason,
             )
+
 
             self._recent_assessments.append(assessment)
             self._stats["total_assessments"] += 1

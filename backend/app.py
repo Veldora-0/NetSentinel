@@ -8,9 +8,10 @@ and host system telemetry sampling.
 
 import threading
 import time
-from typing import Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, jsonify, request
+
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
@@ -35,6 +36,9 @@ from database import (
     query_fim_baseline,
     query_fim_stats,
     query_fim_events,
+    save_ti_cache_record,
+    get_all_ti_cache_records,
+    save_ti_observation_record,
 )
 
 from capture import PacketCapture
@@ -46,6 +50,7 @@ from telemetry import TelemetryWorker
 from host import HostDetectionManager
 from arp_detector import ARPDetector
 from incident_manager import IncidentManager
+from threat_intel import ThreatIntelService, is_eligible_public_ip
 
 # Global server components
 packet_capture: PacketCapture = None
@@ -57,12 +62,14 @@ telemetry_worker: TelemetryWorker = None
 host_manager: HostDetectionManager = None
 arp_detector: ARPDetector = None
 incident_manager: IncidentManager = None
+threat_intel_service: ThreatIntelService = None
 metrics_thread: threading.Thread = None
 
 
 def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, SocketIO]:
     """Application factory for NetSentinel Flask Backend."""
-    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, incident_manager, metrics_thread
+    global packet_capture, detector, ml_detector, risk_engine, firewall, telemetry_worker, host_manager, arp_detector, incident_manager, threat_intel_service, metrics_thread
+
 
 
     app = Flask(__name__)
@@ -140,6 +147,51 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     )
     app.incident_manager = incident_manager
 
+    # 9. Initialize Threat Intelligence Service (Phase 11)
+    threat_intel_service = ThreatIntelService(config=app.config.get("TI_SETTINGS"))
+    app.threat_intel_service = threat_intel_service
+
+    def _save_ti_cache_with_context(**kwargs):
+        with app.app_context():
+            return save_ti_cache_record(**kwargs)
+
+    def _load_ti_cache_with_context():
+        with app.app_context():
+            return get_all_ti_cache_records()
+
+    threat_intel_service.cache.set_persistence(
+        saver=_save_ti_cache_with_context,
+        loader=_load_ti_cache_with_context,
+    )
+    with app.app_context():
+        threat_intel_service.cache.load_persisted()
+
+    def _on_threat_intel_updated(intel_data: Dict[str, Any]) -> None:
+        try:
+            socketio.emit("threat_intel_update", intel_data)
+        except Exception:
+            pass
+
+        try:
+            src_ip = intel_data.get("ip")
+            if src_ip and incident_manager:
+                with app.app_context():
+                    inc = incident_manager.correlate_threat_intel(src_ip, intel_data)
+                    inc_id = inc.incident_id if inc else None
+                    save_ti_observation_record(
+                        source_ip=src_ip,
+                        provider="Aggregated",
+                        reputation=intel_data.get("reputation", "UNKNOWN"),
+                        confidence=float(intel_data.get("confidence", 0.0)),
+                        summary=intel_data,
+                        incident_id=inc_id,
+                        expires_at=intel_data.get("expires_at"),
+                    )
+        except Exception as ex:
+            app.logger.debug("Error correlating threat intel: %s", ex)
+
+    threat_intel_service.on_intel_updated = _on_threat_intel_updated
+
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
         try:
@@ -154,6 +206,12 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         except Exception as ex:
             app.logger.debug("Error persisting security event: %s", ex)
 
+        # Phase 11: Async queue for external Threat Intelligence enrichment (never blocks hot path)
+        ti_summary = None
+        if threat_intel_service and threat_intel_service.enabled:
+            threat_intel_service.queue_ip(event.source_ip)
+            ti_summary = threat_intel_service.get_cached_summary(event.source_ip)
+
         # Phase 5: Pipeline: SecurityEvent -> RiskEngine -> Assessment -> Firewall
         try:
             with app.app_context():
@@ -165,7 +223,9 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     destination_ip=event.destination_ip,
                     rule_alerts=[event],
                     ml_anomaly_score=ml_score,
+                    ti_summary=ti_summary,
                 )
+
 
                 # Automated firewall mitigation if conditions are met
                 if (
@@ -645,7 +705,16 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         inc = incident_manager.get_incident(incident_id, include_evidence=True)
         if not inc:
             return jsonify({"status": "error", "message": f"Incident '{incident_id}' not found"}), 404
+
+        # Attach Threat Intelligence enrichment summary if available for primary_source_ip
+        src_ip = inc.get("primary_source_ip")
+        if src_ip and threat_intel_service:
+            ti_summary = threat_intel_service.get_cached_summary(src_ip)
+            if ti_summary:
+                inc["threat_intelligence"] = ti_summary.to_dict()
+
         return jsonify({"status": "ok", "incident": inc}), 200
+
 
     @app.route("/api/incidents/<incident_id>/timeline", methods=["GET"])
     def get_incident_timeline(incident_id: str):
@@ -824,6 +893,105 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "status": status,
         }), 200
 
+    # Threat Intelligence Endpoints (Phase 11)
+    @app.route("/api/threat-intel/status", methods=["GET"])
+    def get_threat_intel_status():
+        """Retrieve operational status, configured providers, and metrics for Threat Intelligence."""
+        if not threat_intel_service:
+            return jsonify({
+                "status": "ok",
+                "threat_intel": {
+                    "enabled": False,
+                    "configured_providers": [],
+                    "available_providers": [],
+                    "queue_size": 0,
+                    "cache_entries": 0,
+                },
+            }), 200
+        return jsonify({
+            "status": "ok",
+            "threat_intel": threat_intel_service.get_status(),
+        }), 200
+
+    @app.route("/api/threat-intel/ip/<ip>", methods=["GET"])
+    def get_threat_intel_ip(ip: str):
+        """Query normalized threat intelligence information for an external IP indicator."""
+        clean_ip = str(ip).strip()
+        if not is_eligible_public_ip(clean_ip):
+            return jsonify({
+                "status": "ok",
+                "ip": clean_ip,
+                "eligible": False,
+                "available": False,
+                "reputation": "UNKNOWN",
+                "reason": "ineligible_private_or_local",
+                "message": "Only public, globally routable IPs are eligible for threat intelligence lookup.",
+            }), 200
+
+        if not threat_intel_service:
+            return jsonify({
+                "status": "ok",
+                "ip": clean_ip,
+                "eligible": True,
+                "available": False,
+                "reputation": "UNKNOWN",
+                "message": "Threat Intelligence service not initialized",
+            }), 200
+
+        ti_summary = threat_intel_service.get_cached_summary(clean_ip, allow_stale=True)
+        if not ti_summary:
+            return jsonify({
+                "status": "ok",
+                "ip": clean_ip,
+                "eligible": True,
+                "available": False,
+                "reputation": "UNKNOWN",
+                "message": "Indicator is not currently cached.",
+            }), 200
+
+        return jsonify({
+            "status": "ok",
+            "ip": clean_ip,
+            "eligible": True,
+            "available": True,
+            "intelligence": ti_summary.to_dict(),
+        }), 200
+
+    @app.route("/api/threat-intel/ip/<ip>/lookup", methods=["POST"])
+    def request_threat_intel_lookup(ip: str):
+        """Explicitly request background threat intelligence enrichment for an eligible public IP."""
+        clean_ip = str(ip).strip()
+        if not is_eligible_public_ip(clean_ip):
+            return jsonify({
+                "status": "error",
+                "message": "Ineligible IP indicator. Only public, globally routable IPs can be queried.",
+            }), 400
+
+        if not threat_intel_service or not threat_intel_service.enabled:
+            return jsonify({
+                "status": "error",
+                "message": "Threat Intelligence service is disabled.",
+            }), 400
+
+        if not threat_intel_service.get_configured_providers():
+            return jsonify({
+                "status": "error",
+                "message": "No threat intelligence providers configured with credentials.",
+            }), 400
+
+        queued = threat_intel_service.queue_ip(clean_ip, priority=True)
+        if not queued:
+            return jsonify({
+                "status": "error",
+                "message": "Enrichment queue is full or request could not be queued.",
+            }), 429
+
+        return jsonify({
+            "status": "ok",
+            "ip": clean_ip,
+            "message": "Threat intelligence lookup queued for background enrichment.",
+        }), 202
+
     # Socket.IO Event Handlers
     @socketio.on("connect")
     def handle_connect():
@@ -845,6 +1013,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             emit("host_status", host_manager.get_status())
             if hasattr(host_manager, "file_integrity"):
                 emit("fim_status", host_manager.file_integrity.get_status())
+        if threat_intel_service:
+            emit("threat_intel_status", threat_intel_service.get_status())
         if arp_detector:
             emit("network_status", {
                 "arp": arp_detector.get_status(),
@@ -861,6 +1031,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             emit("incident_stats", query_incident_stats())
         except Exception:
             pass
+
 
     @socketio.on("disconnect")
     def handle_disconnect():
@@ -915,4 +1086,7 @@ if __name__ == "__main__":
             telemetry_worker.stop()
         if host_manager:
             host_manager.stop()
+        if threat_intel_service:
+            threat_intel_service.stop()
+
 

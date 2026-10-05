@@ -380,7 +380,70 @@ NetSentinel implements a bounded, secure, non-destructive File Integrity Monitor
 
 ---
 
-## 12. Environment Setup & Execution
+## 12. Threat Intelligence Enrichment & Reputation Correlation (Phase 11)
+
+NetSentinel provides an optional, privacy-preserving threat intelligence enrichment layer for externally observed public source IP addresses. It aggregates reputation evidence from multiple intelligence feeds to provide context during SOC triage and incident investigation.
+
+```
+Security Event (Public Source IP)
+             ↓
+[Strict RFC1918 / Local IP Eligibility Filter]
+             ↓ (Eligible Public IP)
+[In-Memory TTL & SQLite Cache Check]
+      ├── Hit → Return Cached Intelligence
+      └── Miss → Bounded Async Worker Queue (NETSENTINEL_TI_QUEUE_MAX)
+                       ↓
+         [Threat Intelligence Providers]
+           • AbuseIPDB Check API v2 (HTTPS, TLS verified)
+           • VirusTotal IP Report API v3 (HTTPS, TLS verified)
+                       ↓
+         [Multi-Provider Deterministic Consensus Engine]
+         (MALICIOUS, SUSPICIOUS, CLEAN, CONFLICTING, UNKNOWN)
+                       ↓
+     ├── Risk Engine Bounded Modifier (+0.15 MALICIOUS, halved if stale)
+     │   *TI alone NEVER causes CRITICAL risk or firewall blocks*
+     ├── Incident Correlation (THREAT_INTELLIGENCE evidence attachment)
+     └── Real-Time WebSocket (`threat_intel_update`) & SOC Dashboard
+```
+
+### Key Architectural Design & Privacy Guardrails
+
+1. **Strict Public-IP Eligibility Validation**:
+   * Evaluated via Python's standard `ipaddress` library before any queueing or network activity.
+   * Strictly rejects RFC 1918 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, `fe80::/10`), multicast (`224.0.0.0/4`, `ff00::/8`), broadcast, unspecified (`0.0.0.0`, `::`), and host identifiers (`host:<hostname>`, `localhost`).
+   * Never transmits internal network topology or private IP addresses to external providers.
+
+2. **Decoupled Asynchronous Queue & Zero Capture Blocking**:
+   * Packet capture (`capture.py`), detection pipelines (`detector.py`), and firewall evaluation execute entirely decoupled from external network I/O.
+   * Background worker threads consume from a bounded thread-safe queue (`NETSENTINEL_TI_QUEUE_MAX=500`). When queue capacity is reached during high-volume traffic bursts, excess lookups are dropped with operational warning counters rather than stalling security processing.
+
+3. **Multi-Tiered Caching & Deduplication**:
+   * In-memory LRU cache with SQLite persistence (`ti_cache` table) ensures lookups survive application restarts.
+   * Configurable TTL (`NETSENTINEL_TI_CACHE_TTL=3600`) eliminates redundant queries for repetitive traffic.
+   * In-flight indicator tracking prevents redundant concurrent queries when multiple packets arrive from the same external IP.
+
+4. **Deterministic Multi-Provider Consensus Engine**:
+   * Evaluates individual provider verdicts (`AbuseIPDB`, `VirusTotal`) against deterministic consensus rules:
+     * `STRONG_POSITIVE` / `MALICIOUS`: Multiple providers agree indicator is malicious, or single provider indicates high confidence abuse with 0 clean votes.
+     * `SUSPICIOUS`: Suspicious observations without clean consensus.
+     * `CONFLICTING`: One provider flags malicious while another flags clean; treated with caution.
+     * `CLEAN`: Providers report 0 abuse / 0 malicious engine detections.
+     * `UNKNOWN`: Provider data unavailable or unindexed.
+
+5. **Bounded Risk Engine Modifier & Firewall Safety**:
+   * Threat intelligence provides contextual corroboration, not conclusive proof of compromise.
+   * Bounded modifier: `+0.15` (MALICIOUS), `+0.05` (SUSPICIOUS), `+0.02` (CONFLICTING), `+0.00` (CLEAN/UNKNOWN).
+   * Modifier is automatically halved if cached intelligence is stale.
+   * **Firewall Safety Invariant**: Threat intelligence alone CAN NEVER elevate risk to CRITICAL or trigger automatic Linux `iptables` firewall blocking without active, observed intrusion detection behavior.
+
+6. **Viva-Defensible Principles**:
+   * **Reputation is Context, Not Ground Truth**: External reputation lists contain false positives, stale registrations, dynamic IP reassignments, and CDN/cloud noise. UI and incident logs explicitly present TI as external contextual evidence rather than confirmed attacker intent.
+   * **Zero Sensitive Data Transmission**: Only the external IP address string is transmitted. No packet payloads, internal logs, usernames, process commands, or configuration files are ever sent externally.
+   * **Zero Secret Leakage**: API credentials are read from environment variables, stored in private adapter fields, and strictly excluded from REST API payloads, Socket.IO emissions, and database logs.
+
+---
+
+## 13. Environment Setup & Execution
 
 ### Prerequisites
 * Linux operating system (kernel supporting `AF_PACKET` and `iptables`)
@@ -428,14 +491,20 @@ NetSentinel implements a bounded, secure, non-destructive File Integrity Monitor
 
 ---
 
-## 13. Automated Testing
+## 14. Automated Testing
 
-All 182 unit and integration tests run deterministically and mock `iptables` without requiring root privileges:
+All 213 unit and integration tests run deterministically and mock `iptables` and external HTTP APIs without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
+* `tests/test_ti_eligibility.py`: Public vs private, loopback, multicast, link-local, broadcast, unspecified, and local identifier rejection.
+* `tests/test_ti_providers.py`: AbuseIPDB and VirusTotal adapter responses (clean, malicious, 404, 429 rate limit backoff, timeout, private IP rejection).
+* `tests/test_ti_cache.py`: In-memory LRU cache capacity eviction, TTL expiration, in-flight deduplication locks, and SQLite persistence hooks.
+* `tests/test_ti_service.py`: Queue capacity bounds, drop-on-full metrics, worker loop lifecycle, consensus aggregation (STRONG_POSITIVE, CONFLICTING, CLEAN), and secret credential isolation.
+* `tests/test_ti_risk_incident.py`: Deterministic score modifiers (+0.15, +0.05, +0.02, 0.0), stale modifier halving, firewall safety invariant, and incident correlation without false incident creation.
+* `tests/test_ti_api.py`: Threat intelligence REST endpoints (`/api/threat-intel/status`, `/api/threat-intel/ip/<ip>`, `/api/threat-intel/ip/<ip>/lookup`), eligibility validation, and cached indicator lookups.
 * `tests/test_parser.py`: Binary frame parsing across Ethernet, IPv4, IPv6, TCP, UDP, ICMP.
 * `tests/test_arp_parser.py`: Binary ARP frame parsing (RFC 826 request/reply, gratuitous ARP, truncated frames, invalid hardware/protocol sizes).
 * `tests/test_arp_detector.py`: Baseline establishment, repeat claims, ARP spoofing detection, alert cooldowns, static trusted bindings, state timeout expiration, and identity conflict thresholds.
@@ -466,9 +535,10 @@ Test coverage:
 
 ---
 
-## 14. Current Scope Limitations & Future Roadmap
+## 15. Current Scope Limitations & Future Roadmap
 
 * **Live Attack Simulation & Hardening**: Automated attack scripts for live system validation, defense testing, and system hardening.
+
 
 
 

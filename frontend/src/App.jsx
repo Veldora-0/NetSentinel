@@ -29,6 +29,9 @@ import {
   fetchFimStatus,
   fetchFimEvents,
   triggerFimRebaseline,
+  fetchThreatIntelStatus,
+  fetchThreatIntelIP,
+  requestThreatIntelLookup,
 } from './services/api';
 import { socket, initSocketConnection } from './services/socket';
 import './App.css';
@@ -66,6 +69,10 @@ export function App() {
   // Phase 10: File Integrity Monitoring (FIM) State
   const [fimStatus, setFimStatus] = useState(null);
   const [fimEvents, setFimEvents] = useState([]);
+
+  // Phase 11: Threat Intelligence (TI) State
+  const [threatIntelStatus, setThreatIntelStatus] = useState(null);
+
 
 
   const refreshFirewall = async () => {
@@ -226,8 +233,12 @@ export function App() {
 
         const fEvents = await fetchFimEvents({ limit: 20 });
         if (fEvents && fEvents.events) setFimEvents(fEvents.events);
+
+        const tiStatus = await fetchThreatIntelStatus();
+        if (tiStatus) setThreatIntelStatus(tiStatus);
       }
     };
+
 
 
     fetchHealthAndData();
@@ -403,6 +414,12 @@ export function App() {
       },
       (fimStat) => {
         setFimStatus(fimStat);
+      },
+      (tiStat) => {
+        setThreatIntelStatus(tiStat);
+      },
+      (tiUpdate) => {
+        fetchThreatIntelStatus().then((st) => st && setThreatIntelStatus(st));
       }
     );
 
@@ -448,11 +465,15 @@ export function App() {
           fimEvents={fimEvents}
           onRefreshFim={refreshFim}
           onFimRebaseline={handleFimRebaseline}
+          threatIntelStatus={threatIntelStatus}
+          onRequestTILookup={requestThreatIntelLookup}
+          onFetchTIIP={fetchThreatIntelIP}
         />
       </main>
     </div>
   );
 }
+
 
 
 export default App;

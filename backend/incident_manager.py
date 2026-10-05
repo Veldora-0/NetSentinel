@@ -455,7 +455,81 @@ class IncidentManager:
 
             return incident
 
+    def correlate_threat_intel(
+        self,
+        source_ip: str,
+        ti_data: Dict[str, Any],
+        timestamp: Optional[float] = None,
+    ) -> Optional[Incident]:
+        """Correlate Threat Intelligence reputation evidence to an active incident for that source IP."""
+        if not source_ip or not ti_data:
+            return None
+
+        with self._lock:
+            ts = float(timestamp) if timestamp is not None else time.time()
+            corr_key = f"ip:{source_ip}"
+
+            # Check active incidents in memory
+            incident = self._active_by_key.get(corr_key)
+            if not incident:
+                # Check recent open incidents in database
+                existing_recs = query_incidents(
+                    limit=1,
+                    status=STATUS_OPEN,
+                    primary_source_ip=source_ip,
+                )
+                if existing_recs.get("incidents"):
+                    inc_data = existing_recs["incidents"][0]
+                    incident = self._hydrate_incident(inc_data["incident_id"])
+
+            if not incident:
+                # Do NOT create a brand-new incident solely because an IP has TI data
+                return None
+
+            rep = str(ti_data.get("reputation", "UNKNOWN")).upper()
+            consensus = str(ti_data.get("consensus", "UNKNOWN"))
+            confidence = float(ti_data.get("confidence", 0.0))
+            providers_cnt = int(ti_data.get("providers_checked", 0) or len(ti_data.get("provider_results", {})))
+
+            # Check if this incident already has identical TI evidence to avoid duplicate spam
+            for ev in incident.evidence_list:
+                if ev.evidence_type == "THREAT_INTELLIGENCE":
+                    ev_meta = ev.metadata or {}
+                    if ev_meta.get("reputation") == rep and ev_meta.get("consensus") == consensus:
+                        # Already recorded this reputation
+                        return incident
+
+            incident.updated_at = max(incident.updated_at, ts)
+            ti_summary_text = f"Threat Intel: {rep} (consensus={consensus}, confidence={confidence:.2f}, {providers_cnt} providers)"
+            ti_ev = IncidentEvidence(
+                incident_id=incident.incident_id,
+                evidence_type="THREAT_INTELLIGENCE",
+                reference_id=f"ti-{uuid.uuid4().hex[:8]}",
+                timestamp=ts,
+                source_ip=source_ip,
+                detection_type="THREAT_INTELLIGENCE",
+                severity="HIGH" if rep == "MALICIOUS" else ("MEDIUM" if rep == "SUSPICIOUS" else "LOW"),
+                risk_score=confidence,
+                summary=ti_summary_text,
+                metadata=ti_data,
+            )
+            incident.evidence_list.append(ti_ev)
+            save_incident_evidence_record(ti_ev)
+
+            # Update metrics and summary
+            self._update_incident_metrics(incident, incident.risk_score)
+            save_incident_record(incident)
+
+            if self.on_incident_updated:
+                try:
+                    self.on_incident_updated(incident.to_dict(include_evidence=False))
+                except Exception as ex:
+                    logger.debug("on_incident_updated callback error: %s", ex)
+
+            return incident
+
     def transition_status(
+
         self,
         incident_id: str,
         target_status: str,
@@ -633,6 +707,25 @@ class IncidentManager:
                         "source_ip": ev.get("source_ip") or inc["primary_source_ip"],
                         "metadata": meta,
                     })
+                elif ev_type == "THREAT_INTELLIGENCE":
+                    rep = meta.get("reputation", "UNKNOWN")
+                    sev_map = {
+                        "MALICIOUS": "HIGH",
+                        "SUSPICIOUS": "MEDIUM",
+                        "CONFLICTING": "LOW",
+                        "CLEAN": "INFO",
+                        "UNKNOWN": "INFO",
+                    }
+                    timeline.append({
+                        "timestamp": ts,
+                        "type": "THREAT_INTELLIGENCE",
+                        "title": f"Threat Intel: {rep}",
+                        "description": summary or f"External threat intelligence reputation: {rep}",
+                        "severity": sev_map.get(rep, "INFO"),
+                        "source_ip": ev.get("source_ip") or inc["primary_source_ip"],
+                        "metadata": meta,
+                    })
+
 
             # 3. Status milestones (Resolution / Closure)
             if inc.get("status") in (STATUS_RESOLVED, STATUS_CLOSED) and inc.get("closed_at"):

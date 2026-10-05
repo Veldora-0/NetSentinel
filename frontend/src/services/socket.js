@@ -30,7 +30,9 @@ export function initSocketConnection(
   onIncidentUpdated,
   onIncidentStatusChanged,
   onIncidentStats,
-  onFimStatus
+  onFimStatus,
+  onThreatIntelStatus,
+  onThreatIntelUpdate
 ) {
   socket.on('connect', () => {
 
@@ -153,6 +155,18 @@ export function initSocketConnection(
     });
   }
 
+  if (onThreatIntelStatus) {
+    socket.on('threat_intel_status', (data) => {
+      onThreatIntelStatus(data);
+    });
+  }
+
+  if (onThreatIntelUpdate) {
+    socket.on('threat_intel_update', (data) => {
+      onThreatIntelUpdate(data);
+    });
+  }
+
   return () => {
     socket.off('connect');
     socket.off('disconnect');
@@ -175,6 +189,9 @@ export function initSocketConnection(
     if (onIncidentStatusChanged) socket.off('incident_status_changed');
     if (onIncidentStats) socket.off('incident_stats');
     if (onFimStatus) socket.off('fim_status');
+    if (onThreatIntelStatus) socket.off('threat_intel_status');
+    if (onThreatIntelUpdate) socket.off('threat_intel_update');
   };
 }
+
 

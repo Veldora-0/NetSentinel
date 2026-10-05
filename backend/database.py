@@ -331,9 +331,86 @@ class FileIntegrityBaselineRecord(db.Model):
         }
 
 
+class ThreatIntelCacheRecord(db.Model):
+    """SQLAlchemy model for persistent Threat Intelligence provider cache."""
+    __tablename__ = "threat_intel_cache"
+
+    id = db.Column(db.Integer, primary_key=True)
+    indicator = db.Column(db.String(64), nullable=False, index=True)
+    provider = db.Column(db.String(50), nullable=False, index=True)
+    queried_at = db.Column(db.Float, nullable=False)
+    expires_at = db.Column(db.Float, nullable=False, index=True)
+    available = db.Column(db.Boolean, default=True, nullable=False)
+    result = db.Column(db.Text, nullable=True)  # JSON string
+    error = db.Column(db.String(255), nullable=True)
+    updated_at = db.Column(db.Float, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("indicator", "provider", name="uq_ti_indicator_provider"),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert cache record to dictionary."""
+        res_data = {}
+        if self.result:
+            try:
+                res_data = json.loads(self.result)
+            except Exception:
+                res_data = {"raw": self.result}
+        return {
+            "id": self.id,
+            "indicator": self.indicator,
+            "provider": self.provider,
+            "queried_at": self.queried_at,
+            "expires_at": self.expires_at,
+            "available": self.available,
+            "result": res_data,
+            "error": self.error,
+            "updated_at": self.updated_at,
+            "stale": time.time() > self.expires_at,
+        }
+
+
+class ThreatIntelObservationRecord(db.Model):
+    """SQLAlchemy model for recorded Threat Intelligence observations linked to security activity."""
+    __tablename__ = "threat_intel_observations"
+
+    id = db.Column(db.Integer, primary_key=True)
+    observation_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    timestamp = db.Column(db.Float, nullable=False, index=True)
+    incident_id = db.Column(db.String(64), nullable=True, index=True)
+    source_ip = db.Column(db.String(64), nullable=False, index=True)
+    provider = db.Column(db.String(50), nullable=False, index=True)
+    reputation = db.Column(db.String(20), nullable=False, index=True)
+    confidence = db.Column(db.Float, default=0.0, nullable=False)
+    summary = db.Column(db.Text, nullable=True)  # JSON string
+    expires_at = db.Column(db.Float, nullable=True, index=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert observation record to dictionary."""
+        sum_data = {}
+        if self.summary:
+            try:
+                sum_data = json.loads(self.summary)
+            except Exception:
+                sum_data = {"raw": self.summary}
+        return {
+            "observation_id": self.observation_id,
+            "timestamp": self.timestamp,
+            "incident_id": self.incident_id,
+            "source_ip": self.source_ip,
+            "provider": self.provider,
+            "reputation": self.reputation,
+            "confidence": round(self.confidence, 4),
+            "summary": sum_data,
+            "expires_at": self.expires_at,
+        }
+
+
 # ==============================================================================
 # Persistence Helper Functions
 # ==============================================================================
+
 
 
 def save_security_event_record(event: Any) -> bool:
@@ -1202,6 +1279,172 @@ def query_fim_events(
         return {"total": 0, "limit": limit, "offset": offset, "events": []}
 
 
+# ==============================================================================
+# Threat Intelligence Persistence Helpers (Phase 11)
+# ==============================================================================
+
+
+def save_ti_cache_record(
+    indicator: str,
+    provider: str,
+    result: Dict[str, Any],
+    expires_at: float,
+    available: bool = True,
+    error: Optional[str] = None,
+    queried_at: Optional[float] = None,
+) -> bool:
+    """Insert or update a normalized threat intelligence cache record in SQLite."""
+    try:
+        now = time.time()
+        q_at = float(queried_at) if queried_at is not None else now
+        res_json = json.dumps(result) if result else None
+
+        rec = ThreatIntelCacheRecord.query.filter_by(
+            indicator=indicator, provider=provider
+        ).first()
+
+        if rec:
+            rec.queried_at = q_at
+            rec.expires_at = float(expires_at)
+            rec.available = bool(available)
+            rec.result = res_json
+            rec.error = error
+            rec.updated_at = now
+        else:
+            rec = ThreatIntelCacheRecord(
+                indicator=indicator,
+                provider=provider,
+                queried_at=q_at,
+                expires_at=float(expires_at),
+                available=bool(available),
+                result=res_json,
+                error=error,
+                updated_at=now,
+            )
+            db.session.add(rec)
+
+        db.session.commit()
+        return True
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Failed to persist TI cache record for %s/%s: %s", provider, indicator, ex)
+        return False
+
+
+def get_ti_cache_record(indicator: str, provider: str) -> Optional[Dict[str, Any]]:
+    """Retrieve a single provider's cached TI record for an indicator."""
+    try:
+        rec = ThreatIntelCacheRecord.query.filter_by(
+            indicator=indicator, provider=provider
+        ).first()
+        return rec.to_dict() if rec else None
+    except Exception as ex:
+        logger.debug("Failed to fetch TI cache for %s/%s: %s", provider, indicator, ex)
+        return None
+
+
+def get_all_ti_cache_records(indicator: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieve all cached TI records, optionally filtered by indicator."""
+    try:
+        query = ThreatIntelCacheRecord.query
+        if indicator:
+            query = query.filter_by(indicator=indicator)
+        records = query.order_by(ThreatIntelCacheRecord.updated_at.desc()).all()
+        return [r.to_dict() for r in records]
+    except Exception as ex:
+        logger.debug("Failed to fetch TI cache records: %s", ex)
+        return []
+
+
+def delete_expired_ti_cache(now: Optional[float] = None) -> int:
+    """Delete expired Threat Intelligence cache records from the database."""
+    try:
+        current_time = float(now) if now is not None else time.time()
+        deleted = ThreatIntelCacheRecord.query.filter(
+            ThreatIntelCacheRecord.expires_at < current_time
+        ).delete(synchronize_session=False)
+        db.session.commit()
+        return deleted
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Failed to delete expired TI cache records: %s", ex)
+        return 0
+
+
+def save_ti_observation_record(
+    source_ip: str,
+    provider: str,
+    reputation: str,
+    confidence: float = 0.0,
+    summary: Optional[Dict[str, Any]] = None,
+    incident_id: Optional[str] = None,
+    expires_at: Optional[float] = None,
+    timestamp: Optional[float] = None,
+    observation_id: Optional[str] = None,
+) -> bool:
+    """Persist a Threat Intelligence observation associated with NetSentinel activity."""
+    try:
+        now = time.time()
+        ts = float(timestamp) if timestamp is not None else now
+        obs_id = observation_id or str(uuid.uuid4())
+        summary_json = json.dumps(summary) if summary else None
+
+        rec = ThreatIntelObservationRecord(
+            observation_id=obs_id,
+            timestamp=ts,
+            incident_id=incident_id,
+            source_ip=source_ip,
+            provider=provider,
+            reputation=reputation,
+            confidence=float(confidence),
+            summary=summary_json,
+            expires_at=float(expires_at) if expires_at is not None else None,
+        )
+        db.session.add(rec)
+        db.session.commit()
+        return True
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Failed to persist TI observation record: %s", ex)
+        return False
+
+
+def get_ti_observations_for_ip(source_ip: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieve historical TI observations for a specific source IP."""
+    try:
+        records = (
+            ThreatIntelObservationRecord.query.filter_by(source_ip=source_ip)
+            .order_by(ThreatIntelObservationRecord.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return [r.to_dict() for r in records]
+    except Exception as ex:
+        logger.debug("Failed to query TI observations for %s: %s", source_ip, ex)
+        return []
+
+
+def query_ti_cache_stats() -> Dict[str, Any]:
+    """Return summary statistics of cached threat intelligence records."""
+    try:
+        now = time.time()
+        total = ThreatIntelCacheRecord.query.count()
+        fresh = ThreatIntelCacheRecord.query.filter(ThreatIntelCacheRecord.expires_at >= now).count()
+        stale = total - fresh
+        return {
+            "total_cache_entries": total,
+            "fresh_cache_entries": fresh,
+            "stale_cache_entries": stale,
+        }
+    except Exception as ex:
+        logger.debug("Failed to query TI cache stats: %s", ex)
+        return {
+            "total_cache_entries": 0,
+            "fresh_cache_entries": 0,
+            "stale_cache_entries": 0,
+        }
+
+
 def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
 
     """Prune historical database records older than the retention threshold.
@@ -1212,6 +1455,7 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
     """
     try:
         cutoff = time.time() - (retention_days * 86400)
+        now = time.time()
 
         del_events = (
             SecurityEventRecord.query.filter(SecurityEventRecord.timestamp < cutoff).delete(
@@ -1247,10 +1491,23 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
                 ),
             ).delete(synchronize_session=False)
         )
+        # Prune expired TI cache records
+        del_ti_cache = (
+            ThreatIntelCacheRecord.query.filter(ThreatIntelCacheRecord.expires_at < now).delete(
+                synchronize_session=False
+            )
+        )
+        # Prune older TI observation records
+        del_ti_obs = (
+            ThreatIntelObservationRecord.query.filter(
+                ThreatIntelObservationRecord.timestamp < cutoff,
+                ThreatIntelObservationRecord.incident_id.is_(None),
+            ).delete(synchronize_session=False)
+        )
 
         db.session.commit()
         logger.info(
-            "Retention cleanup completed (cutoff=%.0f): pruned %d events, %d risks, %d fw actions, %d telemetry, %d incidents, %d evidence records",
+            "Retention cleanup completed (cutoff=%.0f): pruned %d events, %d risks, %d fw actions, %d telemetry, %d incidents, %d evidence, %d ti_cache, %d ti_obs",
             cutoff,
             del_events,
             del_risks,
@@ -1258,6 +1515,8 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
             del_telemetry,
             del_incidents,
             del_evidence,
+            del_ti_cache,
+            del_ti_obs,
         )
         return {
             "deleted_events": del_events,
@@ -1266,6 +1525,8 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
             "deleted_telemetry": del_telemetry,
             "deleted_incidents": del_incidents,
             "deleted_evidence": del_evidence,
+            "deleted_ti_cache": del_ti_cache,
+            "deleted_ti_observations": del_ti_obs,
         }
     except Exception as ex:
         db.session.rollback()
@@ -1277,7 +1538,10 @@ def cleanup_old_records(retention_days: int = 7) -> Dict[str, int]:
             "deleted_telemetry": 0,
             "deleted_incidents": 0,
             "deleted_evidence": 0,
+            "deleted_ti_cache": 0,
+            "deleted_ti_observations": 0,
         }
+
 
 
 def get_persisted_assessments(limit: int = 50) -> List[Dict[str, Any]]:
