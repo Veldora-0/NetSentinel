@@ -71,14 +71,18 @@ NetSentinel/
 │   │   └── manager.py          # HostDetectionManager coordinator & asynchronous worker
 │   ├── incident_manager.py     # Incident Correlation & Investigation Layer (Phase 9)
 │   ├── validation_harness.py   # End-to-End Security Validation Harness & Simulation Runner (Phase 14)
-│   └── evaluation/             # Performance & ML Evaluation Framework (Phase 15)
+│   └── evaluation/             # Performance & ML Evaluation Framework (Phase 15 & 15.5)
 │       ├── __init__.py
 │       ├── metrics.py          # Latency, throughput, percentiles & classification metrics
 │       ├── data_generator.py   # Deterministic synthetic packet & window generators
 │       ├── resource_monitor.py # Memory RSS & CPU profiling via psutil
 │       ├── benchmarks.py       # 7 micro & macro benchmarking suites
 │       ├── ml_evaluator.py     # Supervised evaluation of unsupervised Isolation Forest
-│       └── runner.py           # CLI/programmatic evaluation orchestrator
+│       ├── runner.py           # CLI/programmatic evaluation orchestrator
+│       ├── pcap_reader.py      # Pure-Python streaming binary Libpcap reader (Phase 15.5)
+│       ├── zeek_parser.py      # Dynamic Zeek log parser with label normalization (Phase 15.5)
+│       ├── window_builder.py   # 5-second window builder & sweep-line flow overlap (Phase 15.5)
+│       └── real_dataset.py     # Real-world dataset evaluation engine & CLI runner (Phase 15.5)
 │
 ├── frontend/
 │   ├── src/
@@ -97,19 +101,22 @@ NetSentinel/
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
 ├── docs/                # Comprehensive architectural and evaluation documentation
-│   └── phase15-performance-ml-evaluation.md # Phase 15 evaluation report
+│   ├── phase15-performance-ml-evaluation.md        # Phase 15 synthetic benchmark & ML report
+│   └── phase15_5-real-world-dataset-evaluation.md  # Phase 15.5 CTU-IDSEVAL-6 real dataset evaluation report
 │
-├── reports/             # Phase 14 & Phase 15 evaluation artifacts
+├── reports/             # Phase 14, 15, and 15.5 evaluation artifacts
 │   ├── validation_report.json    # Phase 14 validation JSON
 │   ├── validation_report.md      # Phase 14 validation markdown
 │   ├── evaluation_report.json    # Phase 15 benchmark & ML evaluation metrics
 │   ├── benchmark_summary.csv     # Phase 15 subsystem throughput and latency summary
-│   └── ml_evaluation_samples.csv # Phase 15 ML sample-level evaluation predictions
+│   ├── ml_evaluation_samples.csv # Phase 15 ML sample-level evaluation predictions
+│   ├── phase15_5_real_dataset_evaluation.json # Phase 15.5 real dataset evaluation report
+│   └── phase15_5_real_dataset_windows.csv    # Phase 15.5 window-level prediction export
 │
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit, integration, and E2E validation tests (309 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (320 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -828,6 +835,50 @@ Generated evaluation artifacts:
 * `reports/benchmark_summary.csv`: Tabular subsystem performance metrics for spreadsheet ingestion.
 * `reports/ml_evaluation_samples.csv`: Sample-level ground-truth labels, model anomaly scores, and binary predictions.
 * `docs/phase15-performance-ml-evaluation.md`: Comprehensive SOC architectural and performance evaluation report.
+
+---
+
+## 18.5 Real-World Dataset ML Evaluation — CTU-IDSEVAL-6 (Phase 15.5)
+
+NetSentinel includes an offline evaluation harness (`backend/evaluation/real_dataset.py`) for evaluating the production unsupervised Isolation Forest pipeline against external, ground-truth labeled network traffic captures and Zeek connection logs from the **CTU-IDSEVAL-6** benchmark dataset.
+
+### 1. Ingestion & Architecture
+* **Pure-Python Streaming Capture Reader** (`backend/evaluation/pcap_reader.py`): Memory-efficient binary Libpcap parser supporting both little-endian and big-endian captures (`.pcap` and `.pcap.gz`), yielding packets one-by-one with $O(1)$ memory usage without external C library dependencies.
+* **Dynamic Zeek Flow Log Parser** (`backend/evaluation/zeek_parser.py`): Dynamically resolves `#fields` column positions for `ts`, `duration`, `label`, and `detailedlabel`, normalizing label variations (`Benign`, `Malicious`, `Background`) and converting missing durations (`"-"` to 0.0).
+* **Traffic Window Builder & Flow Alignment** (`backend/evaluation/window_builder.py`): Partitions streaming packets into discrete 5.0-second non-overlapping aggregation windows, calculates canonical 13-feature vectors, maps temporal overlaps with Zeek flows via sweep-line algorithms, and assigns deterministic ground truth:
+  * **Rule A**: $\ge 1$ Malicious flow $\implies$ `MALICIOUS` (flags mixed windows with `is_mixed = True`).
+  * **Rule B**: Else $\ge 1$ Benign flow $\implies$ `BENIGN`.
+  * **Rule C**: Else all Background flows $\implies$ `BACKGROUND_ONLY` (excluded from metrics).
+  * **Rule D**: Else no flows $\implies$ `UNLABELED` (excluded from metrics).
+
+### 2. Data Leakage Safeguards
+* **Partition Disjointness**: Baseline training captures (pattern: `benign-user-traffic`) and held-out test captures are strictly segregated. Any attempt to evaluate the baseline capture as a test capture raises `DataLeakageError`.
+* **Zero Contamination Verification**: The baseline capture is verified to contain zero malicious windows prior to fitting. Any malicious activity in the baseline halts execution immediately.
+
+### 3. Preserved Production Invariants
+* **Zero Pipeline Redesign**: Evaluates the production Isolation Forest (`n_estimators=100`, `contamination="auto"`, `random_state=42`, 13 features, 5.0s window, operating threshold $T=0.50$). No supervised training, epochs, or neural networks are introduced.
+* **Safety Invariants**: Linux firewall manipulation and automated IP blocking remain strictly disabled (`NETSENTINEL_FIREWALL_ENABLED=false`, `NETSENTINEL_AUTO_BLOCK=false`).
+
+### 4. CLI Execution
+Run the self-contained synthetic smoke test:
+```bash
+.venv/bin/python backend/evaluation/real_dataset.py --smoke-test
+```
+
+Run against external CTU-IDSEVAL-6 dataset directory:
+```bash
+.venv/bin/python backend/evaluation/real_dataset.py --dataset-root /path/to/ctu-idseval-6 --window-sec 5.0 --out reports
+```
+
+Run unit test suite:
+```bash
+.venv/bin/pytest tests/test_phase15_5_real_dataset.py -v
+```
+
+Generated evaluation artifacts:
+* `reports/phase15_5_real_dataset_evaluation.json`: Complete JSON report with per-capture and overall confusion matrices, precision, recall, F1, FPR, FNR, accuracy, and score separation margins.
+* `reports/phase15_5_real_dataset_windows.csv`: Detailed CSV table with window-by-window ground-truth labels, decision scores, and predictions.
+* `docs/phase15_5-real-world-dataset-evaluation.md`: Comprehensive 16-section real-world dataset evaluation report.
 
 ---
 

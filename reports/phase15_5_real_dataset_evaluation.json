@@ -1,0 +1,217 @@
+{
+  "evaluation_phase": "Phase 15.5",
+  "timestamp": 1791390457.2844715,
+  "timestamp_iso": "2026-10-07T16:27:37Z",
+  "environment": {
+    "os": "Linux",
+    "python_version": "3.13.5",
+    "platform": "linux"
+  },
+  "model_configuration": {
+    "algorithm": "Isolation Forest (Unsupervised)",
+    "n_estimators": 100,
+    "contamination": "auto",
+    "random_state": 42,
+    "feature_count": 13,
+    "feature_names": [
+      "packets_per_second",
+      "bytes_per_second",
+      "average_packet_size",
+      "tcp_ratio",
+      "udp_ratio",
+      "icmp_ratio",
+      "syn_ratio",
+      "ack_ratio",
+      "rst_ratio",
+      "fin_ratio",
+      "unique_destination_ports",
+      "unique_source_ips",
+      "unique_destination_ips"
+    ],
+    "window_duration_seconds": 5.0,
+    "production_anomaly_threshold": 0.5
+  },
+  "training_summary": {
+    "capture_name": "ctu-idseval-6-benign-user-traffic-1",
+    "total_windows_generated": 10,
+    "clean_benign_windows_used": 10,
+    "data_leakage_safeguard_verified": true,
+    "processing_summary": {
+      "capture_name": "ctu-idseval-6-benign-user-traffic-1",
+      "total_capture_records": 100,
+      "parsed_successfully": 100,
+      "parse_failures": 0,
+      "parse_success_rate": 1.0,
+      "first_timestamp": 1523450000.0,
+      "last_timestamp": 1523450049.05,
+      "capture_duration_sec": 49.05,
+      "total_windows_generated": 10,
+      "benign_windows_count": 10,
+      "malicious_windows_count": 0,
+      "background_only_count": 0,
+      "unlabeled_count": 0,
+      "mixed_windows_count": 0
+    }
+  },
+  "test_summary": {
+    "test_captures": [
+      "ctu-idseval-6-malicious-portscan-1",
+      "ctu-idseval-6-malicious-malware-1"
+    ],
+    "overall_metrics": {
+      "total_windows": 11,
+      "benign_windows": 4,
+      "malicious_windows": 6,
+      "background_only_windows": 1,
+      "unlabeled_windows": 0,
+      "mixed_windows": 0,
+      "eligible_windows": 10,
+      "true_positives": 0,
+      "true_negatives": 4,
+      "false_positives": 0,
+      "false_negatives": 6,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 1.0,
+      "classification_accuracy": 0.4,
+      "score_distribution_benign": {
+        "count": 4,
+        "mean": 0.5,
+        "median": 0.5,
+        "std": 0.0,
+        "min": 0.5,
+        "max": 0.5
+      },
+      "score_distribution_malicious": {
+        "count": 6,
+        "mean": 0.5,
+        "median": 0.5,
+        "std": 0.0,
+        "min": 0.5,
+        "max": 0.5
+      },
+      "score_separation_margin": 0.0
+    },
+    "per_capture_metrics": {
+      "ctu-idseval-6-malicious-portscan-1": {
+        "capture_name": "ctu-idseval-6-malicious-portscan-1",
+        "total_windows": 2,
+        "benign_windows": 0,
+        "malicious_windows": 2,
+        "background_only_windows": 0,
+        "unlabeled_windows": 0,
+        "mixed_windows": 0,
+        "eligible_windows": 2,
+        "true_positives": 0,
+        "true_negatives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 1.0,
+        "classification_accuracy": 0.0,
+        "score_distribution_benign": {
+          "count": 0,
+          "mean": null,
+          "median": null,
+          "std": null,
+          "min": null,
+          "max": null
+        },
+        "score_distribution_malicious": {
+          "count": 2,
+          "mean": 0.5,
+          "median": 0.5,
+          "std": 0.0,
+          "min": 0.5,
+          "max": 0.5
+        },
+        "score_separation_margin": null,
+        "processing_summary": {
+          "capture_name": "ctu-idseval-6-malicious-portscan-1",
+          "total_capture_records": 120,
+          "parsed_successfully": 120,
+          "parse_failures": 0,
+          "parse_success_rate": 1.0,
+          "first_timestamp": 1523470000.0,
+          "last_timestamp": 1523470008.54,
+          "capture_duration_sec": 8.54,
+          "total_windows_generated": 2,
+          "benign_windows_count": 0,
+          "malicious_windows_count": 2,
+          "background_only_count": 0,
+          "unlabeled_count": 0,
+          "mixed_windows_count": 0
+        }
+      },
+      "ctu-idseval-6-malicious-malware-1": {
+        "capture_name": "ctu-idseval-6-malicious-malware-1",
+        "total_windows": 9,
+        "benign_windows": 4,
+        "malicious_windows": 4,
+        "background_only_windows": 1,
+        "unlabeled_windows": 0,
+        "mixed_windows": 0,
+        "eligible_windows": 8,
+        "true_positives": 0,
+        "true_negatives": 4,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 1.0,
+        "classification_accuracy": 0.5,
+        "score_distribution_benign": {
+          "count": 4,
+          "mean": 0.5,
+          "median": 0.5,
+          "std": 0.0,
+          "min": 0.5,
+          "max": 0.5
+        },
+        "score_distribution_malicious": {
+          "count": 4,
+          "mean": 0.5,
+          "median": 0.5,
+          "std": 0.0,
+          "min": 0.5,
+          "max": 0.5
+        },
+        "score_separation_margin": 0.0,
+        "processing_summary": {
+          "capture_name": "ctu-idseval-6-malicious-malware-1",
+          "total_capture_records": 238,
+          "parsed_successfully": 237,
+          "parse_failures": 1,
+          "parse_success_rate": 0.9958,
+          "first_timestamp": 1523460000.0,
+          "last_timestamp": 1523460100.0,
+          "capture_duration_sec": 100.0,
+          "total_windows_generated": 9,
+          "benign_windows_count": 4,
+          "malicious_windows_count": 4,
+          "background_only_count": 1,
+          "unlabeled_count": 0,
+          "mixed_windows_count": 0
+        }
+      }
+    }
+  },
+  "exclusions_and_quality": {
+    "background_only_excluded": 1,
+    "unlabeled_excluded": 0,
+    "mixed_benign_malicious_recorded": 0
+  },
+  "safety_invariants": {
+    "firewall_enabled": false,
+    "auto_block": false,
+    "ambient_capabilities_invoked": false,
+    "external_network_traffic": false
+  }
+}
