@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 13 (Authentication & Role-Based Access Control) is completed, alongside Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), and **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`). All 261 automated backend tests pass deterministically.
+> **Implementation Status:** Phase 14 (End-to-End Attack Simulation & Validation) is completed, alongside Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), and a standalone **End-to-End Validation Harness** (`backend/validation_harness.py`, `reports/`). All 285 automated backend tests pass deterministically.
 
 ---
 
@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (261 tests)
+* **pytest** - Automated test suite (285 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -69,7 +69,8 @@ NetSentinel/
 │   │   ├── ssh_detector.py     # OpenSSH auth failure & brute-force detector with sliding window
 │   │   ├── process_monitor.py  # psutil process integrity observer (suspicious paths, unlinked binaries)
 │   │   └── manager.py          # HostDetectionManager coordinator & asynchronous worker
-│   └── incident_manager.py # Incident Correlation & Investigation Layer (Phase 9)
+│   ├── incident_manager.py     # Incident Correlation & Investigation Layer (Phase 9)
+│   └── validation_harness.py   # End-to-End Security Validation Harness & Simulation Runner (Phase 14)
 │
 ├── frontend/
 │   ├── src/
@@ -87,10 +88,12 @@ NetSentinel/
 │   ├── package.json     # Node dependencies and scripts
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
+├── reports/             # Phase 14 automated validation artifacts (validation_report.json, validation_report.md)
+│
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit and integration tests (239 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (285 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -618,12 +621,21 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 261 unit and integration tests run deterministically without requiring root privileges or live external network access:
+All 285 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
+* `tests/test_e2e_normal.py`: E2E normal baseline traffic validation (0 false positives, 0 incidents).
+* `tests/test_e2e_network_attacks.py`: E2E validation for port scans, SYN floods, NULL/XMAS stealth scans, and ICMP sweeps (including negative control).
+* `tests/test_e2e_host_security.py`: E2E validation for ARP spoofing/identity conflicts and FIM lifecycle (modify, delete, rebaseline).
+* `tests/test_e2e_incident_correlation.py`: Multi-vector incident correlation across network and host domains, cross-domain and multi-vector score boosting, monotonic risk progression, and chronological timeline verification.
+* `tests/test_e2e_ml_pipeline.py`: Unsupervised ML anomaly detection lifecycle (Isolation Forest), baseline training, outlier scoring, composite score weighting, and the ML-alone safety invariant (ML anomalies alone never trigger automatic IP blocks).
+* `tests/test_e2e_composite_risk.py`: Composite risk engine evaluation, base severities, repeat frequency escalation, score cap enforcement, and CRITICAL escalation thresholds.
+* `tests/test_e2e_auth_rbac.py`: End-to-end RBAC verification (401 unauthenticated, uniform failure responses preventing account enumeration, VIEWER read-only enforcement, ANALYST triage, ADMIN mutation privileges).
+* `tests/test_e2e_firewall_safety.py`: Firewall safety invariants (safe address protection, loopback/allowlist block prevention, dry-run simulation mode, automatic blocking prevention when disabled).
+* `tests/test_e2e_validation_harness.py`: Automated programmatic execution of the 13-scenario validation harness.
 * `tests/test_auth.py`: Password validation, scrypt hashing, to_dict secret redaction, token creation/verification/revocation, login/logout workflows, disabled user rejection, self-service password change, admin user management lifecycle, last-admin safeguards, and administrator bootstrap.
 * `tests/test_rbac.py`: Public endpoint access (`/api/health`, `/api/ready`), unauthenticated 401 rejection across all protected endpoints, malformed header rejection, VIEWER read-only enforcement and 403 mutation blocks, ANALYST incident triage and threat intel queries, and ADMIN full operational control.
 * `tests/test_config_validation.py`: Central configuration validator, host/port checks, interval bounds, risk threshold clamping, CIDR/IP allowlists, CORS parsing, and secret redaction.
@@ -664,9 +676,52 @@ Test coverage:
 
 ---
 
-## 17. Current Scope Limitations & Future Roadmap
+## 17. End-to-End Attack Simulation & Validation (Phase 14)
 
-* **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills.
+NetSentinel includes an automated, standalone security validation harness (`backend/validation_harness.py`) designed to verify the entire detection, risk scoring, incident correlation, and response pipeline as an integrated defensive system without requiring root privileges, modifying kernel firewall rules, or sending live network traffic across external networks.
+
+### 1. Architectural Design & Safety Invariants
+* **Non-Root & Unprivileged Execution**: Built entirely with synthetic packet data structures and isolated SQLite temporary databases. Does not require `sudo` or Linux ambient capabilities to validate system behaviors.
+* **Firewall Safety Invariant**: The automated harness strictly enforces `NETSENTINEL_FIREWALL_ENABLED=false` and `NETSENTINEL_AUTO_BLOCK=false`. Mitigation actions are evaluated in simulated/dry-run mode without issuing destructive `iptables` commands.
+* **Controlled Scope & RFC 1918 IPs**: All simulated traffic uses standard private IP ranges (`192.168.1.0/24`, `10.0.0.0/24`) and loopback (`127.0.0.1`). Public internet addresses are never targeted or scanned.
+* **Unsupervised ML Anomaly Detection Characterization**: NetSentinel's machine learning engine uses unsupervised **Isolation Forest** anomaly detection over sliding 13-feature traffic windows. It does **not** rely on supervised classification or static labeled sets; hence, performance is evaluated by anomaly score separation (normal traffic <= 0.50 vs anomalous traffic > 0.50) rather than misleading "accuracy" claims. Anomaly scores alone are capped at 0.35 in risk calculation to guarantee that ML anomalies never trigger automatic firewall blocks without corroborating evidence.
+
+### 2. Validation Scenarios
+The harness executes 13 comprehensive end-to-end validation scenarios:
+
+| Scenario ID | Name | Subsystems Validated | Expected Defensive Outcome |
+|---|---|---|---|
+| `SCN-01` | Normal Baseline Traffic | Parser, Detector, Risk, Incidents | 0 alerts, 0 risk escalations, 0 correlated incidents (Negative control). |
+| `SCN-02` | Port Scan Attack | Detector, Risk Engine, Incident Correlator | Detected (>15 ports), emits `PORT_SCAN` event (MEDIUM), correlates incident, alert cooldown verified. |
+| `SCN-03` | SYN Flood Attack | Detector, Risk Engine, Incident Correlator | Detected (>50 SYN packets), emits `SYN_FLOOD` event (HIGH), correlates incident. |
+| `SCN-04` | Stealth Scans (NULL & XMAS) | Detector, Risk Engine, Incident Correlator | Detected flag anomalies (`NULL_SCAN`, `XMAS_SCAN`), emits HIGH severity alerts, correlates incidents. |
+| `SCN-05` | ICMP Sweep (With Negative Control) | ICMP Detector, Risk, Incidents | Threshold met (10 hosts) triggers alert; below-threshold (5 hosts) produces 0 alerts. |
+| `SCN-06` | ARP Threat Detection | ARP Detector, Risk, Incidents | Baseline established, spoofing detected, IP conflict (>2 IPs) flagged, static trusted binding enforced. |
+| `SCN-07` | File Integrity Monitoring (FIM) | FIM Scanner, Database, Risk, Incidents | Content modification detected, deletion detected, operator rebaseline executed, DB persistence retained. |
+| `SCN-08` | Multi-Vector Incident Correlation | Cross-Domain Correlator, Timeline | Network + Host events correlated into single incident; cross-domain (+0.10) & multi-vector (+0.05) boosts applied; monotonic risk; chronological timeline ordering verified. |
+| `SCN-09` | Unsupervised ML Pipeline | Feature Extractor, Isolation Forest, Risk | 20 windows train model to `READY`; normal score <= 0.50; outlier score > 0.50; ML-alone safety invariant verified (score capped at 0.35, recommended action "log"). |
+| `SCN-10` | Composite Risk Escalation | Risk Engine, Multi-Frequency Boost | Base severities verified; repeat frequency boost (+0.05 per event, max +0.20) verified; CRITICAL threshold (0.90) escalates recommended action to "block". |
+| `SCN-11` | Durable Pipeline Persistence | SQLite Database, ORM Models | Events, risk assessments, and correlated incidents verified across database queries and lifecycle reloads. |
+| `SCN-12` | Management Plane RBAC | Security Middleware, Auth Service | 401 unauthenticated; uniform login failure message (no username enumeration); VIEWER (200 read / 403 write); ANALYST (200 triage / 403 firewall); ADMIN (200 full). |
+| `SCN-13` | Firewall Safety Invariants | Firewall Manager, Allowlist Engine | Disabled state verified; auto-block prevented; private allowlist and loopback addresses cannot be blocked; dry-run/simulated responses verified. |
+
+### 3. Running the Validation Harness
+Execute the validation harness directly in the CLI environment:
+```bash
+.venv/bin/python backend/validation_harness.py
+```
+
+The harness generates structured execution artifacts in the `reports/` directory:
+* `reports/validation_report.json`: Machine-readable results with timestamps, scenario durations, and metrics.
+* `reports/validation_report.md`: SOC executive validation report detailing scenario outcomes and security invariants.
+
+---
+
+## 18. Current Scope Limitations & Future Roadmap
+
+* **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills (Phase 14 completed via deterministic validation harness).
+* **Distributed Agent Fleet**: Multi-node agent communication for enterprise-scale distributed sensor networks.
+* **Hardware Accelerated Capture**: Kernel-bypass packet capture (e.g., DPDK or AF_XDP) for multi-gigabit line-rate processing.
 
 
 

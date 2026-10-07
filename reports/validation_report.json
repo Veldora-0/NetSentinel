@@ -1,0 +1,302 @@
+{
+  "timestamp": 1791369782.8329327,
+  "timestamp_iso": "2026-10-07T10:43:02Z",
+  "environment": {
+    "os": "Linux",
+    "release": "6.12.111+deb13-amd64",
+    "python": "3.13.5",
+    "cli_only": true,
+    "privileged_capture_available": false
+  },
+  "summary": {
+    "total_scenarios": 13,
+    "passed": 13,
+    "failed": 0,
+    "success_rate_percent": 100.0,
+    "total_duration_ms": 3840.35
+  },
+  "scenarios": [
+    {
+      "scenario_id": "SCN-01-NORMAL-TRAFFIC",
+      "scenario_name": "Normal Traffic Baseline",
+      "category": "Baseline / Normal",
+      "expected_behavior": "Benign traffic processed without triggering security alerts, incidents, or firewall mitigation.",
+      "actual_behavior": "Generated 0 rule events, 0 persisted events, 0 incidents. Firewall enabled=False.",
+      "status": "PASS",
+      "execution_time_ms": 223.9,
+      "observed_values": {
+        "packets_sent": 20,
+        "rule_alerts_count": 0,
+        "incidents_created": 0,
+        "firewall_action_taken": false
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-02-PORT-SCAN",
+      "scenario_name": "Port Scan Detection & Correlation",
+      "category": "Network Rules",
+      "expected_behavior": "Generate PORT_SCAN alert at threshold=15 distinct ports, create incident, attach evidence.",
+      "actual_behavior": "Generated 1 PORT_SCAN event(s). Persisted events: 1. Incident: inc-16e3c771923e with risk 0.4.",
+      "status": "PASS",
+      "execution_time_ms": 194.28,
+      "observed_values": {
+        "threshold_tested": 15,
+        "ports_probed": 15,
+        "rule_alerts": 1,
+        "incident_id": "inc-16e3c771923e",
+        "incident_risk_score": 0.4,
+        "persisted_events_count": 1
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-03-SYN-FLOOD",
+      "scenario_name": "SYN Flood Detection & Mitigation Safety",
+      "category": "Network Rules",
+      "expected_behavior": "Trigger SYN_FLOOD alert at threshold=50 pkts/window, assess risk, persist incident.",
+      "actual_behavior": "Generated 1 SYN_FLOOD event(s) with HIGH severity. Incident: inc-4ef5988fc8c8, severity=HIGH.",
+      "status": "PASS",
+      "execution_time_ms": 196.52,
+      "observed_values": {
+        "threshold_tested": 50,
+        "packets_sent": 50,
+        "event_severity": "HIGH",
+        "incident_id": "inc-4ef5988fc8c8",
+        "incident_risk_score": 0.7
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-04-NULL-XMAS-SCAN",
+      "scenario_name": "NULL Scan and XMAS Scan Probes",
+      "category": "Network Rules",
+      "expected_behavior": "Detect stealth NULL and XMAS scans deterministically with HIGH severity and correlate incidents.",
+      "actual_behavior": "NULL scan: 1 alert (NULL_SCAN); XMAS scan: 1 alert (XMAS_SCAN). Both correlated into separate incidents.",
+      "status": "PASS",
+      "execution_time_ms": 187.78,
+      "observed_values": {
+        "null_detected": true,
+        "xmas_detected": true,
+        "null_incident": "inc-8fc4583e4bcb",
+        "xmas_incident": "inc-7d10791179ba"
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-05-ICMP-SWEEP",
+      "scenario_name": "ICMP Sweep & Below-Threshold Negative Control",
+      "category": "Network Rules",
+      "expected_behavior": "Do not alert below threshold; alert once reaching threshold=10 distinct targets.",
+      "actual_behavior": "Below-threshold (5 targets): 0 alerts. At-threshold (10 targets): 1 alert. Incident created: True.",
+      "status": "PASS",
+      "execution_time_ms": 145.12,
+      "observed_values": {
+        "threshold": 10,
+        "below_threshold_alerts": 0,
+        "at_threshold_alerts": 1,
+        "incident_id": "inc-77efd29cd3f3"
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-06-ARP-DETECTION",
+      "scenario_name": "ARP Spoofing & Identity Conflict Detection",
+      "category": "Network Rules",
+      "expected_behavior": "Detect ARP MAC-IP binding conflict and multi-IP claiming without altering kernel tables.",
+      "actual_behavior": "Baseline: 0 alerts. Spoofing: 1 alert(s). Identity conflict: 1 alert(s). Incident created: 1.",
+      "status": "PASS",
+      "execution_time_ms": 176.82,
+      "observed_values": {
+        "spoofing_detected": true,
+        "conflict_detected": true,
+        "incident_id": "inc-31a7f4f597e2"
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-07-FIM-LIFECYCLE",
+      "scenario_name": "File Integrity Monitoring (FIM) Lifecycle",
+      "category": "Host Security",
+      "expected_behavior": "Accurately report FILE_MODIFIED and FILE_DELETED, support operator rebaseline, and persist exists flag cleanly.",
+      "actual_behavior": "Unchanged: 0 evts. Modified: 1 (FILE_MODIFIED). Rebaseline updated: 1. Deleted: 1 (FILE_DELETED). DB baseline exists attribute: True.",
+      "status": "PASS",
+      "execution_time_ms": 126.46,
+      "observed_values": {
+        "unchanged_events": 0,
+        "modified_events": 1,
+        "deleted_events": 1,
+        "rebaseline_clean": true,
+        "persisted_exists_field": true
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-08-CORRELATION",
+      "scenario_name": "Multi-Vector Incident Correlation",
+      "category": "Correlation",
+      "expected_behavior": "Merge network + host events into single incident, apply cross-domain and multi-vector boosts, maintain monotonic risk and timeline ordering.",
+      "actual_behavior": "Incident merged: True (ID inc-213835d0a7a4). Domains: {'host', 'network'}. Vectors: {'SSH_AUTH_FAILURE', 'PORT_SCAN', 'SYN_FLOOD'}. Risk progression: 0.40 -> 0.55 -> 0.85. Timeline events count: 4 (chronologically ordered: True).",
+      "status": "PASS",
+      "execution_time_ms": 160.24,
+      "observed_values": {
+        "single_incident_merged": true,
+        "final_risk_score": 0.85,
+        "attack_domains": [
+          "host",
+          "network"
+        ],
+        "detection_types": [
+          "SSH_AUTH_FAILURE",
+          "PORT_SCAN",
+          "SYN_FLOOD"
+        ],
+        "evidence_items_count": 3,
+        "timeline_ordered": true
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-09-ML-PIPELINE",
+      "scenario_name": "Unsupervised ML Anomaly Detection & Safety Limits",
+      "category": "Machine Learning",
+      "expected_behavior": "Model transitions to READY, flags outliers (>0.5 score), and enforces ML-alone cannot block or reach CRITICAL.",
+      "actual_behavior": "Lifecycle: COLLECTING_BASELINE -> READY. Normal window score: 0.4833. Anomalous window score: 0.6065. ML-only max score: 0.3500 (Level: MEDIUM, Action: log). Rule+ML score: 0.5400 (expected: 0.5400).",
+      "status": "PASS",
+      "execution_time_ms": 473.69,
+      "observed_values": {
+        "lifecycle": "COLLECTING_BASELINE -> READY",
+        "normal_score": 0.4833,
+        "anomaly_score": 0.6065,
+        "ml_only_max_score": 0.35,
+        "ml_only_action": "log",
+        "ml_only_blocked": false,
+        "rule_plus_ml_score": 0.54
+      },
+      "auth_involved": false,
+      "persistence_verified": false,
+      "ml_contributed": true,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-10-RISK-ENGINE",
+      "scenario_name": "Composite Risk Engine Formula & Repeat Escalation",
+      "category": "Risk Engine",
+      "expected_behavior": "Verify deterministic rule/ML weighting, incremental repeat boost capped at 0.20, and CRITICAL mapping.",
+      "actual_behavior": "Progression: 0.1300 -> 0.1625 -> 0.1950. Capped score at max repeats: 0.2600 (expected 0.2600). Critical assessment: 0.9000 (Level: CRITICAL, Action: block).",
+      "status": "PASS",
+      "execution_time_ms": 1.24,
+      "observed_values": {
+        "base_low_score": 0.13,
+        "first_repeat_score": 0.1625,
+        "second_repeat_score": 0.195,
+        "capped_score": 0.26,
+        "critical_score": 0.9,
+        "critical_action": "block"
+      },
+      "auth_involved": false,
+      "persistence_verified": false,
+      "ml_contributed": true,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-11-PERSISTENCE",
+      "scenario_name": "Database Durability & Record Recovery",
+      "category": "Persistence",
+      "expected_behavior": "Persist security events, assessments, and incidents to SQLite and retrieve them without loss.",
+      "actual_behavior": "Persisted and retrieved: SecurityEvent=True, RiskAssessment=True, Incident=True.",
+      "status": "PASS",
+      "execution_time_ms": 224.81,
+      "observed_values": {
+        "event_persisted": true,
+        "risk_persisted": true,
+        "incident_persisted": true,
+        "recovered_incident_id": "inc-4218659bd6f9"
+      },
+      "auth_involved": false,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-12-API-RBAC",
+      "scenario_name": "API Authentication & Role-Based Authorization",
+      "category": "Authentication & RBAC",
+      "expected_behavior": "Enforce 401 unauthenticated, 403 role boundary (VIEWER/ANALYST/ADMIN), and prevent username enumeration.",
+      "actual_behavior": "Health: 200. Unauthenticated: 401. Uniform login failure: True ('Invalid username or password.'). Viewer read/mut: 200/403. Analyst mut/fw: 200/403. Admin fw: 200.",
+      "status": "PASS",
+      "execution_time_ms": 1588.7,
+      "observed_values": {
+        "health_status": 200,
+        "unauth_status": 401,
+        "uniform_error_message": "Invalid username or password.",
+        "viewer_forbidden_on_mutation": true,
+        "analyst_allowed_incident_mutation": true,
+        "analyst_forbidden_on_firewall": true,
+        "admin_allowed_firewall": true
+      },
+      "auth_involved": true,
+      "persistence_verified": true,
+      "ml_contributed": false,
+      "firewall_remained_disabled": true,
+      "details": ""
+    },
+    {
+      "scenario_id": "SCN-13-FIREWALL-SAFETY",
+      "scenario_name": "Firewall Safety Invariant & Mitigation Containment",
+      "category": "Firewall Safety",
+      "expected_behavior": "Firewall remains disabled, auto-block remains disabled, CRITICAL events cannot trigger kernel iptables modifications.",
+      "actual_behavior": "Firewall state: enabled=False, auto_block=False, dry_run=True. Pipeline auto-block prevented (blocked=False). Direct block simulated safely: status=simulated, mode=disabled.",
+      "status": "PASS",
+      "execution_time_ms": 138.04,
+      "observed_values": {
+        "firewall_enabled": false,
+        "auto_block": false,
+        "dry_run": true,
+        "recommended_action": "block",
+        "block_call_result_success": true,
+        "block_rejection_reason": "Simulated block for 192.168.1.240 (disabled mode)."
+      },
+      "auth_involved": false,
+      "persistence_verified": false,
+      "ml_contributed": true,
+      "firewall_remained_disabled": true,
+      "details": ""
+    }
+  ]
+}
