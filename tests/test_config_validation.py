@@ -144,3 +144,18 @@ def test_config_class_redacted_dict():
     if "ABUSEIPDB_API_KEY" in redacted:
         assert redacted["ABUSEIPDB_API_KEY"] in ("[REDACTED]", None, "")
     assert redacted.get("version") == "1.0.0"
+
+
+def test_auth_enabled_cannot_be_false_in_production():
+    """Verify that attempting to disable authentication in production raises ConfigurationError."""
+    prod_config_with_disabled_auth = {
+        "HOST": "0.0.0.0",
+        "PORT": 5000,
+        "ENV": "production",
+        "AUTH_SETTINGS": {
+            "auth_enabled": False,
+        },
+    }
+    with pytest.raises(ConfigurationError) as exc_info:
+        ConfigValidator.validate_or_raise(prod_config_with_disabled_auth)
+    assert "AUTH_SETTINGS.auth_enabled cannot be False in production" in str(exc_info.value)

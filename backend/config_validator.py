@@ -392,6 +392,9 @@ class ConfigValidator:
                     cls.validate_positive_int(auth["password_min_length"], "AUTH_SETTINGS.password_min_length", min_val=4)
                 except ConfigurationError as e:
                     errors.append(str(e))
+            env = str(get_val("ENV", os.environ.get("NETSENTINEL_ENV", "production"))).lower().strip()
+            if env == "production" and auth.get("auth_enabled") is False:
+                errors.append("AUTH_SETTINGS.auth_enabled cannot be False in production environment")
 
         # Rate limits (flat or namespaced)
         rate_limit = get_val("API_RATE_LIMIT", get_val("NETSENTINEL_API_RATE_LIMIT", 60))

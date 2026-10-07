@@ -6,6 +6,7 @@ and granular permissions across Flask API routes.
 
 from functools import wraps
 import logging
+import os
 from typing import Callable, Optional
 
 from flask import current_app, g, jsonify, request
@@ -36,12 +37,58 @@ def get_current_user_from_request() -> Optional[User]:
     return AuthService.verify_token(token)
 
 
+def _is_auth_globally_disabled() -> bool:
+    """Check if authentication is disabled, strictly prohibiting it in production."""
+    if current_app.config.get("AUTH_ENABLED", True):
+        return False
+    env = str(current_app.config.get("ENV", "")).lower().strip()
+    netsentinel_env = str(os.environ.get("NETSENTINEL_ENV", "")).lower().strip()
+    if env == "production" or netsentinel_env == "production":
+        logger.error("Security violation: AUTH_ENABLED cannot be False in production. Enforcing authentication.")
+        return False
+    return True
+
+
+def _is_test_auth_bypass_allowed() -> bool:
+    """Determine whether the backward-compatibility test mock bypass is permitted.
+
+    Fail-safe invariants:
+    1. NEVER allowed in production environments (ENV == 'production', NETSENTINEL_ENV == 'production').
+    2. NEVER allowed merely because TESTING is enabled in a production/non-test environment.
+    3. NEVER allowed when AUTH_ENFORCE_IN_TESTS is True.
+    4. Only allowed under intentional, active test execution (e.g. pytest framework active or
+       AUTH_ALLOW_TEST_COMPATIBILITY explicitly enabled in a non-production test suite).
+    """
+    cfg = current_app.config
+
+    # 1. Strictly fail closed if in production
+    env = str(cfg.get("ENV", "")).lower().strip()
+    netsentinel_env = str(os.environ.get("NETSENTINEL_ENV", "")).lower().strip()
+    if env == "production" or netsentinel_env == "production":
+        return False
+
+    # 2. Strict enforcement flag disables bypass
+    if cfg.get("AUTH_ENFORCE_IN_TESTS", False):
+        return False
+
+    # 3. Must be explicitly flagged as a test
+    if not cfg.get("TESTING", False):
+        return False
+
+    # 4. Explicit compatibility flag or active test runner
+    if cfg.get("AUTH_ALLOW_TEST_COMPATIBILITY") is False:
+        return False
+
+    is_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
+    return bool(cfg.get("AUTH_ALLOW_TEST_COMPATIBILITY", is_pytest))
+
+
 def login_required(f: Callable) -> Callable:
     """Ensure the incoming request has a valid, active authentication session."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 1. Check if authentication is globally disabled by configuration
-        if not current_app.config.get("AUTH_ENABLED", True):
+        # 1. Fail-closed global auth check (prohibited in production)
+        if _is_auth_globally_disabled():
             return f(*args, **kwargs)
 
         # 2. Verify Bearer token from request
@@ -50,9 +97,8 @@ def login_required(f: Callable) -> Callable:
             g.current_user = user
             return f(*args, **kwargs)
 
-        # 3. Test mode backward-compatibility for pre-Phase 13 tests
-        if current_app.config.get("TESTING", False) and not current_app.config.get("AUTH_ENFORCE_IN_TESTS", False):
-            # Fallback mock admin for existing test suites
+        # 3. Safe, intentional test compatibility fallback
+        if _is_test_auth_bypass_allowed():
             g.current_user = User(id=1, username="test_admin", role=Role.ADMIN, is_active=True)
             return f(*args, **kwargs)
 
@@ -72,14 +118,12 @@ def permission_required(permission: str) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # 1. Global auth bypass check
-            if not current_app.config.get("AUTH_ENABLED", True):
+            if _is_auth_globally_disabled():
                 return f(*args, **kwargs)
 
-            # 2. Verify authentication first
             user = get_current_user_from_request()
             if not user:
-                if current_app.config.get("TESTING", False) and not current_app.config.get("AUTH_ENFORCE_IN_TESTS", False):
+                if _is_test_auth_bypass_allowed():
                     g.current_user = User(id=1, username="test_admin", role=Role.ADMIN, is_active=True)
                     user = g.current_user
                 else:
@@ -92,7 +136,7 @@ def permission_required(permission: str) -> Callable:
 
             g.current_user = user
 
-            # 3. Verify permission
+            # Verify permission
             if not has_permission(user.role, permission):
                 logger.warning(
                     "Access denied for user '%s' (role: %s) to permission '%s' on %s %s",
@@ -122,12 +166,12 @@ def role_required(*roles: str) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_app.config.get("AUTH_ENABLED", True):
+            if _is_auth_globally_disabled():
                 return f(*args, **kwargs)
 
             user = get_current_user_from_request()
             if not user:
-                if current_app.config.get("TESTING", False) and not current_app.config.get("AUTH_ENFORCE_IN_TESTS", False):
+                if _is_test_auth_bypass_allowed():
                     g.current_user = User(id=1, username="test_admin", role=Role.ADMIN, is_active=True)
                     user = g.current_user
                 else:

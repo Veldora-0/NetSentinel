@@ -246,3 +246,95 @@ def test_admin_role_permissions(rbac_client, rbac_app):
     r_users = rbac_client.get("/api/auth/users", headers=headers)
     assert r_users.status_code == 200
     assert len(r_users.get_json()["users"]) >= 3
+
+
+# ==============================================================================
+# Test-Auth Bypass & Production Hardening Regression Tests
+# ==============================================================================
+
+def test_production_configuration_always_requires_auth():
+    """Verify production configuration fails closed and NEVER allows unauthenticated access.
+    
+    Proves that even if an app running in production has TESTING=True enabled,
+    the mock-admin bypass is rejected and 401 is enforced.
+    """
+    app, _ = create_app(start_capture=False)
+    app.config["ENV"] = "production"
+    app.config["TESTING"] = True  # Attempting to trigger bypass in production
+    app.config["AUTH_ENFORCE_IN_TESTS"] = False
+
+    with app.test_client() as client:
+        # Unauthenticated request to protected endpoint MUST return 401
+        resp = client.get("/api/system/status")
+        assert resp.status_code == 401
+        data = resp.get_json()
+        assert data["error"] == "unauthorized"
+
+
+def test_auth_enforce_in_tests_enforces_real_auth():
+    """Verify AUTH_ENFORCE_IN_TESTS=True strictly requires authentic Bearer credentials."""
+    app, _ = create_app(start_capture=False)
+    app.config["TESTING"] = True
+    app.config["AUTH_ENFORCE_IN_TESTS"] = True
+
+    with app.app_context():
+        db.create_all()
+        AuthService.create_user("real_operator", "OperatorPass123!", Role.ADMIN)
+
+    with app.test_client() as client:
+        # 1. Unauthenticated request without token must fail with 401
+        r_unauth = client.get("/api/system/status")
+        assert r_unauth.status_code == 401
+
+        # 2. Authenticate to get valid token
+        r_login = client.post("/api/auth/login", json={
+            "username": "real_operator",
+            "password": "OperatorPass123!",
+        })
+        assert r_login.status_code == 200
+        token = r_login.get_json()["token"]
+
+        # 3. Request with valid token must succeed with 200
+        r_auth = client.get("/api/system/status", headers={"Authorization": f"Bearer {token}"})
+        assert r_auth.status_code == 200
+
+
+def test_compatibility_bypass_only_in_intentional_test_config():
+    """Verify the mock-admin bypass only triggers under intentional, non-production test config.
+    
+    1. Triggers when TESTING=True and non-production.
+    2. Does NOT trigger when AUTH_ALLOW_TEST_COMPATIBILITY=False.
+    3. Does NOT trigger when ENV=production.
+    """
+    # 1. Intentional test configuration -> bypass active for backwards compatibility
+    app1, _ = create_app(start_capture=False)
+    app1.config["ENV"] = "testing"
+    app1.config["TESTING"] = True
+    app1.config["AUTH_ENFORCE_IN_TESTS"] = False
+    app1.config["AUTH_ALLOW_TEST_COMPATIBILITY"] = True
+
+    with app1.test_client() as client1:
+        resp1 = client1.get("/api/system/status")
+        assert resp1.status_code == 200
+
+    # 2. Explicitly disabled compatibility flag -> bypass disabled, requires auth (401)
+    app2, _ = create_app(start_capture=False)
+    app2.config["ENV"] = "testing"
+    app2.config["TESTING"] = True
+    app2.config["AUTH_ENFORCE_IN_TESTS"] = False
+    app2.config["AUTH_ALLOW_TEST_COMPATIBILITY"] = False
+
+    with app2.test_client() as client2:
+        resp2 = client2.get("/api/system/status")
+        assert resp2.status_code == 401
+
+    # 3. Production environment -> bypass disabled, requires auth (401)
+    app3, _ = create_app(start_capture=False)
+    app3.config["ENV"] = "production"
+    app3.config["TESTING"] = True
+    app3.config["AUTH_ENFORCE_IN_TESTS"] = False
+    app3.config["AUTH_ALLOW_TEST_COMPATIBILITY"] = True  # Prohibited in production
+
+    with app3.test_client() as client3:
+        resp3 = client3.get("/api/system/status")
+        assert resp3.status_code == 401

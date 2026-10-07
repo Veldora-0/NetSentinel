@@ -132,7 +132,7 @@ class AuthService:
 
         if not user.is_active:
             logger.warning("Authentication rejected for disabled account '%s' from %s", normalized_username, client_ip)
-            return None, None, None, "Account is disabled. Please contact an administrator."
+            return None, None, None, "Invalid username or password."
 
         # Issue bearer token
         raw_token = secrets.token_urlsafe(32)

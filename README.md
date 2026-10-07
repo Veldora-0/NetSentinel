@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 13 (Authentication & Role-Based Access Control) is completed, alongside Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), and **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`). All 257 automated backend tests pass deterministically.
+> **Implementation Status:** Phase 13 (Authentication & Role-Based Access Control) is completed, alongside Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), and **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`). All 261 automated backend tests pass deterministically.
 
 ---
 
@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (257 tests)
+* **pytest** - Automated test suite (261 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -600,11 +600,8 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 1. **Environment Configuration**: Set `NETSENTINEL_ADMIN_PASSWORD` (and optional `NETSENTINEL_ADMIN_USERNAME`, default `admin`). On startup, if no administrator account exists in the database, NetSentinel automatically provisions the account.
 2. **Interactive CLI Utility**:
    ```bash
-   # Standalone interactive CLI with hidden password entry
+   # Standalone interactive CLI with hidden password prompt
    python backend/bootstrap.py --username admin
-
-   # Or scripted flag-based provisioning
-   python backend/bootstrap.py --username admin --password <StrongPassword123!>
    ```
 
 ### 4. Authentication Endpoints
@@ -621,7 +618,7 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 257 unit and integration tests run deterministically without requiring root privileges or live external network access:
+All 261 unit and integration tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```

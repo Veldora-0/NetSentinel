@@ -248,7 +248,11 @@ def test_api_login_success_and_logout(auth_app, auth_client):
 
 
 def test_api_login_failures(auth_app, auth_client):
-    """Test bad credentials, missing fields, and disabled users."""
+    """Test bad credentials, missing fields, nonexistent users, and disabled users.
+    
+    Verifies that all credential failures produce an identical response schema and HTTP 401
+    status without leaking account existence or distinguishing disabled accounts.
+    """
     with auth_app.app_context():
         u, _ = AuthService.create_user("disabled_user", "ValidPass123!", Role.VIEWER)
         u.is_active = False
@@ -258,20 +262,38 @@ def test_api_login_failures(auth_app, auth_client):
     resp = auth_client.post("/api/auth/login", json={"username": "test"})
     assert resp.status_code == 400
 
-    # Invalid password
-    resp = auth_client.post("/api/auth/login", json={
-        "username": "disabled_user",
-        "password": "WrongPassword!",
+    # 1. Nonexistent username
+    resp_nonexistent = auth_client.post("/api/auth/login", json={
+        "username": "definitely_nonexistent_user_999",
+        "password": "AnyPassword123!",
     })
-    assert resp.status_code == 401
+    assert resp_nonexistent.status_code == 401
+    data_nonexistent = resp_nonexistent.get_json()
 
-    # Disabled account
-    resp = auth_client.post("/api/auth/login", json={
+    # 2. Wrong password for existing user
+    resp_wrong_pw = auth_client.post("/api/auth/login", json={
+        "username": "disabled_user",
+        "password": "WrongPassword123!",
+    })
+    assert resp_wrong_pw.status_code == 401
+    data_wrong_pw = resp_wrong_pw.get_json()
+
+    # 3. Disabled existing account
+    resp_disabled = auth_client.post("/api/auth/login", json={
         "username": "disabled_user",
         "password": "ValidPass123!",
     })
-    assert resp.status_code == 403
-    assert "disabled" in resp.get_json()["message"]
+    assert resp_disabled.status_code == 401
+    data_disabled = resp_disabled.get_json()
+
+    # Verify uniform responses: identical status_code, error type, and message
+    assert data_nonexistent["message"] == "Invalid username or password."
+    assert data_wrong_pw["message"] == "Invalid username or password."
+    assert data_disabled["message"] == "Invalid username or password."
+
+    assert data_nonexistent["error"] == "unauthorized"
+    assert data_wrong_pw["error"] == "unauthorized"
+    assert data_disabled["error"] == "unauthorized"
 
 
 def test_api_change_password(auth_app, auth_client):

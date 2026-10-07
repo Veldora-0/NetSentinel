@@ -12,6 +12,7 @@ WorkingDirectory=/opt/netsentinel
 
 # Environment configuration
 Environment="PYTHONUNBUFFERED=1"
+Environment="NETSENTINEL_ENV=production"
 EnvironmentFile=-/etc/default/netsentinel
 
 # Execution command

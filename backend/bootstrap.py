@@ -2,7 +2,7 @@
 """NetSentinel CLI Administrator Bootstrap Script.
 
 Usage:
-    python backend/bootstrap.py [--username USERNAME] [--password PASSWORD]
+    python backend/bootstrap.py [--username USERNAME]
 
 Allows secure initial administrator account creation or password reset
 from the command line without hardcoding credentials in source code.

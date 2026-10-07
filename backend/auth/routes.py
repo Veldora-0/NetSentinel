@@ -48,14 +48,12 @@ def login():
     )
 
     if err or not user:
-        status_code = 403 if (err and "disabled" in err.lower()) else 401
-        err_type = "forbidden" if status_code == 403 else "unauthorized"
         return jsonify({
-            "error": err_type,
-            "message": err or "Invalid username or password.",
-            "status_code": status_code,
+            "error": "unauthorized",
+            "message": "Invalid username or password.",
+            "status_code": 401,
             "request_id": getattr(g, "request_id", "-"),
-        }), status_code
+        }), 401
 
     return jsonify({
         "status": "ok",

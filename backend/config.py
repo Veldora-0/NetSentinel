@@ -52,6 +52,8 @@ def resolve_network_interface(configured_iface: Optional[str] = None) -> str:
 
 class Config:
     """Base Configuration."""
+    ENV = os.environ.get("NETSENTINEL_ENV", os.environ.get("FLASK_ENV", None))
+    TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY", "netsentinel-dev-secret-key-change-in-production")
     DEBUG = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1", "t")
     
