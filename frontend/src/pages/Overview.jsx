@@ -476,10 +476,11 @@ export function Overview() {
           )}
         </DashboardCard>
 
-        {/* Active Incident Queue */}
+        {/* Active Incident Queue - Full Width across columns */}
         <DashboardCard
           title="Active Correlated Incidents"
           icon={AlertOctagon}
+          style={{ gridColumn: '1 / -1' }}
           headerRight={
             <Link to="/incidents" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
               All Incidents ({incidents.length}) <ArrowRight size={13} />

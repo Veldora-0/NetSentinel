@@ -377,19 +377,19 @@ export default function HostSecurity() {
                   {sshDetector.status || 'UNKNOWN'}
                 </span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Monitored Auth Log:</span>
-                <span className="meta-val">{sshDetector.log_file || 'auto (/var/log/auth.log)'}</span>
+              <div className="host-prop-item">
+                <span className="host-prop-label">Monitored Auth Log</span>
+                <span className="host-prop-value">{sshDetector.log_file || 'auto (/var/log/auth.log)'}</span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Brute-Force Threshold:</span>
-                <span className="meta-val">
+              <div className="host-prop-item">
+                <span className="host-prop-label">Brute-Force Threshold</span>
+                <span className="host-prop-value">
                   {sshDetector.threshold_failures || 5} failures / {sshDetector.window_seconds || 120}s
                 </span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Current Tracked Attacker IPs:</span>
-                <span className="meta-val">{formatNumber(sshDetector.tracked_ips_count, 0, '0')}</span>
+              <div className="host-prop-item">
+                <span className="host-prop-label">Current Tracked Attacker IPs</span>
+                <span className="host-prop-value">{formatNumber(sshDetector.tracked_ips_count, 0, '0')}</span>
               </div>
             </div>
 
@@ -421,17 +421,17 @@ export default function HostSecurity() {
                   {procMonitor.status || 'UNKNOWN'}
                 </span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Observation Mechanism:</span>
-                <span className="meta-val">Linux /proc pseudo-filesystem + psutil</span>
+              <div className="host-prop-item">
+                <span className="host-prop-label">Observation Mechanism</span>
+                <span className="host-prop-value">Linux /proc pseudo-filesystem + psutil</span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Baseline Established:</span>
-                <span className="meta-val">{procMonitor.baseline_established ? 'YES (Active)' : 'Initializing'}</span>
+              <div className="host-prop-item">
+                <span className="host-prop-label">Baseline Established</span>
+                <span className="host-prop-value">{procMonitor.baseline_established ? 'YES (Active)' : 'Initializing'}</span>
               </div>
-              <div className="host-meta-row">
-                <span className="meta-label">Inspection Interval:</span>
-                <span className="meta-val">{procMonitor.interval_seconds || 5.0}s</span>
+              <div className="host-prop-item">
+                <span className="host-prop-label">Inspection Interval</span>
+                <span className="host-prop-value">{procMonitor.interval_seconds || 5.0}s</span>
               </div>
             </div>
 

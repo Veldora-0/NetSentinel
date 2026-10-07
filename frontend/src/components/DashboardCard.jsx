@@ -7,12 +7,13 @@ export function DashboardCard({
   action,
   headerRight,
   className = '',
+  style,
   children,
 }) {
   const rightSlot = action || headerRight;
 
   return (
-    <div className={`dashboard-card ${className}`}>
+    <div className={`dashboard-card ${className}`} style={style}>
       <div className="card-header">
         <div className="card-header-left">
           {Icon && <Icon className="card-icon" size={18} />}

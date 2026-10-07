@@ -190,7 +190,10 @@ class FileIntegrityMonitor:
                 try:
                     persisted = self.baseline_loader()
                     if persisted:
-                        self._baseline = dict(persisted)
+                        for path, rec in persisted.items():
+                            if "exists" not in rec:
+                                rec["exists"] = (rec.get("status") != STATUS_MISSING)
+                            self._baseline[path] = rec
                         self.baseline_ready = True
                         loaded = True
                         logger.info("FIM: Restored %d baseline records from database", len(persisted))
@@ -445,7 +448,8 @@ class FileIntegrityMonitor:
                 prev = self._baseline.get(path)
 
                 # Case 1: File created (previously absent from baseline, or baseline was missing)
-                if not prev or prev.get("status") == STATUS_MISSING or not prev.get("exists", False):
+                prev_exists = prev.get("exists", prev.get("status") != STATUS_MISSING) if prev else False
+                if not prev or prev.get("status") == STATUS_MISSING or not prev_exists:
                     if curr.get("exists", False) and curr.get("status") != STATUS_UNREADABLE:
                         change_type = FILE_CREATED
                         sev = "HIGH" if path in self.critical_paths else "MEDIUM"

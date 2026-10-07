@@ -328,6 +328,7 @@ class FileIntegrityBaselineRecord(db.Model):
             "first_seen": self.first_seen,
             "last_verified": self.last_verified,
             "status": self.status,
+            "exists": self.status != "MISSING",
         }
 
 

@@ -974,6 +974,31 @@ body {
   color: var(--text-primary);
 }
 
+.host-prop-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem 0.5rem;
+  background-color: rgba(11, 15, 25, 0.5);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.host-prop-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.host-prop-value {
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #f1f5f9;
+  word-break: break-all;
+}
+
 /* Phase 9: Incident Correlation & Investigation Styles */
 .incident-section {
   grid-column: span 12;

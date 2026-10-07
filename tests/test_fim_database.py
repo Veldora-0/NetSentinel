@@ -65,6 +65,7 @@ def test_fim_baseline_crud(test_app):
     assert retrieved["path"] == path
     assert retrieved["size"] == 1024
     assert retrieved["status"] == "BASELINE"
+    assert retrieved["exists"] is True
 
     # 3. Update
     record_data["sha256"] = "1111111111111111111111111111111111111111111111111111111111111111"
