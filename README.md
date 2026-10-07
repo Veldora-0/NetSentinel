@@ -692,15 +692,15 @@ The harness executes 13 comprehensive end-to-end validation scenarios:
 | Scenario ID | Name | Subsystems Validated | Expected Defensive Outcome |
 |---|---|---|---|
 | `SCN-01` | Normal Baseline Traffic | Parser, Detector, Risk, Incidents | 0 alerts, 0 risk escalations, 0 correlated incidents (Negative control). |
-| `SCN-02` | Port Scan Attack | Detector, Risk Engine, Incident Correlator | Detected (>15 ports), emits `PORT_SCAN` event (MEDIUM), correlates incident, alert cooldown verified. |
-| `SCN-03` | SYN Flood Attack | Detector, Risk Engine, Incident Correlator | Detected (>50 SYN packets), emits `SYN_FLOOD` event (HIGH), correlates incident. |
+| `SCN-02` | Port Scan Attack | Detector, Risk Engine, Incident Correlator | Detected (>=15 ports, threshold=15), emits `PORT_SCAN` event (MEDIUM), correlates incident, alert cooldown verified. |
+| `SCN-03` | SYN Flood Attack | Detector, Risk Engine, Incident Correlator | Detected (>=50 SYN packets, threshold=50), emits `SYN_FLOOD` event (HIGH), correlates incident. |
 | `SCN-04` | Stealth Scans (NULL & XMAS) | Detector, Risk Engine, Incident Correlator | Detected flag anomalies (`NULL_SCAN`, `XMAS_SCAN`), emits HIGH severity alerts, correlates incidents. |
 | `SCN-05` | ICMP Sweep (With Negative Control) | ICMP Detector, Risk, Incidents | Threshold met (10 hosts) triggers alert; below-threshold (5 hosts) produces 0 alerts. |
-| `SCN-06` | ARP Threat Detection | ARP Detector, Risk, Incidents | Baseline established, spoofing detected, IP conflict (>2 IPs) flagged, static trusted binding enforced. |
+| `SCN-06` | ARP Threat Detection | ARP Detector, Risk, Incidents | Baseline established, spoofing detected, IP conflict (>=3 IPs, threshold=3) flagged, static trusted binding enforced. |
 | `SCN-07` | File Integrity Monitoring (FIM) | FIM Scanner, Database, Risk, Incidents | Content modification detected, deletion detected, operator rebaseline executed, DB persistence retained. |
 | `SCN-08` | Multi-Vector Incident Correlation | Cross-Domain Correlator, Timeline | Network + Host events correlated into single incident; cross-domain (+0.10) & multi-vector (+0.05) boosts applied; monotonic risk; chronological timeline ordering verified. |
 | `SCN-09` | Unsupervised ML Pipeline | Feature Extractor, Isolation Forest, Risk | 20 windows train model to `READY`; normal score <= 0.50; outlier score > 0.50; ML-alone safety invariant verified (score capped at 0.35, recommended action "log"). |
-| `SCN-10` | Composite Risk Escalation | Risk Engine, Multi-Frequency Boost | Base severities verified; repeat frequency boost (+0.05 per event, max +0.20) verified; CRITICAL threshold (0.90) escalates recommended action to "block". |
+| `SCN-10` | Composite Risk Escalation | Risk Engine, Multi-Frequency Boost | Base severities verified; repeat frequency boost (+0.05 per event, max +0.20) verified; CRITICAL threshold (>=0.80; tested with 0.90 event) escalates recommended action to "block". |
 | `SCN-11` | Durable Pipeline Persistence | SQLite Database, ORM Models | Events, risk assessments, and correlated incidents verified across database queries and lifecycle reloads. |
 | `SCN-12` | Management Plane RBAC | Security Middleware, Auth Service | 401 unauthenticated; uniform login failure message (no username enumeration); VIEWER (200 read / 403 write); ANALYST (200 triage / 403 firewall); ADMIN (200 full). |
 | `SCN-13` | Firewall Safety Invariants | Firewall Manager, Allowlist Engine | Disabled state verified; auto-block prevented; private allowlist and loopback addresses cannot be blocked; dry-run/simulated responses verified. |
