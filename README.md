@@ -746,37 +746,44 @@ The harness generates structured execution artifacts in the `reports/` directory
 NetSentinel includes a standalone, reproducible Performance and Machine Learning Evaluation framework (`backend/evaluation/`) designed to benchmark subsystem throughput, operational latency, resource consumption, and ML anomaly classification characteristics in an unprivileged, non-destructive CLI environment.
 
 ### 1. Methodology & Environmental Context
-* **Benchmark Environment**: Synthetic benchmark measurements performed on the development Debian Linux environment (2 vCPUs, 2.86 GB RAM, x86_64).
+* **Benchmark Environment**: Synthetic benchmark measurements in the development Debian Linux environment (Linux 6.12.111+deb13-amd64, Python 3.13.5, 2 vCPUs, 2.86 GB RAM, x86_64).
+* **Canonical Run Timestamp**: `2026-10-07T14:43:22Z` (Unix timestamp: `1791384202.434`).
+* **Steady-State Isolation**: Warm-up iterations reduce first-run initialization and cache effects so reported measurements better represent steady-state execution.
 * **Workload Scope**: Synthetic binary frames and deterministic network window streams covering normal baseline traffic, volumetric SYN floods, horizontal port scans, stealth scans, and mixed workloads.
-* **ML Evaluation Scope**: Supervised evaluation of the unsupervised Isolation Forest anomaly detector against deterministic, ground-truth labeled synthetic traffic windows (100 normal windows, 100 attack windows; random seed 1337) across varying decision thresholds ($T \in [0.30, 0.70]$).
+* **ML Evaluation Scope**: Offline supervised evaluation of the unsupervised Isolation Forest anomaly detector against deterministic, ground-truth labeled synthetic traffic windows (100 normal windows, 100 attack windows; random seed 1337) across varying decision thresholds ($T \in [0.30, 0.70]$).
 
 ### 2. Subsystem Micro-Benchmark Results
 
+Measurements recorded from the canonical evaluation run (`reports/benchmark_summary.csv`, `reports/evaluation_report.json`):
+
 | Subsystem / Component | Benchmark Metric | Measured Throughput | Mean Latency | Median Latency | p95 Latency | p99 Latency |
 |---|---|---|---|---|---|---|
-| **Binary Packet Parser** | 5,000 mixed frames | ~80,000–108,000 pkts/s | 0.009–0.012 ms | 0.007–0.009 ms | 0.013–0.016 ms | 0.043–0.052 ms |
-| **Rule-Based Detector** | 5,000 mixed frames | ~60,000–417,000 pkts/s | 0.002–0.016 ms | 0.002–0.012 ms | 0.004–0.024 ms | 0.008–0.045 ms |
-| **ML Feature Extractor** | 500 packet windows | ~78,000 ops/s | 0.012 ms | 0.010 ms | 0.022 ms | 0.035 ms |
-| **Isolation Forest Inference** | 50 window vectors | ~82–90 ops/s | 11.0–12.1 ms | 10.9–11.8 ms | 12.5–13.4 ms | 13.5–14.8 ms |
-| **Composite Risk Engine** | 1,000 event evaluations | ~25,000–71,000 ops/s | 0.013–0.039 ms | 0.012–0.035 ms | 0.024–0.058 ms | 0.048–0.089 ms |
-| **Incident Correlator** | 500 security events | ~280–365 ops/s | 2.7–3.4 ms | 2.5–3.1 ms | 4.8–5.6 ms | 7.2–8.9 ms |
-| **SQLite Persistence** | 200 security events | ~1,600–2,000 ops/s | 0.47–0.58 ms | 0.45–0.52 ms | 0.75–0.89 ms | 1.10–1.45 ms |
-| **Integrated Pipeline** | 1,000 packets end-to-end | ~15,000–22,000 pkts/s | 0.045–0.065 ms | 0.040–0.055 ms | 0.085–0.110 ms | 0.160–0.220 ms |
+| **Binary Packet Parser** | 5,000 mixed frames | **93,963.79 pkts/s** | 0.0104 ms | 0.0071 ms | 0.0141 ms | 0.0645 ms |
+| **Rule-Based Detector** | 1,000 mixed frames | **41,715.98 pkts/s** | 0.0235 ms | 0.0207 ms | 0.0408 ms | 0.0877 ms |
+| **ML Feature Extractor** | 500 packet windows | **64,446.26 ops/s** | 0.0153 ms | 0.0127 ms | 0.0223 ms | 0.0405 ms |
+| **Isolation Forest Inference** | 500 window vectors | **69.01 ops/s** | 14.4893 ms | 13.4533 ms | 19.5162 ms | 23.9949 ms |
+| **Composite Risk Engine** | 500 event evaluations | **20,655.41 ops/s** | 0.0480 ms | 0.0178 ms | 0.0400 ms | 0.1998 ms |
+| **Incident Correlator** | 500 security events | **414.21 ops/s** | 2.4129 ms | 2.2423 ms | 3.3282 ms | 4.6860 ms |
+| **SQLite Persistence & Query** | 500 security events | **2,098.61 ops/s** | 0.4623 ms | 0.3958 ms | 0.7672 ms | 1.0906 ms |
+| **Integrated Pipeline** | 500 packets end-to-end | **21,208.65 pkts/s** | 0.0467 ms | 0.0302 ms | 0.0818 ms | 0.1784 ms |
+
+*(Additional load tier measurements: Packet Parser at 1,000 frames achieves 79,263.42 pkts/s; Rule Detector at 100 frames achieves 228,565.16 pkts/s; SQLite Persistence at 200 events achieves 2,404.10 ops/s; Integrated Pipeline at 100 packets achieves 14,418.08 pkts/s).*
 
 ### 3. Resource Profiling Summary
-During full execution of the benchmark and evaluation suite:
-* **Initial Process RSS**: ~164.7 MB
-* **Peak Process RSS**: ~176.8 MB
-* **Net Memory Growth**: +12.07 MB (steady-state bounded memory, no unbounded leaks)
-* **Execution Duration**: ~16.2 seconds total across all 7 benchmark suites and ML evaluation.
+Monitored via `psutil` during the full canonical execution:
+* **Initial Process RSS**: `164.81 MB`
+* **Peak Process RSS**: `175.76 MB`
+* **Net Memory Growth ($\Delta$)**: `+10.95 MB` (No sustained unbounded RSS growth was observed during the bounded evaluation workload)
+* **Final CPU Utilization**: `99.3%` (The benchmark evaluation loop runs sequentially in a single Python thread, while internal Scikit-learn/NumPy routines utilize multi-core CPU capabilities when available)
+* **Execution Duration**: `17.92 seconds` total wall-clock time across all 7 benchmark suites and ML evaluation.
 
 ### 4. Machine Learning Evaluation (Held-Out Test Set)
 
-The unsupervised Isolation Forest model (trained on 100 normal baseline windows, random seed 42) was evaluated against a held-out test dataset of 200 windows (100 normal, 100 synthetic attacks; random seed 1337):
+The unsupervised Isolation Forest model (trained on 50 normal baseline windows, random seed 42) was evaluated against a held-out test dataset of 200 windows (100 normal, 100 synthetic attacks; random seed 1337):
 
 * **Score Separation**:
-  * Normal Traffic Windows ($N=100$): Mean score = **0.4773** ($\pm 0.0467$), Range: $[0.3702, 0.5878]$
-  * Attack Traffic Windows ($N=100$): Mean score = **0.6899** ($\pm 0.0140$), Range: $[0.6558, 0.7072]$
+  * Normal Traffic Windows ($N=100$): Mean score = **0.4773** ($\pm 0.0467$), Range: $[0.3868, 0.5909]$
+  * Attack Traffic Windows ($N=100$): Mean score = **0.6899** ($\pm 0.0140$), Range: $[0.6491, 0.7177]$
   * Score Separation Margin: **+0.2126** between mean normal and mean attack scores.
 
 * **Performance at Operating Threshold ($T = 0.50$)**:
@@ -792,10 +799,13 @@ The unsupervised Isolation Forest model (trained on 100 normal baseline windows,
   * **Accuracy**: **82.5%**
 
 * **Threshold Sensitivity Sweep**:
-  * At $T=0.45$: Recall = 1.0000, Precision = 0.5747, FPR = 0.7400, $F_1$ = 0.7299.
+  * At $T=0.40$: Recall = 1.0000, Precision = 0.5076, FPR = 0.9700, $F_1$ = 0.6734.
+  * At $T=0.45$: Recall = 1.0000, Precision = 0.6024, FPR = 0.6600, $F_1$ = 0.7519.
   * At $T=0.50$ (*Default*): Recall = 1.0000, Precision = 0.7407, FPR = 0.3500, $F_1$ = 0.8511.
   * At $T=0.55$: Recall = 1.0000, Precision = 0.9434, FPR = 0.0600, $F_1$ = 0.9709.
   * At $T=0.60$: Recall = 1.0000, Precision = 1.0000, FPR = 0.0000, $F_1$ = 1.0000.
+  * At $T=0.65$: Recall = 0.9800, Precision = 1.0000, FPR = 0.0000, $F_1$ = 0.9899.
+  * At $T=0.70$: Recall = 0.1400, Precision = 1.0000, FPR = 0.0000, $F_1$ = 0.2456.
 
 ### 5. Architectural Defense Invariant Justification
 The supervised evaluation empirical data directly justifies NetSentinel's core design constraint:

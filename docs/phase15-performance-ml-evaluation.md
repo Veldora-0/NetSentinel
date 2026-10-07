@@ -22,6 +22,7 @@ All benchmark runs and evaluation workloads were executed on the local developme
 
 | Property | Value |
 |---|---|
+| **Canonical Run Timestamp** | `2026-10-07T14:43:22Z` (Unix: `1791384202.434`) |
 | **Operating System** | Linux 6.12.111+deb13-amd64 |
 | **Distribution** | Debian GNU/Linux 13 (Trixie) |
 | **Display Mode** | Headless / CLI-only |
@@ -34,7 +35,7 @@ All benchmark runs and evaluation workloads were executed on the local developme
 | **Firewall State** | `enabled=False`, `auto_block=False`, `dry_run=True` (no kernel `iptables` rules manipulated) |
 
 > [!NOTE]
-> All throughput and latency numbers in this document represent **synthetic benchmark measurements on the development Debian environment**. They do not constitute claims of line-rate production hardware throughput under live physical network traffic.
+> All throughput and latency numbers in this document represent **synthetic benchmark measurements in the development Debian environment**. They do not constitute claims of line-rate production hardware throughput under live physical network traffic.
 
 ---
 
@@ -47,7 +48,7 @@ All benchmark runs and evaluation workloads were executed on the local developme
    Individual operation latencies were measured using high-resolution monotonic timers via Python's `time.perf_counter()`. Percentiles ($p_{50}$, $p_{95}$, $p_{99}$), arithmetic means, minima, and maxima were computed using standard NumPy numerical routines.
 
 3. **Steady-State Isolation**:
-   Where applicable, benchmarks execute warm-up iterations to prime memory caches and avoid penalizing steady-state execution with one-time module importation or JIT compilation overhead.
+   Where applicable, benchmarks execute warm-up iterations. Warm-up iterations reduce first-run initialization and cache effects so reported measurements better represent steady-state execution.
 
 4. **Strict Safety Boundary**:
    The automated harness continuously verifies that `firewall.enabled` and `firewall.auto_block` evaluate to `False`. Mitigation actions in risk engine and incident manager benchmarks operated exclusively in simulated/dry-run mode.
@@ -92,28 +93,28 @@ The following measurements were recorded during the canonical benchmark run:
 
 | Subsystem | Load Tier (Ops) | Throughput (ops/sec) | Mean Latency (ms) | Median / p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Packet Parser** | 100 | 93,261.75 | 0.0101 | 0.0099 | 0.0132 | 0.0152 | 0.0075 | 0.0178 |
-| **Packet Parser** | 1,000 | 80,717.10 | 0.0122 | 0.0076 | 0.0134 | 0.0163 | 0.0069 | 4.9602 |
-| **Packet Parser** | 5,000 | 108,541.61 | 0.0090 | 0.0074 | 0.0121 | 0.0145 | 0.0068 | 2.1491 |
-| **Rule Detector** | 100 | 417,958.86 | 0.0022 | 0.0021 | 0.0030 | 0.0039 | 0.0019 | 0.0103 |
-| **Rule Detector** | 500 | 153,689.20 | 0.0063 | 0.0041 | 0.0108 | 0.0137 | 0.0020 | 0.3298 |
-| **Rule Detector** | 1,000 | 60,076.64 | 0.0165 | 0.0118 | 0.0261 | 0.0382 | 0.0020 | 2.0594 |
-| **ML Feature Extraction** | 500 | 78,270.83 | 0.0126 | 0.0116 | 0.0165 | 0.0227 | 0.0098 | 0.1704 |
-| **Isolation Forest Inference** | 50 | 82.73 | 12.0864 | 11.8340 | 13.9161 | 14.7735 | 10.9997 | 15.1147 |
-| **Isolation Forest Inference** | 200 | 84.83 | 11.7869 | 11.4925 | 13.4357 | 14.5367 | 10.6865 | 15.6353 |
-| **Isolation Forest Inference** | 500 | 89.89 | 11.1228 | 10.9639 | 12.6322 | 13.5647 | 10.2209 | 14.4751 |
-| **Composite Risk Engine** | 100 | 915.72 | 1.0915 | 0.0202 | 0.5439 | 0.8124 | 0.0128 | 107.0392 |
-| **Composite Risk Engine** | 500 | 71,848.10 | 0.0136 | 0.0123 | 0.0214 | 0.0335 | 0.0098 | 0.1345 |
-| **Composite Risk Engine** | 1,000 | 25,269.91 | 0.0393 | 0.0204 | 0.0270 | 0.0401 | 0.0102 | 18.9103 |
-| **Incident Correlator** | 50 | 365.81 | 2.7316 | 2.6534 | 4.1836 | 4.3807 | 1.3412 | 4.4379 |
-| **Incident Correlator** | 200 | 352.66 | 2.8342 | 2.6713 | 4.8068 | 5.3421 | 1.5492 | 7.9158 |
-| **Incident Correlator** | 500 | 289.41 | 3.4537 | 3.2471 | 7.0389 | 7.5772 | 1.4883 | 8.8665 |
-| **SQLite Persistence** | 50 | 1,658.24 | 0.5808 | 0.4497 | 1.1035 | 1.8483 | 0.3248 | 2.2472 |
-| **SQLite Persistence** | 200 | 2,061.42 | 0.4710 | 0.4308 | 0.9172 | 1.0691 | 0.3204 | 2.5057 |
-| **SQLite Persistence** | 500 | 1,902.00 | 0.5087 | 0.4632 | 0.9764 | 1.1278 | 0.3283 | 2.0156 |
-| **End-to-End Pipeline** | 100 | 15,394.77 | 0.0645 | 0.0601 | 0.1033 | 0.1265 | 0.0428 | 0.1418 |
-| **End-to-End Pipeline** | 500 | 19,095.67 | 0.0516 | 0.0478 | 0.0950 | 0.1348 | 0.0391 | 0.1782 |
-| **End-to-End Pipeline** | 1,000 | 3,474.10 | 0.2871 | 0.0526 | 0.1353 | 0.2184 | 0.0387 | 234.3915 |
+| **Packet Parser** | 100 | 6,475.53 | 0.0557 | 0.0099 | 0.1624 | 1.5632 | 0.0067 | 1.6615 |
+| **Packet Parser** | 1,000 | 79,263.42 | 0.0124 | 0.0103 | 0.0209 | 0.0699 | 0.0067 | 0.2407 |
+| **Packet Parser** | 5,000 | 93,963.79 | 0.0104 | 0.0071 | 0.0141 | 0.0645 | 0.0067 | 1.5207 |
+| **Rule Detector** | 100 | 228,565.16 | 0.0041 | 0.0029 | 0.0050 | 0.0539 | 0.0018 | 0.0547 |
+| **Rule Detector** | 500 | 24,625.05 | 0.0400 | 0.0089 | 0.0169 | 0.0855 | 0.0027 | 11.9185 |
+| **Rule Detector** | 1,000 | 41,715.98 | 0.0235 | 0.0207 | 0.0408 | 0.0877 | 0.0037 | 0.2999 |
+| **ML Feature Extraction** | 500 | 64,446.26 | 0.0153 | 0.0127 | 0.0223 | 0.0405 | 0.0120 | 0.6896 |
+| **Isolation Forest Inference** | 50 | 50.38 | 19.8463 | 15.8205 | 32.6599 | 89.3887 | 12.3405 | 132.9387 |
+| **Isolation Forest Inference** | 200 | 68.16 | 14.6690 | 13.4982 | 21.3580 | 24.8056 | 11.2784 | 44.9923 |
+| **Isolation Forest Inference** | 500 | 69.01 | 14.4893 | 13.4533 | 19.5162 | 23.9949 | 11.3782 | 94.1706 |
+| **Composite Risk Engine** | 100 | 7,538.83 | 0.1323 | 0.0115 | 0.0619 | 4.9298 | 0.0084 | 5.6750 |
+| **Composite Risk Engine** | 500 | 20,655.41 | 0.0480 | 0.0178 | 0.0400 | 0.1998 | 0.0093 | 11.1635 |
+| **Composite Risk Engine** | 1,000 | 6,254.90 | 0.1586 | 0.0355 | 0.2281 | 2.0837 | 0.0092 | 31.8180 |
+| **Incident Correlator** | 50 | 361.97 | 2.7605 | 2.6070 | 3.4426 | 5.0297 | 2.1160 | 5.3055 |
+| **Incident Correlator** | 200 | 386.39 | 2.5867 | 2.4402 | 3.4798 | 4.6291 | 2.0134 | 5.2277 |
+| **Incident Correlator** | 500 | 414.21 | 2.4129 | 2.2423 | 3.3282 | 4.6860 | 1.8507 | 15.9909 |
+| **SQLite Persistence & Query** | 50 | 1,940.07 | 0.5026 | 0.3859 | 0.7190 | 2.7693 | 0.3269 | 3.5230 |
+| **SQLite Persistence & Query** | 200 | 2,404.10 | 0.4034 | 0.3681 | 0.5879 | 0.6753 | 0.3208 | 1.2392 |
+| **SQLite Persistence & Query** | 500 | 2,098.61 | 0.4623 | 0.3958 | 0.7672 | 1.0906 | 0.3238 | 3.1111 |
+| **End-to-End Pipeline** | 100 | 14,418.08 | 0.0688 | 0.0437 | 0.1327 | 0.6448 | 0.0256 | 0.7800 |
+| **End-to-End Pipeline** | 500 | 21,208.65 | 0.0467 | 0.0302 | 0.0818 | 0.1784 | 0.0252 | 1.3903 |
+| **End-to-End Pipeline** | 1,000 | 4,182.70 | 0.2386 | 0.0320 | 0.0906 | 8.7282 | 0.0258 | 18.3425 |
 
 ---
 
@@ -123,15 +124,15 @@ System and process resource utilization metrics were monitored via `psutil` thro
 
 | Resource Metric | Measured Value | Operational Notes |
 |---|:---:|---|
-| **Elapsed Wall-Clock Time** | `16.17 s` | Complete execution of 7 benchmark suites + full ML evaluation |
-| **Initial Process RSS Memory** | `164.73 MB` | Baseline memory following Python, Flask, and Scikit-learn imports |
-| **Peak Process RSS Memory** | `176.80 MB` | Maximum resident memory observed across all benchmark runs |
-| **Process Memory Growth ($\Delta$)** | `+12.07 MB` | Residual memory delta following garbage collection |
-| **Peak CPU Utilization** | `98.1%` | Observed during multi-threaded Isolation Forest decision tree inference |
+| **Elapsed Wall-Clock Time** | `17.92 s` | Complete execution of 7 benchmark suites + full ML evaluation |
+| **Initial Process RSS Memory** | `164.81 MB` | Baseline memory following Python, Flask, and Scikit-learn imports |
+| **Peak Process RSS Memory** | `175.76 MB` | Maximum resident memory observed across all benchmark runs |
+| **Process Memory Growth ($\Delta$)** | `+10.95 MB` | Residual memory delta following garbage collection |
+| **Final CPU Utilization** | `99.3%` | Measured instantaneous CPU percentage at the end of the evaluation run |
 | **System Memory Utilization** | `26.8%` | Relative to total system memory (2.86 GB) |
 
 > [!NOTE]
-> Resource measurements reflect the synthetic benchmark execution environment and confirm the absence of unbounded memory leaks or runaway process resource growth.
+> Resource measurements reflect the synthetic benchmark execution environment. No sustained unbounded RSS growth was observed during the bounded evaluation workload. The benchmark evaluation loop runs sequentially in a single Python thread, while internal Scikit-learn/NumPy linear algebra and decision tree routines utilize multi-core CPU capabilities when available.
 
 ---
 
@@ -255,9 +256,9 @@ The empirical results directly validate NetSentinel's defensive design decisions
    Because automated firewall blocking requires a risk score $\ge 0.80$, an ML anomaly alone **can never trigger an automated IP block**.
 
 2. **Subsystem Throughput Profile**:
-   - The **packet parser** operates at over **80,000 packets/sec**, demonstrating that frame decoding does not form a processing bottleneck in Python.
-   - The **rule detector** processes up to **150,000–400,000 packets/sec** for benign traffic, dropping to ~60,000 packets/sec when actively tracking stateful port scans.
-   - **Isolation Forest inference** requires $\approx 11\text{--}13 \text{ ms}$ per window evaluation. Because inference occurs periodically per sliding time window (every 1.0–5.0 seconds) rather than per packet, this computational cost is completely decoupled from line-rate packet capture.
+   - The **packet parser** operates at up to **93,963.79 packets/sec** (mean latency 0.0104 ms at 5,000 load, and 79,263.42 pkts/s at 1,000 load), demonstrating that frame decoding does not form a processing bottleneck in Python.
+   - The **rule detector** processes up to **228,565.16 packets/sec** for benign traffic (100 load), settling to **24,625.05–41,715.98 packets/sec** when actively tracking stateful port scan probe state and SYN flood queues.
+   - **Isolation Forest inference** requires $\approx 14.5\text{--}19.8 \text{ ms}$ per window evaluation (mean 14.49 ms at 500 load, 14.67 ms at 200 load). Because inference occurs periodically per sliding time window (every 1.0–5.0 seconds) rather than per packet, this computational cost is completely decoupled from line-rate packet capture.
 
 ---
 

@@ -152,7 +152,7 @@ class EvaluationRunner:
         # Benchmark Summary CSV
         csv_bench_path = os.path.join(self.output_dir, "benchmark_summary.csv")
         with open(csv_bench_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
+            writer = csv.writer(f, lineterminator="\n")
             writer.writerow([
                 "Name", "Category", "LoadLevel", "ThroughputOpsPerSec",
                 "MeanMs", "MedianMs", "P95Ms", "P99Ms", "MinMs", "MaxMs", "TotalDurationSec"
@@ -169,7 +169,7 @@ class EvaluationRunner:
         # ML Evaluation Samples CSV
         csv_ml_path = os.path.join(self.output_dir, "ml_evaluation_samples.csv")
         with open(csv_ml_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
+            writer = csv.writer(f, lineterminator="\n")
             writer.writerow([
                 "SampleIndex", "GroundTruth", "LabelName", "Category",
                 "RawScore", "NormalizedScore", "PredictedAnomalyAt0_50", "IsCorrect"
