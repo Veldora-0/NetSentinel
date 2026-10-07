@@ -207,23 +207,27 @@ export default function ThreatIntelligence() {
         />
       </div>
 
-      {/* Engine Overview Banner */}
-      <div style={{ marginTop: '1rem' }}>
-        <DashboardCard title="Threat Intelligence Engine Configuration" icon={Globe}>
+      {/* Threat Intelligence Architecture & Reputation Legend */}
+      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+        <DashboardCard
+          title="Threat Intelligence Subsystem Configuration"
+          subtitle="External provider enrichment pipeline and query queue status"
+          icon={Globe}
+        >
           <div className="ti-container">
             <div className="ti-meta-banner">
               <div>
                 <span className="ti-banner-label">Subsystem Status: </span>
                 <span className={`badge ${isEnabled ? 'badge-status-open' : 'badge-low'}`} style={{ padding: '0.15rem 0.45rem', fontSize: '0.65rem' }}>
-                  {isEnabled ? 'ACTIVE' : 'DISABLED (STANDBY)'}
+                  {isEnabled ? 'ACTIVE (ENRICHING)' : 'DISABLED (STANDBY)'}
                 </span>
               </div>
-              <div>
+              <div style={{ marginTop: '0.4rem' }}>
                 <span className="ti-banner-label">Configured Providers: </span>
                 <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>
                   {configuredProviders.length > 0
                     ? configuredProviders.join(', ')
-                    : 'None (Operating in local/offline detection mode. Set ABUSEIPDB_API_KEY or VIRUSTOTAL_API_KEY in .env to enable)'}
+                    : 'None (Local / offline mode. Set ABUSEIPDB_API_KEY or VIRUSTOTAL_API_KEY in .env to enable)'}
                 </span>
               </div>
             </div>
@@ -253,6 +257,54 @@ export default function ThreatIntelligence() {
                   {status?.successful_lookups || 0} ok / {status?.failed_lookups || 0} err
                 </span>
               </div>
+            </div>
+          </div>
+        </DashboardCard>
+
+        <DashboardCard
+          title="Consensus & Reputation Taxonomy"
+          subtitle="Semantic classification rules applied to external indicator telemetry"
+          icon={Shield}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.75rem', color: '#cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="badge badge-low" style={{ minWidth: '70px', textAlign: 'center' }}>CLEAN</span>
+                <span>Indicator verified benign across all queried providers</span>
+              </div>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>0 Risk Adder</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="badge badge-medium" style={{ minWidth: '70px', textAlign: 'center' }}>SUSPICIOUS</span>
+                <span>Low-to-moderate report volume or suspicious ASN classification</span>
+              </div>
+              <span style={{ color: '#f59e0b', fontWeight: 600 }}>+15 Risk Adder</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="badge badge-critical" style={{ minWidth: '70px', textAlign: 'center' }}>MALICIOUS</span>
+                <span>Known C2, brute-force source, or malware distribution node</span>
+              </div>
+              <span style={{ color: '#ef4444', fontWeight: 600 }}>+30 Risk Adder</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="badge badge-high" style={{ minWidth: '70px', textAlign: 'center' }}>CONFLICT</span>
+                <span>Discrepancy between providers; conservative evaluation applied</span>
+              </div>
+              <span style={{ color: '#f97316', fontWeight: 600 }}>Partial Adder</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="badge badge-neutral" style={{ minWidth: '70px', textAlign: 'center' }}>UNKNOWN</span>
+                <span>No provider data or API keys unconfigured (UNKNOWN != CLEAN)</span>
+              </div>
+              <span style={{ color: '#94a3b8', fontWeight: 600 }}>Neutral</span>
             </div>
           </div>
         </DashboardCard>

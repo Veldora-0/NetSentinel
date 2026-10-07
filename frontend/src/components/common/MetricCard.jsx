@@ -1,18 +1,31 @@
 import React from 'react';
 
-export function MetricCard({ title, value, subtext, icon: Icon, badge, badgeClass = '', className = '', onClick }) {
+export function MetricCard({
+  title,
+  value,
+  subtext,
+  icon: Icon,
+  badge,
+  badgeClass = '',
+  className = '',
+  onClick,
+}) {
   return (
     <div
       className={`dashboard-card metric-card ${onClick ? 'clickable' : ''} ${className}`}
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
     >
-      <div className="card-header" style={{ justifyContent: 'space-between', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {Icon && <Icon size={18} className="card-icon" />}
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {title}
-          </span>
+      <div className="metric-card-top">
+        <div className="metric-title-group">
+          {Icon && (
+            <div className="metric-icon-wrapper">
+              <Icon size={16} className="metric-card-icon" />
+            </div>
+          )}
+          <span className="metric-title">{title}</span>
         </div>
         {badge && (
           React.isValidElement(badge) ? (
@@ -23,14 +36,10 @@ export function MetricCard({ title, value, subtext, icon: Icon, badge, badgeClas
         )}
       </div>
       <div className="metric-value-container">
-        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+        <div className="metric-value">
           {value !== null && value !== undefined && value !== '' ? value : '—'}
         </div>
-        {subtext && (
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            {subtext}
-          </div>
-        )}
+        {subtext && <div className="metric-subtext">{subtext}</div>}
       </div>
     </div>
   );

@@ -257,3 +257,76 @@ export function getWorkerStatusBadgeClass(status) {
       return 'badge-neutral';
   }
 }
+
+/**
+ * Standard security color palette for charts.
+ */
+export const SEVERITY_COLORS = {
+  LOW: '#38bdf8',
+  MEDIUM: '#fbbf24',
+  HIGH: '#f97316',
+  CRITICAL: '#ef4444',
+  DEFAULT: '#64748b',
+};
+
+export const PROTOCOL_COLORS = {
+  TCP: '#06b6d4',
+  UDP: '#3b82f6',
+  ICMP: '#a855f7',
+  ARP: '#10b981',
+  OTHER: '#64748b',
+};
+
+export function getSeverityColor(severity) {
+  const s = (severity || '').toUpperCase();
+  return SEVERITY_COLORS[s] || SEVERITY_COLORS.DEFAULT;
+}
+
+export function getProtocolColor(proto) {
+  const p = (proto || '').toUpperCase();
+  return PROTOCOL_COLORS[p] || PROTOCOL_COLORS.OTHER;
+}
+
+/**
+ * Convert backend detection type identifier into clean operator-friendly label.
+ */
+export function formatDetectionType(type) {
+  if (!type) return 'Unknown';
+  switch (type.toUpperCase()) {
+    case 'PORT_SCAN':
+      return 'Port Scan';
+    case 'SYN_FLOOD':
+      return 'SYN Flood';
+    case 'NULL_SCAN':
+      return 'NULL Scan';
+    case 'XMAS_SCAN':
+      return 'XMAS Scan';
+    case 'ICMP_SWEEP':
+      return 'ICMP Sweep';
+    case 'ARP_SPOOFING':
+      return 'ARP Spoofing';
+    case 'ARP_IDENTITY_CONFLICT':
+      return 'ARP Identity Conflict';
+    case 'ANOMALY':
+      return 'ML Anomaly';
+    case 'SSH_AUTH_FAILURE':
+      return 'SSH Auth Failure';
+    case 'SSH_BRUTE_FORCE':
+      return 'SSH Brute-Force';
+    case 'SUSPICIOUS_PROCESS':
+      return 'Suspicious Process';
+    case 'FILE_MODIFIED':
+      return 'File Modified (FIM)';
+    case 'FILE_CREATED':
+      return 'File Created (FIM)';
+    case 'FILE_DELETED':
+      return 'File Deleted (FIM)';
+    case 'FILE_REPLACED':
+      return 'File Replaced (FIM)';
+    default:
+      return type
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}

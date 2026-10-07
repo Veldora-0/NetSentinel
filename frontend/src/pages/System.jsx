@@ -138,19 +138,23 @@ export default function System() {
 
       {/* Subsystem Worker Lifecycle Matrix */}
       <div style={{ marginTop: '1rem' }}>
-        <DashboardCard title="Subsystem Background Workers & Health Matrix" icon={Layers}>
+        <DashboardCard
+          title="Subsystem Background Workers & Health Matrix"
+          subtitle="Real-time lifecycle state and thread heartbeat timestamps for all NetSentinel subsystems"
+          icon={Layers}
+        >
           {Object.keys(workers).length === 0 ? (
             <EmptyState message="No worker state telemetry reported yet." icon={Layers} />
           ) : (
-            <div className="history-table-container">
-              <table className="history-table">
+            <div style={{ overflowX: 'auto' }}>
+              <table className="soc-table">
                 <thead>
                   <tr>
                     <th>Subsystem Worker</th>
                     <th>Role / Responsibility</th>
                     <th>Status</th>
                     <th>Last Heartbeat</th>
-                    <th>Worker Details</th>
+                    <th>Worker Diagnostics</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -54,6 +54,7 @@ export default function IncidentDetail() {
   const [analystNote, setAnalystNote] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -97,21 +98,26 @@ export default function IncidentDetail() {
 
   const handleAction = async (actionType) => {
     setActionLoading(true);
+    setActionFeedback(null);
     try {
       if (actionType === 'acknowledge') {
         await acknowledgeIncident(incidentId, analystNote);
+        setActionFeedback({ type: 'success', text: 'Incident successfully acknowledged.' });
       } else if (actionType === 'resolve') {
         await resolveIncident(incidentId, resolutionNote, analystNote);
+        setActionFeedback({ type: 'success', text: 'Incident marked as resolved.' });
       } else if (actionType === 'close') {
         await closeIncident(incidentId, resolutionNote, analystNote);
+        setActionFeedback({ type: 'success', text: 'Incident closed.' });
       } else if (actionType === 'reopen') {
         await reopenIncident(incidentId, analystNote);
+        setActionFeedback({ type: 'success', text: 'Incident reopened.' });
       }
       setAnalystNote('');
       setResolutionNote('');
       await loadData();
     } catch (err) {
-      alert(`Action failed: ${err.message}`);
+      setActionFeedback({ type: 'error', text: `Action failed: ${err.message}` });
     } finally {
       setActionLoading(false);
     }
@@ -591,6 +597,17 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
 
       {/* Operator Action Controls Panel */}
       <div className="investigation-actions-panel" style={{ marginTop: '1.25rem' }}>
+        {actionFeedback && (
+          <div className={`safety-banner ${actionFeedback.type === 'error' ? 'danger' : 'info'}`} style={{ marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {actionFeedback.type === 'error' ? <AlertTriangle size={15} /> : <CheckCircle2 size={15} />}
+              <span>{actionFeedback.text}</span>
+            </div>
+            <button onClick={() => setActionFeedback(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>
+              ×
+            </button>
+          </div>
+        )}
         <div className="action-inputs-row">
           <input
             type="text"

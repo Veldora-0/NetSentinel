@@ -1,20 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Activity,
   Radio,
   AlertTriangle,
-  RefreshCw,
+  RotateCcw,
   Search,
   Wifi,
   Layers,
+  ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
+  Cell,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { DashboardCard } from '../components/DashboardCard';
@@ -36,6 +41,8 @@ import {
   formatRate,
   formatAlertTime,
   formatFullTime,
+  safeNumber,
+  PROTOCOL_COLORS,
 } from '../utils/formatters';
 
 export function Network() {
@@ -49,8 +56,7 @@ export function Network() {
   const [alerts, setAlerts] = useState([]);
   const [arpSearch, setArpSearch] = useState('');
 
-  const loadNetworkData = async () => {
-    setLoading(true);
+  const loadNetworkData = useCallback(async () => {
     setError(null);
     try {
       const [metricsRes, netStatusRes, arpRes, alertsRes] = await Promise.allSettled([
@@ -60,20 +66,35 @@ export function Network() {
         fetchSecurityAlerts(50),
       ]);
 
-      if (metricsRes.status === 'fulfilled' && metricsRes.value) setTrafficMetrics(metricsRes.value);
+      if (metricsRes.status === 'fulfilled' && metricsRes.value) {
+        setTrafficMetrics(metricsRes.value);
+        setTrafficHistory((prev) => {
+          if (prev.length === 0) {
+            const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return [{
+              time: nowStr,
+              pps: safeNumber(metricsRes.value.current_pps ?? metricsRes.value.packets_per_sec, 0),
+              bps: safeNumber(metricsRes.value.current_bps ?? metricsRes.value.bytes_per_sec, 0),
+            }];
+          }
+          return prev;
+        });
+      }
       if (netStatusRes.status === 'fulfilled' && netStatusRes.value?.network) setNetworkStatus(netStatusRes.value.network);
       if (arpRes.status === 'fulfilled' && arpRes.value?.mappings) setArpMappings(arpRes.value.mappings);
       if (alertsRes.status === 'fulfilled' && Array.isArray(alertsRes.value)) setAlerts(alertsRes.value);
     } catch (err) {
-      setError(err);
+      setError(err.message || 'Failed to load network traffic data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadNetworkData();
-  }, []);
+    const interval = setInterval(loadNetworkData, 12000);
+    return () => clearInterval(interval);
+  }, [loadNetworkData]);
 
   // Socket.IO updates
   useSocketEvent('traffic_metrics', (data) => {
@@ -85,14 +106,9 @@ export function Network() {
       second: '2-digit',
     });
     setTrafficHistory((prev) => {
-      const updated = [
-        ...prev,
-        {
-          time: nowStr,
-          pps: Number(data.current_pps || 0),
-          bps: Number(data.current_bps || 0),
-        },
-      ];
+      const pps = safeNumber(data.current_pps ?? data.packets_per_sec, 0);
+      const bps = safeNumber(data.current_bps ?? data.bytes_per_sec, 0);
+      const updated = [...prev, { time: nowStr, pps, bps }];
       return updated.length > 30 ? updated.slice(-30) : updated;
     });
   });
@@ -110,6 +126,16 @@ export function Network() {
   const isCaptureRunning = trafficMetrics?.status === 'running';
   const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
 
+  // Real protocol distribution breakdown
+  const protocolData = [
+    { name: 'TCP', count: safeNumber(trafficMetrics?.tcp_packets, 0), color: PROTOCOL_COLORS.TCP },
+    { name: 'UDP', count: safeNumber(trafficMetrics?.udp_packets, 0), color: PROTOCOL_COLORS.UDP },
+    { name: 'ICMP', count: safeNumber(trafficMetrics?.icmp_packets, 0), color: PROTOCOL_COLORS.ICMP },
+    { name: 'ARP', count: safeNumber(trafficMetrics?.arp_packets, 0), color: PROTOCOL_COLORS.ARP },
+    { name: 'Other', count: safeNumber(trafficMetrics?.other_packets, 0), color: PROTOCOL_COLORS.OTHER },
+  ];
+  const totalProtocolPackets = protocolData.reduce((acc, p) => acc + p.count, 0);
+
   // Filtered ARP mappings
   const filteredArp = arpMappings.filter((m) => {
     if (!arpSearch.trim()) return true;
@@ -122,59 +148,66 @@ export function Network() {
   });
 
   return (
-    <div className="network-page">
+    <div className="page-container">
       <PageHeader
         title="Network Traffic & Threat Monitoring"
-        subtitle="Live kernel-level raw frame ingestion, ARP poisoning inspection, and ICMP sweep tracking"
+        subtitle="Live kernel AF_PACKET frame ingestion, layer 2/3 protocol telemetry, and advanced ARP/ICMP detection"
         actions={
-          <button className="btn btn-secondary" onClick={loadNetworkData} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'spin' : ''} />
-            Refresh
+          <button className="btn-refresh" onClick={loadNetworkData} title="Refresh Network Telemetry">
+            <RotateCcw size={14} /> Refresh
           </button>
         }
       />
 
-      {error && <ErrorState error={error} onRetry={loadNetworkData} />}
+      {error && <ErrorState message={error} onRetry={loadNetworkData} />}
 
       {/* Network KPI Cards */}
-      <div className="metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+      <div className="metric-cards-grid">
         <MetricCard
           title="Capture Interface"
           value={trafficMetrics?.interface || 'eth0'}
           subtext={`Socket State: ${trafficMetrics?.status?.toUpperCase() || 'UNKNOWN'}`}
           icon={Radio}
-          badge={isCaptureRunning ? 'RUNNING' : isPermissionDenied ? 'PERM DENIED' : 'STOPPED'}
-          badgeClass={isCaptureRunning ? 'badge-success' : isPermissionDenied ? 'badge-warning' : 'badge-danger'}
+          badge={
+            <span className={`badge ${isCaptureRunning ? 'badge-success' : isPermissionDenied ? 'badge-warning' : 'badge-danger'}`}>
+              {isCaptureRunning ? 'RUNNING' : isPermissionDenied ? 'PERM DENIED' : 'STOPPED'}
+            </span>
+          }
         />
         <MetricCard
-          title="Packet Rate"
-          value={`${formatNumber(trafficMetrics?.current_pps || 0, 0)} pps`}
-          subtext={`Total Packets: ${formatNumber(trafficMetrics?.total_packets || 0)}`}
+          title="Packet Ingestion Rate"
+          value={`${formatNumber(trafficMetrics?.current_pps ?? trafficMetrics?.packets_per_sec ?? 0, 0)} pps`}
+          subtext={`Total Frames: ${formatNumber(trafficMetrics?.total_packets || 0)}`}
           icon={Activity}
         />
         <MetricCard
           title="Bandwidth Throughput"
-          value={formatRate(trafficMetrics?.current_bps || 0, 'bps')}
-          subtext={`Total Transferred: ${formatBytes(trafficMetrics?.total_bytes)}`}
+          value={formatRate(trafficMetrics?.current_bps ?? trafficMetrics?.bytes_per_sec ?? 0, 'bps')}
+          subtext={`Total Volume: ${formatBytes(trafficMetrics?.total_bytes)}`}
           icon={Wifi}
         />
         <MetricCard
-          title="Tracked ARP Mappings"
+          title="Tracked ARP Neighbors"
           value={formatNumber(arpMappings.length, 0)}
-          subtext={`Conflicts detected: ${networkStatus?.arp?.conflicts_detected || 0}`}
+          subtext={`Conflicts: ${networkStatus?.arp?.conflicts_detected || 0} detected`}
           icon={Layers}
-          badge={networkStatus?.arp?.conflicts_detected > 0 ? 'CONFLICT' : 'HEALTHY'}
-          badgeClass={networkStatus?.arp?.conflicts_detected > 0 ? 'badge-critical' : 'badge-success'}
+          badge={
+            (networkStatus?.arp?.conflicts_detected || 0) > 0 ? (
+              <span className="badge badge-critical">CONFLICT</span>
+            ) : (
+              <span className="badge badge-success">HEALTHY</span>
+            )
+          }
         />
       </div>
 
-      {/* Traffic Trend Charts Grid */}
+      {/* Traffic Trend & Protocol Breakdown Grid */}
       <div className="dashboard-grid">
-        <DashboardCard title="Live Packet Rate Trend (Packets/Sec)" icon={Activity}>
+        <DashboardCard title="Live Ingestion Rate (Packets / Second)" icon={Activity}>
           {trafficHistory.length > 0 ? (
-            <div style={{ height: '220px', width: '100%' }}>
+            <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory}>
+                <AreaChart data={trafficHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="netPpsGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
@@ -183,42 +216,58 @@ export function Network() {
                   </defs>
                   <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} />
-                  <Tooltip contentStyle={{ backgroundColor: '#131b2e', borderColor: '#1e293b' }} />
-                  <Area type="monotone" dataKey="pps" stroke="#06b6d4" fillOpacity={1} fill="url(#netPpsGrad)" name="Packets/sec" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    labelStyle={{ color: '#94a3b8' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="pps"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#netPpsGrad)"
+                    name="Packets/sec"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <LoadingState message="Collecting packet traffic samples..." />
+            <LoadingState message="Collecting packet traffic samples..." compact />
           )}
         </DashboardCard>
 
-        <DashboardCard title="Live Bandwidth Trend (Bytes/Sec)" icon={Wifi}>
-          {trafficHistory.length > 0 ? (
-            <div style={{ height: '220px', width: '100%' }}>
+        <DashboardCard title="Captured Protocol Volume Distribution" icon={Wifi}>
+          {totalProtocolPackets > 0 ? (
+            <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory}>
-                  <defs>
-                    <linearGradient id="netBpsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={50} tickFormatter={(val) => formatRate(val, 'bps')} />
-                  <Tooltip contentStyle={{ backgroundColor: '#131b2e', borderColor: '#1e293b' }} formatter={(val) => [formatRate(val, 'bps'), 'Bandwidth']} />
-                  <Area type="monotone" dataKey="bps" stroke="#3b82f6" fillOpacity={1} fill="url(#netBpsGrad)" name="Bandwidth" />
-                </AreaChart>
+                <BarChart data={protocolData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={45} tickFormatter={(v) => formatNumber(v)} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    formatter={(val) => [`${formatNumber(val)} frames (${((val / totalProtocolPackets) * 100).toFixed(1)}%)`, 'Volume']}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {protocolData.map((entry, index) => (
+                      <Cell key={`proto-cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <LoadingState message="Collecting bandwidth samples..." />
+            <EmptyState
+              title="No Protocol Data"
+              message="No packet frames have been captured yet to compute protocol distribution."
+              icon={Wifi}
+            />
           )}
         </DashboardCard>
       </div>
 
       {/* Advanced Network Threats: ARP & ICMP Sweep */}
-      <div className="dashboard-grid" style={{ marginTop: '20px' }}>
+      <div className="dashboard-grid">
         <DashboardCard title="ARP Spoofing & Cache Poisoning Defense" icon={Layers}>
           <div className="status-detail-list">
             <div className="detail-item">
@@ -268,109 +317,109 @@ export function Network() {
         </DashboardCard>
       </div>
 
-      {/* Tracked ARP Table */}
-      <div style={{ marginTop: '20px' }}>
-        <DashboardCard title={`Tracked ARP IP-to-MAC Mappings (${filteredArp.length})`} icon={Layers}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div className="search-box" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-dark)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', maxWidth: '280px' }}>
-              <Search size={14} style={{ color: 'var(--text-muted)' }} />
+      {/* Tracked ARP IP-to-MAC Table */}
+      <DashboardCard
+        title={`Tracked ARP Neighbor Mappings (${filteredArp.length})`}
+        icon={Layers}
+        headerRight={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-dark)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+              <Search size={13} color="#64748b" />
               <input
                 type="text"
                 placeholder="Search IP, MAC, vendor..."
                 value={arpSearch}
                 onChange={(e) => setArpSearch(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '0.75rem', outline: 'none', width: '150px' }}
               />
             </div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Showing {filteredArp.length} of {arpMappings.length} mappings
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              {filteredArp.length} of {arpMappings.length}
             </span>
           </div>
-
-          {filteredArp.length > 0 ? (
-            <div className="incident-table-wrapper" style={{ maxHeight: '280px', overflowY: 'auto' }}>
-              <table className="incident-table" style={{ fontSize: '0.8rem' }}>
-                <thead>
-                  <tr>
-                    <th>IP Address</th>
-                    <th>Hardware MAC</th>
-                    <th>Vendor / State</th>
-                    <th>Type</th>
-                    <th>Last Seen</th>
+        }
+      >
+        {filteredArp.length > 0 ? (
+          <div style={{ overflowX: 'auto', maxHeight: '250px' }}>
+            <table className="soc-table">
+              <thead>
+                <tr>
+                  <th>IP Address</th>
+                  <th>Hardware MAC</th>
+                  <th>Vendor / State</th>
+                  <th>Type</th>
+                  <th>Last Seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredArp.map((item, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <code style={{ color: 'var(--accent-cyan)' }}>{item.ip}</code>
+                    </td>
+                    <td>
+                      <code style={{ color: '#94a3b8' }}>{item.mac}</code>
+                    </td>
+                    <td>{item.vendor || item.state || 'Interface Local'}</td>
+                    <td>
+                      <span className={`badge ${item.is_static ? 'badge-info' : 'badge-neutral'}`}>
+                        {item.is_static ? 'STATIC' : 'DYNAMIC'}
+                      </span>
+                    </td>
+                    <td>{formatAlertTime(item.last_seen || item.timestamp)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredArp.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <code style={{ color: 'var(--accent-cyan)' }}>{item.ip}</code>
-                      </td>
-                      <td>
-                        <code style={{ color: 'var(--text-secondary)' }}>{item.mac}</code>
-                      </td>
-                      <td>{item.vendor || item.state || 'Local Interface'}</td>
-                      <td>
-                        <span className={`badge ${item.is_static ? 'badge-info' : 'badge-secondary'}`}>
-                          {item.is_static ? 'STATIC' : 'DYNAMIC'}
-                        </span>
-                      </td>
-                      <td>{formatAlertTime(item.last_seen || item.timestamp)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState
-              title="No ARP Mappings"
-              message={arpSearch ? 'No mappings match your search query.' : 'Awaiting ARP frame ingestion.'}
-              icon={Layers}
-            />
-          )}
-        </DashboardCard>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            title="No ARP Mappings"
+            message={arpSearch ? 'No mappings match your search query.' : 'Awaiting ARP frame ingestion.'}
+            icon={Layers}
+          />
+        )}
+      </DashboardCard>
 
-      {/* Live Network Alerts Stream */}
-      <div style={{ marginTop: '20px' }}>
-        <DashboardCard title={`Recent Network Alerts (${alerts.length})`} icon={AlertTriangle}>
-          {alerts.length > 0 ? (
-            <div className="alerts-list" style={{ maxHeight: '260px', overflowY: 'auto' }}>
-              {alerts.slice(0, 20).map((a, idx) => (
-                <div key={idx} className="alert-item" style={{ padding: '8px 12px', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <SeverityBadge severity={a.severity} />
-                      <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>
-                        {a.detection_type}
-                      </strong>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {formatAlertTime(a.timestamp)}
-                    </span>
+      {/* Live Network Detections Stream */}
+      <DashboardCard title={`Recent Network Detections (${alerts.length})`} icon={ShieldAlert}>
+        {alerts.length > 0 ? (
+          <div className="alerts-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
+            {alerts.slice(0, 20).map((a, idx) => (
+              <div key={idx} className="alert-item" style={{ padding: '8px 12px', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <SeverityBadge severity={a.severity} />
+                    <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                      {a.detection_type}
+                    </strong>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Source: <code style={{ color: 'var(--accent-cyan)' }}>{a.source_ip}</code>
-                    {a.target_ip && (
-                      <> &rarr; Target: <code style={{ color: '#cbd5e1' }}>{a.target_ip}</code></>
-                    )}
-                    {a.target_port && <> (Port: {a.target_port})</>}
-                  </div>
-                  {a.description && (
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {a.description}
-                    </div>
-                  )}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {formatAlertTime(a.timestamp)}
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No Active Alerts"
-              message="No intrusion detection signatures triggered in recent network traffic."
-            />
-          )}
-        </DashboardCard>
-      </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Source: <code style={{ color: 'var(--accent-cyan)' }}>{a.source_ip}</code>
+                  {a.target_ip && (
+                    <> &rarr; Target: <code style={{ color: '#cbd5e1' }}>{a.target_ip}</code></>
+                  )}
+                  {a.target_port && <> (Port: {a.target_port})</>}
+                </div>
+                {a.description && (
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {a.description}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="No Active Alerts"
+            message="No intrusion detection signatures triggered in recent network traffic."
+          />
+        )}
+      </DashboardCard>
     </div>
   );
 }
