@@ -58,6 +58,13 @@ from host import HostDetectionManager
 from arp_detector import ARPDetector
 from incident_manager import IncidentManager
 from threat_intel import ThreatIntelService, is_eligible_public_ip
+from auth import (
+    Permission,
+    login_required,
+    permission_required,
+    bootstrap_admin_if_needed,
+)
+from auth.routes import auth_bp
 
 # Global server components
 packet_capture: PacketCapture = None
@@ -121,8 +128,12 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # 6. Initialize Database
     init_db(app)
+    bootstrap_admin_if_needed(app)
 
-    # 7. Initialize Flask-SocketIO
+    # 7. Register Auth Blueprint
+    app.register_blueprint(auth_bp)
+
+    # 8. Initialize Flask-SocketIO
     socketio = SocketIO(app, cors_allowed_origins=socket_cors, async_mode="threading")
 
     # 1. Initialize Rule-Based Intrusion Detection Engine
@@ -473,6 +484,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), status_code
 
     @app.route("/api/system/status", methods=["GET"])
+    @login_required
     def get_system_status():
         """Comprehensive runtime operational diagnostics and subsystem health."""
         now = time.time()
@@ -513,11 +525,13 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify(diagnostics), 200
 
     @app.route("/api/metrics", methods=["GET"])
+    @login_required
     def get_metrics():
         """REST endpoint to retrieve current packet capture metrics snapshot."""
         return jsonify(packet_capture.get_metrics()), 200
 
     @app.route("/api/alerts", methods=["GET"])
+    @login_required
     def get_alerts():
         """REST endpoint to retrieve recent in-memory security detection alerts (newest first)."""
         limit = request.args.get("limit", 50, type=int)
@@ -529,6 +543,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/events", methods=["GET"])
+    @login_required
     def get_security_events():
         """REST endpoint to retrieve persisted historical security events with filtering and pagination."""
         limit = request.args.get("limit", 50, type=int)
@@ -551,17 +566,20 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", **result}), 200
 
     @app.route("/api/ml/status", methods=["GET"])
+    @login_required
     def get_ml_status():
         """REST endpoint to retrieve ML anomaly detection model status."""
         return jsonify(ml_detector.get_status()), 200
 
     @app.route("/api/ml/metrics", methods=["GET"])
+    @login_required
     def get_ml_metrics():
         """REST endpoint to retrieve ML window history and recent anomalies."""
         return jsonify(ml_detector.get_metrics()), 200
 
     # Risk Engine & Firewall Endpoints
     @app.route("/api/risk/recent", methods=["GET"])
+    @login_required
     def get_recent_risks():
         """REST endpoint to retrieve recent in-memory risk assessments (newest first)."""
         limit = request.args.get("limit", 50, type=int)
@@ -573,6 +591,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/risk/history", methods=["GET"])
+    @login_required
     def get_risk_history():
         """REST endpoint to retrieve historical persisted risk assessments."""
         limit = request.args.get("limit", 50, type=int)
@@ -593,6 +612,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", **result}), 200
 
     @app.route("/api/risk/stats", methods=["GET"])
+    @login_required
     def get_risk_stats():
         """REST endpoint to retrieve composite risk statistics."""
         return jsonify({
@@ -601,6 +621,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/security/summary", methods=["GET"])
+    @login_required
     def get_security_summary():
         """REST endpoint to retrieve aggregate security metrics across events, risks, and mitigations."""
         since = request.args.get("since", None, type=float)
@@ -609,12 +630,14 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # Host Telemetry Endpoints (Phase 6)
     @app.route("/api/telemetry/current", methods=["GET"])
+    @login_required
     def get_current_telemetry():
         """REST endpoint to retrieve instantaneous host telemetry snapshot."""
         data = telemetry_worker.get_current_telemetry() if telemetry_worker else {}
         return jsonify({"status": "ok", "telemetry": data}), 200
 
     @app.route("/api/telemetry/history", methods=["GET"])
+    @login_required
     def get_telemetry_history():
         """REST endpoint to retrieve bounded historical host telemetry records."""
         limit = request.args.get("limit", 60, type=int)
@@ -625,12 +648,14 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # Host-Based Intrusion Detection Endpoints (Phase 7)
     @app.route("/api/host/status", methods=["GET"])
+    @login_required
     def get_host_status():
         """REST endpoint to retrieve host detection status (SSH detector & Process monitor)."""
         status = host_manager.get_status() if host_manager else {}
         return jsonify({"status": "ok", "host": status, "data": status}), 200
 
     @app.route("/api/host/events", methods=["GET"])
+    @login_required
     def get_host_events():
         """REST endpoint to retrieve persisted host security events with filtering and pagination."""
         limit = request.args.get("limit", 50, type=int)
@@ -683,6 +708,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # Advanced Network Threat Detection Endpoints (Phase 8)
     @app.route("/api/network/status", methods=["GET"])
+    @login_required
     def get_network_status():
         """REST endpoint to retrieve network detection status (packet metrics, ARP status, ICMP sweep)."""
         metrics = packet_capture.get_metrics() if packet_capture else {}
@@ -714,6 +740,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/network/arp", methods=["GET"])
+    @login_required
     def get_arp_mappings():
         """REST endpoint to retrieve tracked ARP IP-to-MAC mappings."""
         limit = request.args.get("limit", 100, type=int)
@@ -728,6 +755,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/firewall/status", methods=["GET"])
+    @login_required
     def get_firewall_status():
         """REST endpoint to retrieve firewall integration and safety status."""
         return jsonify({
@@ -736,6 +764,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/firewall/blocked", methods=["GET"])
+    @login_required
     def get_blocked_ips():
         """REST endpoint to retrieve list of currently blocked IPs."""
         blocked = firewall.list_blocked_ips()
@@ -746,6 +775,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/firewall/block", methods=["POST"])
+    @permission_required(Permission.MANAGE_FIREWALL)
     def manual_block_ip():
         """REST endpoint to manually block a specific IP address on the managed chain."""
         data = request.get_json(silent=True) or {}
@@ -805,6 +835,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             return jsonify({"status": "error", "result": result}), 400
 
     @app.route("/api/firewall/unblock", methods=["POST"])
+    @permission_required(Permission.MANAGE_FIREWALL)
     def manual_unblock_ip():
         """REST endpoint to manually unblock an IP address from the managed chain."""
         data = request.get_json(silent=True) or {}
@@ -852,6 +883,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # Incident Correlation & Investigation Endpoints (Phase 9)
     # ==========================================================================
     @app.route("/api/incidents", methods=["GET"])
+    @login_required
     def get_incidents():
         """Retrieve paginated and filtered security incidents."""
         limit = request.args.get("limit", 50, type=int)
@@ -876,6 +908,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", **result}), 200
 
     @app.route("/api/incidents/stats", methods=["GET"])
+    @login_required
     def get_incident_stats():
         """Retrieve aggregated incident metrics (open/resolved counts, severity breakdown, top sources)."""
         since = request.args.get("since", None, type=float)
@@ -883,6 +916,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "stats": stats}), 200
 
     @app.route("/api/incidents/<incident_id>", methods=["GET"])
+    @login_required
     def get_incident_detail(incident_id: str):
         """Retrieve comprehensive incident record including correlated evidence items."""
         inc = incident_manager.get_incident(incident_id, include_evidence=True)
@@ -900,6 +934,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
 
     @app.route("/api/incidents/<incident_id>/timeline", methods=["GET"])
+    @login_required
     def get_incident_timeline(incident_id: str):
         """Retrieve unified chronological timeline of all events and mitigation actions."""
         inc = incident_manager.get_incident(incident_id, include_evidence=False)
@@ -914,6 +949,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/incidents/<incident_id>/summary", methods=["GET"])
+    @login_required
     def get_incident_summary_report(incident_id: str):
         """Retrieve SOC-ready report summary for an incident."""
         summary = incident_manager.get_incident_summary(incident_id)
@@ -922,6 +958,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "summary": summary}), 200
 
     @app.route("/api/incidents/<incident_id>/status", methods=["POST"])
+    @permission_required(Permission.MANAGE_INCIDENTS)
     def update_incident_status(incident_id: str):
         """Update incident workflow status and optional analyst notes."""
         data = request.get_json(silent=True) or {}
@@ -957,6 +994,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
     @app.route("/api/incidents/<incident_id>/acknowledge", methods=["POST"])
+    @permission_required(Permission.MANAGE_INCIDENTS)
     def acknowledge_incident(incident_id: str):
         """Operator shortcut to acknowledge an incident."""
         data = request.get_json(silent=True) or {}
@@ -976,6 +1014,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
     @app.route("/api/incidents/<incident_id>/resolve", methods=["POST"])
+    @permission_required(Permission.MANAGE_INCIDENTS)
     def resolve_incident(incident_id: str):
         """Operator shortcut to resolve an incident with resolution reason."""
         data = request.get_json(silent=True) or {}
@@ -999,6 +1038,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
     @app.route("/api/incidents/<incident_id>/close", methods=["POST"])
+    @permission_required(Permission.MANAGE_INCIDENTS)
     def close_incident(incident_id: str):
         """Operator shortcut to close an incident."""
         data = request.get_json(silent=True) or {}
@@ -1022,6 +1062,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify({"status": "ok", "message": msg, "incident": inc_data}), 200
 
     @app.route("/api/incidents/<incident_id>/reopen", methods=["POST"])
+    @permission_required(Permission.MANAGE_INCIDENTS)
     def reopen_incident(incident_id: str):
         """Operator shortcut to reopen a resolved or closed incident."""
         data = request.get_json(silent=True) or {}
@@ -1044,6 +1085,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     # File Integrity Monitoring (FIM) Endpoints (Phase 10)
     # --------------------------------------------------------------------------
     @app.route("/api/fim/status", methods=["GET"])
+    @login_required
     def get_fim_status():
         """Retrieve operational state, scan metrics, and baseline statistics of FIM."""
         if not host_manager or not hasattr(host_manager, "file_integrity"):
@@ -1051,6 +1093,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify(host_manager.file_integrity.get_status()), 200
 
     @app.route("/api/fim/events", methods=["GET"])
+    @login_required
     def get_fim_events():
         """Retrieve paginated historical file integrity security events."""
         limit = min(200, max(1, request.args.get("limit", 50, type=int)))
@@ -1071,6 +1114,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify(res), 200
 
     @app.route("/api/fim/baseline", methods=["GET"])
+    @login_required
     def get_fim_baseline():
         """Retrieve paginated FIM baseline file records."""
         limit = min(500, max(1, request.args.get("limit", 100, type=int)))
@@ -1087,6 +1131,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         return jsonify(res), 200
 
     @app.route("/api/fim/rebaseline", methods=["POST"])
+    @permission_required(Permission.MANAGE_FIM)
     def post_fim_rebaseline():
         """Operator-controlled rebaseline of specified or all monitored paths."""
         if not host_manager or not hasattr(host_manager, "file_integrity"):
@@ -1115,6 +1160,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # Threat Intelligence Endpoints (Phase 11)
     @app.route("/api/threat-intel/status", methods=["GET"])
+    @login_required
     def get_threat_intel_status():
         """Retrieve operational status, configured providers, and metrics for Threat Intelligence."""
         if not threat_intel_service:
@@ -1134,6 +1180,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/threat-intel/ip/<ip>", methods=["GET"])
+    @login_required
     def get_threat_intel_ip(ip: str):
         """Query normalized threat intelligence information for an external IP indicator."""
         clean_ip = str(ip).strip()
@@ -1178,6 +1225,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }), 200
 
     @app.route("/api/threat-intel/ip/<ip>/lookup", methods=["POST"])
+    @permission_required(Permission.QUERY_THREAT_INTEL)
     def request_threat_intel_lookup(ip: str):
         """Explicitly request background threat intelligence enrichment for an eligible public IP."""
         clean_ip = str(ip).strip()

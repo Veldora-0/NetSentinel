@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 12 (Production Hardening & Operational Controls) is completed, alongside the routed multi-workspace frontend architecture refactor, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), and **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`). All 239 automated backend tests pass deterministically.
+> **Implementation Status:** Phase 13 (Authentication & Role-Based Access Control) is completed, alongside Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), and **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`). All 257 automated backend tests pass deterministically.
 
 ---
 
@@ -15,12 +15,13 @@
 * **Linux `iptables`** - Packet filtering and mitigation via dedicated `NETSENTINEL` chain
 * **Scikit-learn** - Unsupervised `IsolationForest` anomaly detection
 * **NumPy & Joblib** - High-performance numerical feature arrays and model persistence
-* **Flask** - REST API framework (`/api/health`, `/api/ready`, `/api/system/status`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/fim/*`, `/api/threat-intel/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`, `/api/incidents/*`)
+* **Flask** - REST API framework (`/api/auth/*`, `/api/health`, `/api/ready`, `/api/system/status`, `/api/metrics`, `/api/alerts`, `/api/network/*`, `/api/events`, `/api/host/*`, `/api/fim/*`, `/api/threat-intel/*`, `/api/security/summary`, `/api/telemetry/*`, `/api/ml/*`, `/api/risk/*`, `/api/firewall/*`, `/api/incidents/*`)
+* **Werkzeug Security** - Strong password hashing (`scrypt`) and cryptographic token generation
 * **Flask-SocketIO** - Real-time WebSocket event communication
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (239 tests)
+* **pytest** - Automated test suite (257 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -53,12 +54,21 @@ NetSentinel/
 │   ├── firewall.py      # Linux iptables firewall manager (dedicated chain, safeguards, expiration)
 │   ├── database.py      # SQLAlchemy persistence models, historical query APIs, and retention pruning
 │   ├── telemetry.py     # Background psutil host telemetry worker, rate math, and lifecycle
-│   └── host/            # Host-Based Intrusion Detection Package (Phase 7)
-│       ├── __init__.py
-│       ├── log_reader.py       # Resilient auth log tailer (rotation, truncation, permission handling)
-│       ├── ssh_detector.py     # OpenSSH auth failure & brute-force detector with sliding window
-│       ├── process_monitor.py  # psutil process integrity observer (suspicious paths, unlinked binaries)
-│       └── manager.py          # HostDetectionManager coordinator & asynchronous worker
+│   ├── bootstrap.py     # Standalone administrator initial bootstrap CLI tool
+│   ├── auth/            # Authentication & Role-Based Access Control Package (Phase 13)
+│   │   ├── __init__.py
+│   │   ├── roles.py     # Roles (ADMIN, ANALYST, VIEWER) & granular permissions
+│   │   ├── models.py    # User and hashed AuthTokenRecord SQLAlchemy models
+│   │   ├── service.py   # AuthService password validation, scrypt hashing, tokens
+│   │   ├── decorators.py# @login_required, @permission_required, @role_required
+│   │   ├── routes.py    # /api/auth routes (login, logout, me, change-password, users)
+│   │   └── bootstrap.py # Automated admin creation on first boot
+│   ├── host/            # Host-Based Intrusion Detection Package (Phase 7)
+│   │   ├── __init__.py
+│   │   ├── log_reader.py       # Resilient auth log tailer (rotation, truncation, permission handling)
+│   │   ├── ssh_detector.py     # OpenSSH auth failure & brute-force detector with sliding window
+│   │   ├── process_monitor.py  # psutil process integrity observer (suspicious paths, unlinked binaries)
+│   │   └── manager.py          # HostDetectionManager coordinator & asynchronous worker
 │   └── incident_manager.py # Incident Correlation & Investigation Layer (Phase 9)
 │
 ├── frontend/
@@ -564,14 +574,61 @@ sudo journalctl -u netsentinel -f -o cat
 
 ---
 
-## 15. Automated Testing
+## 15. Authentication & Role-Based Access Control (Phase 13)
 
-All 239 unit and integration tests run deterministically without requiring root privileges or live external network access:
+NetSentinel provides a native, zero-external-bloat authentication and authorization layer designed for SOC environments and management plane protection.
+
+### 1. Architectural Highlights
+* **Zero Heavy Dependencies**: Implemented natively using Flask, SQLAlchemy, and standard `werkzeug.security`. Avoids heavy enterprise dependencies (OAuth, Keycloak, LDAP, Redis) while maintaining production security standards.
+* **Strong Password Hashing**: Passwords hashed using modern `scrypt` (via Werkzeug) with unique salts. Plaintext passwords are never stored or logged.
+* **Cryptographic Session Tokens**: Bearer tokens (`secrets.token_urlsafe(32)`) are hashed with SHA-256 before storage in SQLite (`auth_tokens`). Raw tokens are never persisted in plaintext, preventing token extraction from database dumps.
+* **Revocable Sessions**: Dedicated token records with `expires_at`, `last_used_at`, and `revoked` flag. Logging out or changing passwords immediately revokes active tokens.
+* **Brute-Force & Rate Limiting**: Authentication and password modification endpoints are automatically protected under the sensitive sliding-window rate limiter (10 requests/minute per client IP).
+* **Last-Admin Safeguards**: Built-in protections prevent administrators from accidentally disabling, demoting, or deleting their own account or the last remaining active administrator.
+
+### 2. Role-Based Access Control (RBAC) Matrix
+NetSentinel enforces a three-tier role hierarchy across the entire REST API:
+
+| Role | Permissions | Accessible Actions |
+|---|---|---|
+| **`VIEWER`** | `read:security` | Read-only SOC observation: Overview, Network metrics, Security events, Host telemetry, FIM status, Threat intelligence indicators, Incident details. All mutations rejected (HTTP 403). |
+| **`ANALYST`** | `read:security`, `manage:incidents`, `query:threat_intel` | Full viewer access + Incident triage (Acknowledge, Resolve, Close, Reopen, Analyst notes) + On-demand external threat intelligence indicator lookups. Firewall controls, FIM rebaselining, and user management rejected (HTTP 403). |
+| **`ADMIN`** | `read:security`, `manage:incidents`, `query:threat_intel`, `manage:firewall`, `manage:fim`, `manage:users`, `system:admin` | Full operational access: Manual firewall blocking/unblocking, FIM baseline recalculation, user provisioning, role assignments, and password resets. |
+
+### 3. Administrator Bootstrap
+NetSentinel supports multiple secure methods to bootstrap the initial administrator account:
+1. **Environment Configuration**: Set `NETSENTINEL_ADMIN_PASSWORD` (and optional `NETSENTINEL_ADMIN_USERNAME`, default `admin`). On startup, if no administrator account exists in the database, NetSentinel automatically provisions the account.
+2. **Interactive CLI Utility**:
+   ```bash
+   # Standalone interactive CLI with hidden password entry
+   python backend/bootstrap.py --username admin
+
+   # Or scripted flag-based provisioning
+   python backend/bootstrap.py --username admin --password <StrongPassword123!>
+   ```
+
+### 4. Authentication Endpoints
+* `POST /api/auth/login`: Public authentication endpoint returning session token and user profile.
+* `POST /api/auth/logout`: Revokes the bearer token session.
+* `GET /api/auth/me`: Retrieves current authenticated user details and permission list.
+* `POST /api/auth/change-password`: Self-service password change; verifies current credential, enforces minimum length policy, and invalidates older sessions.
+* `GET /api/auth/users`: Admin endpoint listing all registered users and roles.
+* `POST /api/auth/users`: Admin endpoint provisioning a new operator with specified role.
+* `PATCH /api/auth/users/<id>`: Admin endpoint updating role, toggling active status, or resetting password.
+* `DELETE /api/auth/users/<id>`: Admin endpoint deleting a user account (with last-admin protection).
+
+---
+
+## 16. Automated Testing
+
+All 257 unit and integration tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
 
 Test coverage:
+* `tests/test_auth.py`: Password validation, scrypt hashing, to_dict secret redaction, token creation/verification/revocation, login/logout workflows, disabled user rejection, self-service password change, admin user management lifecycle, last-admin safeguards, and administrator bootstrap.
+* `tests/test_rbac.py`: Public endpoint access (`/api/health`, `/api/ready`), unauthenticated 401 rejection across all protected endpoints, malformed header rejection, VIEWER read-only enforcement and 403 mutation blocks, ANALYST incident triage and threat intel queries, and ADMIN full operational control.
 * `tests/test_config_validation.py`: Central configuration validator, host/port checks, interval bounds, risk threshold clamping, CIDR/IP allowlists, CORS parsing, and secret redaction.
 * `tests/test_security_ops.py`: Structured logging secret sanitization, request correlation ID propagation, defensive security headers, normalized JSON errors, sliding-window rate limiting, liveness probe (`/api/health`), readiness probe (`/api/ready`), runtime diagnostics (`/api/system/status`), worker watchdog lifecycle, database latency probe, and firewall capability checks.
 * `tests/test_ti_eligibility.py`: Public vs private, loopback, multicast, link-local, broadcast, unspecified, and local identifier rejection.
@@ -610,7 +667,7 @@ Test coverage:
 
 ---
 
-## 16. Current Scope Limitations & Future Roadmap
+## 17. Current Scope Limitations & Future Roadmap
 
 * **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills.
 

@@ -102,6 +102,9 @@ class SecurityMiddleware:
         re.compile(r"^/api/fim/rebaseline"),
         re.compile(r"^/api/threat-intel/ip/[^/]+/lookup$"),
         re.compile(r"^/api/incidents/[^/]+/status$"),
+        re.compile(r"^/api/auth/login$"),
+        re.compile(r"^/api/auth/change-password$"),
+        re.compile(r"^/api/auth/users.*$"),
     ]
 
     # Health endpoints immune to rate limiting to protect liveness/readiness probes

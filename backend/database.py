@@ -1610,5 +1610,6 @@ def init_db(app) -> None:
 
     db.init_app(app)
     with app.app_context():
+        from auth.models import User, AuthTokenRecord  # noqa: F401
         db.create_all()
 

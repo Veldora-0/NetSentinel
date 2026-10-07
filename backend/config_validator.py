@@ -379,6 +379,20 @@ class ConfigValidator:
                     except ConfigurationError as e:
                         errors.append(f"Invalid IP or CIDR in FIREWALL_ALLOWLIST: {e}")
 
+        # 11. Authentication & Authorization Settings (Phase 13)
+        auth = get_val("AUTH_SETTINGS", {})
+        if auth:
+            if "token_expire_seconds" in auth:
+                try:
+                    cls.validate_positive_number(auth["token_expire_seconds"], "AUTH_SETTINGS.token_expire_seconds", min_val=1.0)
+                except ConfigurationError as e:
+                    errors.append(str(e))
+            if "password_min_length" in auth:
+                try:
+                    cls.validate_positive_int(auth["password_min_length"], "AUTH_SETTINGS.password_min_length", min_val=4)
+                except ConfigurationError as e:
+                    errors.append(str(e))
+
         # Rate limits (flat or namespaced)
         rate_limit = get_val("API_RATE_LIMIT", get_val("NETSENTINEL_API_RATE_LIMIT", 60))
         try:

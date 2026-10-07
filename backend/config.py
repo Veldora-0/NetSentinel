@@ -307,6 +307,21 @@ class Config:
     API_RATE_LIMIT = int(os.environ.get("NETSENTINEL_API_RATE_LIMIT", "60"))
     SENSITIVE_RATE_LIMIT = int(os.environ.get("NETSENTINEL_SENSITIVE_RATE_LIMIT", "10"))
 
+    # Authentication & Authorization (RBAC) Settings (Phase 13)
+    AUTH_SETTINGS = {
+        "auth_enabled": os.environ.get("NETSENTINEL_AUTH_ENABLED", "True").lower() in ("true", "1", "t"),
+        "token_expire_seconds": float(os.environ.get("NETSENTINEL_AUTH_TOKEN_EXPIRE_SECONDS", "86400.0")),
+        "password_min_length": int(os.environ.get("NETSENTINEL_PASSWORD_MIN_LENGTH", "8")),
+        "admin_username": os.environ.get("NETSENTINEL_ADMIN_USERNAME", "admin").strip() or "admin",
+        "admin_password": os.environ.get("NETSENTINEL_ADMIN_PASSWORD", "").strip(),
+    }
+
+    AUTH_ENABLED = AUTH_SETTINGS["auth_enabled"]
+    AUTH_TOKEN_EXPIRE_SECONDS = AUTH_SETTINGS["token_expire_seconds"]
+    AUTH_PASSWORD_MIN_LENGTH = AUTH_SETTINGS["password_min_length"]
+    AUTH_ADMIN_USERNAME = AUTH_SETTINGS["admin_username"]
+    AUTH_ADMIN_PASSWORD = AUTH_SETTINGS["admin_password"]
+
     @classmethod
     def validate(cls) -> None:
         """Validate the active configuration and raise ConfigurationError if invalid."""
@@ -337,6 +352,7 @@ class Config:
             "incident_settings": cls.INCIDENT_SETTINGS,
             "fim_settings": cls.FIM_SETTINGS,
             "ti_settings": cls.TI_SETTINGS,
+            "auth_settings": cls.AUTH_SETTINGS,
         }
         return ConfigValidator.redact_secrets(raw_dict)
 
