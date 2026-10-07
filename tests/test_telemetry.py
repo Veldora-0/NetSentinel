@@ -41,11 +41,11 @@ def test_telemetry_rate_delta_calculation():
 
     # Simulate prev state
     worker._prev_net_io = NetCounters(bytes_sent=1000, bytes_recv=2000, packets_sent=10, packets_recv=20)
-    worker._last_time = time.monotonic() - 2.0  # 2 seconds elapsed
+    worker._last_time = 100.0
 
     curr_net = NetCounters(bytes_sent=3000, bytes_recv=6000, packets_sent=30, packets_recv=60)
 
-    with patch("psutil.net_io_counters", return_value=curr_net):
+    with patch("time.monotonic", return_value=102.0), patch("psutil.net_io_counters", return_value=curr_net):
         sample = worker.sample_now()
 
         # Delta: sent 2000 bytes over 2s -> 1000 B/s

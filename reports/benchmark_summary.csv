@@ -1,0 +1,23 @@
+Name,Category,LoadLevel,ThroughputOpsPerSec,MeanMs,MedianMs,P95Ms,P99Ms,MinMs,MaxMs,TotalDurationSec
+Packet Parser,Parser,100,26065.73,0.0378,0.0125,0.0138,0.0621,0.0092,2.5565,0.0038
+Packet Parser,Parser,1000,39061.16,0.0147,0.0071,0.0143,0.1467,0.0066,1.5079,0.0256
+Packet Parser,Parser,5000,92968.88,0.0105,0.007,0.0127,0.0559,0.0067,1.4164,0.0538
+Rule Detector,Detection Rules,100,225023.51,0.004,0.0039,0.0049,0.0051,0.0028,0.007,0.0004
+Rule Detector,Detection Rules,500,100323.34,0.0097,0.0084,0.0144,0.0391,0.0017,0.3063,0.005
+Rule Detector,Detection Rules,1000,53019.73,0.0186,0.0182,0.0294,0.0916,0.0031,0.2543,0.0189
+ML Feature Extraction,Machine Learning,500,37816.3,0.0263,0.0117,0.0227,0.1139,0.0114,5.1108,0.0132
+Isolation Forest Inference,Machine Learning,50,71.12,14.0592,13.3758,18.7599,26.0336,10.8992,29.0283,0.703
+Isolation Forest Inference,Machine Learning,200,40.62,24.6108,17.6526,52.3921,101.1336,11.7926,120.5874,4.9233
+Isolation Forest Inference,Machine Learning,500,35.24,28.3727,18.3062,54.1875,88.9872,11.5521,353.0131,14.1875
+Composite Risk Engine,Risk Engine,100,20347.4,0.0487,0.0207,0.0878,0.7011,0.0147,1.2559,0.0049
+Composite Risk Engine,Risk Engine,500,16669.14,0.0596,0.0199,0.2347,0.9755,0.0098,2.0492,0.03
+Composite Risk Engine,Risk Engine,1000,45127.41,0.0219,0.0198,0.0335,0.0798,0.0094,0.2571,0.0222
+Incident Correlator,Incident Management,50,379.7,2.6317,2.4885,3.5354,4.5731,2.0165,4.6531,0.1317
+Incident Correlator,Incident Management,200,370.5,2.6975,2.4206,4.3462,5.7612,1.9857,5.9591,0.5398
+Incident Correlator,Incident Management,500,394.23,2.5351,2.3484,3.5379,4.3448,1.9354,5.6736,1.2683
+SQLite Persistence & Query,Persistence,50,1984.84,0.4913,0.3735,0.6024,2.7867,0.3398,4.2885,0.0257
+SQLite Persistence & Query,Persistence,200,2249.63,0.4181,0.3713,0.6535,0.9486,0.3228,3.0244,0.0893
+SQLite Persistence & Query,Persistence,500,2144.3,0.4526,0.3796,0.6132,1.173,0.3094,10.517,0.2336
+End-to-End Pipeline,Integrated Pipeline,100,20040.05,0.0493,0.0409,0.0974,0.1466,0.0242,0.4944,0.005
+End-to-End Pipeline,Integrated Pipeline,500,32186.86,0.0307,0.0262,0.0428,0.0706,0.0243,1.0356,0.0155
+End-to-End Pipeline,Integrated Pipeline,1000,4804.35,0.2077,0.0281,0.0505,8.4738,0.0244,15.6158,0.2081

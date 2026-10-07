@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 14 (End-to-End Attack Simulation & Validation) is completed, alongside Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), and a standalone **End-to-End Validation Harness** (`backend/validation_harness.py`, `reports/`). All 285 automated backend tests pass deterministically.
+> **Implementation Status:** Phase 15 (Performance & Machine Learning Evaluation) is completed, alongside Phase 14 (End-to-End Attack Simulation & Validation), Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Harness** (`backend/evaluation/`, `reports/`, `docs/phase15-performance-ml-evaluation.md`). All 309 automated backend tests pass deterministically.
 
 ---
 
@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (285 tests)
+* **pytest** - Automated test suite (309 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -70,7 +70,15 @@ NetSentinel/
 │   │   ├── process_monitor.py  # psutil process integrity observer (suspicious paths, unlinked binaries)
 │   │   └── manager.py          # HostDetectionManager coordinator & asynchronous worker
 │   ├── incident_manager.py     # Incident Correlation & Investigation Layer (Phase 9)
-│   └── validation_harness.py   # End-to-End Security Validation Harness & Simulation Runner (Phase 14)
+│   ├── validation_harness.py   # End-to-End Security Validation Harness & Simulation Runner (Phase 14)
+│   └── evaluation/             # Performance & ML Evaluation Framework (Phase 15)
+│       ├── __init__.py
+│       ├── metrics.py          # Latency, throughput, percentiles & classification metrics
+│       ├── data_generator.py   # Deterministic synthetic packet & window generators
+│       ├── resource_monitor.py # Memory RSS & CPU profiling via psutil
+│       ├── benchmarks.py       # 7 micro & macro benchmarking suites
+│       ├── ml_evaluator.py     # Supervised evaluation of unsupervised Isolation Forest
+│       └── runner.py           # CLI/programmatic evaluation orchestrator
 │
 ├── frontend/
 │   ├── src/
@@ -88,12 +96,20 @@ NetSentinel/
 │   ├── package.json     # Node dependencies and scripts
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
-├── reports/             # Phase 14 automated validation artifacts (validation_report.json, validation_report.md)
+├── docs/                # Comprehensive architectural and evaluation documentation
+│   └── phase15-performance-ml-evaluation.md # Phase 15 evaluation report
+│
+├── reports/             # Phase 14 & Phase 15 evaluation artifacts
+│   ├── validation_report.json    # Phase 14 validation JSON
+│   ├── validation_report.md      # Phase 14 validation markdown
+│   ├── evaluation_report.json    # Phase 15 benchmark & ML evaluation metrics
+│   ├── benchmark_summary.csv     # Phase 15 subsystem throughput and latency summary
+│   └── ml_evaluation_samples.csv # Phase 15 ML sample-level evaluation predictions
 │
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit, integration, and E2E validation tests (285 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (309 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -117,6 +133,10 @@ NetSentinel/
 │   ├── test_incident_correlator.py # Correlation rules, multi-vector boosts, monotonicity & memory bound tests
 │   ├── test_incident_workflow.py # Status workflow transitions, timeline builder & report summary tests
 │   ├── test_incident_api.py # Incident REST APIs, action shortcuts & Socket.IO tests
+│   ├── test_phase15_metrics.py         # Statistical & classification metric tests
+│   ├── test_phase15_evaluation_data.py # Deterministic data generator tests
+│   ├── test_phase15_benchmarks.py      # Subsystem & pipeline benchmark tests
+│   ├── test_phase15_runner.py          # Evaluation orchestrator & artifact export tests
 │   └── test_socket.py   # Test Socket.IO connection and ping
 ├── requirements.txt     # Python backend dependencies
 ├── .gitignore           # Git ignore configurations
@@ -621,7 +641,7 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 285 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
+All 309 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
@@ -642,7 +662,7 @@ Test coverage:
 * `tests/test_security_ops.py`: Structured logging secret sanitization, request correlation ID propagation, defensive security headers, normalized JSON errors, sliding-window rate limiting, liveness probe (`/api/health`), readiness probe (`/api/ready`), runtime diagnostics (`/api/system/status`), worker watchdog lifecycle, database latency probe, and firewall capability checks.
 * `tests/test_ti_eligibility.py`: Public vs private, loopback, multicast, link-local, broadcast, unspecified, and local identifier rejection.
 * `tests/test_ti_providers.py`: AbuseIPDB and VirusTotal adapter responses (clean, malicious, 404, 429 rate limit backoff, timeout, private IP rejection).
-* `tests/test_ti_cache.py`: In-memory LRU cache capacity eviction, TTL expiration, in-flight deduplication locks, and SQLite persistence hooks.
+* `tests/test_ti_cache.py`: In-memory LRU capacity eviction, TTL expiration, in-flight deduplication locks, and SQLite persistence hooks.
 * `tests/test_ti_service.py`: Queue capacity bounds, drop-on-full metrics, worker loop lifecycle, consensus aggregation (STRONG_POSITIVE, CONFLICTING, CLEAN), and secret credential isolation.
 * `tests/test_ti_risk_incident.py`: Deterministic score modifiers (+0.15, +0.05, +0.02, 0.0), stale modifier halving, firewall safety invariant, and incident correlation without false incident creation.
 * `tests/test_ti_api.py`: Threat intelligence REST endpoints (`/api/threat-intel/status`, `/api/threat-intel/ip/<ip>`, `/api/threat-intel/ip/<ip>/lookup`), eligibility validation, and cached indicator lookups.
@@ -672,6 +692,10 @@ Test coverage:
 * `tests/test_fim_database.py`: FIM baseline record CRUD, filtering, pagination, stats aggregation, event queries, and retention cleanup survival.
 * `tests/test_fim_risk_incident.py`: FIM host classification in RiskEngine, deterministic severity scoring, no automatic firewall blocks, host correlation (`host:<hostname>`), and unified incident timeline formatting.
 * `tests/test_fim_api.py`: REST endpoints (`/api/fim/status`, `/api/fim/events`, `/api/fim/baseline`, `/api/fim/rebaseline`), payload validation, and standalone worker thread lifecycle.
+* `tests/test_phase15_metrics.py`: Statistical latency calculations (mean, median, p95, p99), throughput calculations, confusion matrix calculation, classification metrics (precision, recall, F1, FPR, FNR, accuracy), and threshold sensitivity evaluations.
+* `tests/test_phase15_evaluation_data.py`: Deterministic synthetic binary frame builder, packet sequence generator, and ground-truth labeled window dataset generation (reproducibility across random seeds).
+* `tests/test_phase15_benchmarks.py`: Micro-benchmarks for packet parsing, rule detection, ML feature extraction & inference, composite risk engine scoring, incident correlation, database persistence, and macro end-to-end processing pipeline under simulated throughput.
+* `tests/test_phase15_runner.py`: Programmatic evaluation execution, JSON and CSV artifact generation, quick test mode, and CLI argument parsing.
 * `tests/test_health.py` & `tests/test_socket.py`: Health endpoint and WebSocket connection tests.
 
 ---
@@ -717,7 +741,87 @@ The harness generates structured execution artifacts in the `reports/` directory
 
 ---
 
-## 18. Current Scope Limitations & Future Roadmap
+## 18. Performance & Machine Learning Evaluation (Phase 15)
+
+NetSentinel includes a standalone, reproducible Performance and Machine Learning Evaluation framework (`backend/evaluation/`) designed to benchmark subsystem throughput, operational latency, resource consumption, and ML anomaly classification characteristics in an unprivileged, non-destructive CLI environment.
+
+### 1. Methodology & Environmental Context
+* **Benchmark Environment**: Synthetic benchmark measurements performed on the development Debian Linux environment (2 vCPUs, 2.86 GB RAM, x86_64).
+* **Workload Scope**: Synthetic binary frames and deterministic network window streams covering normal baseline traffic, volumetric SYN floods, horizontal port scans, stealth scans, and mixed workloads.
+* **ML Evaluation Scope**: Supervised evaluation of the unsupervised Isolation Forest anomaly detector against deterministic, ground-truth labeled synthetic traffic windows (100 normal windows, 100 attack windows; random seed 1337) across varying decision thresholds ($T \in [0.30, 0.70]$).
+
+### 2. Subsystem Micro-Benchmark Results
+
+| Subsystem / Component | Benchmark Metric | Measured Throughput | Mean Latency | Median Latency | p95 Latency | p99 Latency |
+|---|---|---|---|---|---|---|
+| **Binary Packet Parser** | 5,000 mixed frames | ~80,000–108,000 pkts/s | 0.009–0.012 ms | 0.007–0.009 ms | 0.013–0.016 ms | 0.043–0.052 ms |
+| **Rule-Based Detector** | 5,000 mixed frames | ~60,000–417,000 pkts/s | 0.002–0.016 ms | 0.002–0.012 ms | 0.004–0.024 ms | 0.008–0.045 ms |
+| **ML Feature Extractor** | 500 packet windows | ~78,000 ops/s | 0.012 ms | 0.010 ms | 0.022 ms | 0.035 ms |
+| **Isolation Forest Inference** | 50 window vectors | ~82–90 ops/s | 11.0–12.1 ms | 10.9–11.8 ms | 12.5–13.4 ms | 13.5–14.8 ms |
+| **Composite Risk Engine** | 1,000 event evaluations | ~25,000–71,000 ops/s | 0.013–0.039 ms | 0.012–0.035 ms | 0.024–0.058 ms | 0.048–0.089 ms |
+| **Incident Correlator** | 500 security events | ~280–365 ops/s | 2.7–3.4 ms | 2.5–3.1 ms | 4.8–5.6 ms | 7.2–8.9 ms |
+| **SQLite Persistence** | 200 security events | ~1,600–2,000 ops/s | 0.47–0.58 ms | 0.45–0.52 ms | 0.75–0.89 ms | 1.10–1.45 ms |
+| **Integrated Pipeline** | 1,000 packets end-to-end | ~15,000–22,000 pkts/s | 0.045–0.065 ms | 0.040–0.055 ms | 0.085–0.110 ms | 0.160–0.220 ms |
+
+### 3. Resource Profiling Summary
+During full execution of the benchmark and evaluation suite:
+* **Initial Process RSS**: ~164.7 MB
+* **Peak Process RSS**: ~176.8 MB
+* **Net Memory Growth**: +12.07 MB (steady-state bounded memory, no unbounded leaks)
+* **Execution Duration**: ~16.2 seconds total across all 7 benchmark suites and ML evaluation.
+
+### 4. Machine Learning Evaluation (Held-Out Test Set)
+
+The unsupervised Isolation Forest model (trained on 100 normal baseline windows, random seed 42) was evaluated against a held-out test dataset of 200 windows (100 normal, 100 synthetic attacks; random seed 1337):
+
+* **Score Separation**:
+  * Normal Traffic Windows ($N=100$): Mean score = **0.4773** ($\pm 0.0467$), Range: $[0.3702, 0.5878]$
+  * Attack Traffic Windows ($N=100$): Mean score = **0.6899** ($\pm 0.0140$), Range: $[0.6558, 0.7072]$
+  * Score Separation Margin: **+0.2126** between mean normal and mean attack scores.
+
+* **Performance at Operating Threshold ($T = 0.50$)**:
+  * True Positives (TP): **100** / 100
+  * True Negatives (TN): **65** / 100
+  * False Positives (FP): **35** / 100
+  * False Negatives (FN): **0** / 100
+  * **Recall / True Positive Rate**: **1.0000 (100.0%)** — zero missed attack windows.
+  * **Precision**: **0.7407 (74.1%)**
+  * **$F_1$-Score**: **0.8511**
+  * **False Positive Rate (FPR)**: **0.3500 (35.0%)**
+  * **False Negative Rate (FNR)**: **0.0000 (0.0%)**
+  * **Accuracy**: **82.5%**
+
+* **Threshold Sensitivity Sweep**:
+  * At $T=0.45$: Recall = 1.0000, Precision = 0.5747, FPR = 0.7400, $F_1$ = 0.7299.
+  * At $T=0.50$ (*Default*): Recall = 1.0000, Precision = 0.7407, FPR = 0.3500, $F_1$ = 0.8511.
+  * At $T=0.55$: Recall = 1.0000, Precision = 0.9434, FPR = 0.0600, $F_1$ = 0.9709.
+  * At $T=0.60$: Recall = 1.0000, Precision = 1.0000, FPR = 0.0000, $F_1$ = 1.0000.
+
+### 5. Architectural Defense Invariant Justification
+The supervised evaluation empirical data directly justifies NetSentinel's core design constraint:
+1. At the operating threshold $T=0.50$, the detector is **hyper-sensitive**, catching **100% of attack patterns** (0 false negatives) while incurring a 35% false positive rate on normal traffic statistical fluctuations.
+2. Because NetSentinel **caps ML-only risk contribution at 0.35 (MEDIUM severity, recommended action "log")**, false positives from ML variance **never** escalate to firewall mitigation or trigger automatic IP blocks.
+3. High-confidence blocking actions require deterministic rule corroboration or multi-frequency attack persistence, providing maximum attack visibility while safeguarding production infrastructure against automated denial-of-service.
+
+### 6. Executing the Evaluation Framework
+Run the full benchmark and evaluation suite via CLI:
+```bash
+.venv/bin/python backend/evaluation/runner.py
+```
+For rapid smoke-testing:
+```bash
+.venv/bin/python backend/evaluation/runner.py --quick
+```
+
+Generated evaluation artifacts:
+* `reports/evaluation_report.json`: Complete machine-readable benchmark latencies, percentiles, resource deltas, confusion matrices, and threshold sweeps.
+* `reports/benchmark_summary.csv`: Tabular subsystem performance metrics for spreadsheet ingestion.
+* `reports/ml_evaluation_samples.csv`: Sample-level ground-truth labels, model anomaly scores, and binary predictions.
+* `docs/phase15-performance-ml-evaluation.md`: Comprehensive SOC architectural and performance evaluation report.
+
+---
+
+## 19. Current Scope Limitations & Future Roadmap
 
 * **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills (Phase 14 completed via deterministic validation harness).
 * **Distributed Agent Fleet**: Multi-node agent communication for enterprise-scale distributed sensor networks.

@@ -1,0 +1,2704 @@
+{
+  "timestamp": 1791383807.4192126,
+  "timestamp_iso": "2026-10-07T14:36:47Z",
+  "environment": {
+    "os": "Linux",
+    "release": "6.12.111+deb13-amd64",
+    "python_version": "3.13.5",
+    "cpu_cores": 2,
+    "total_ram_gb": 2.86
+  },
+  "resource_usage": {
+    "elapsed_wall_clock_sec": 27.7653,
+    "baseline_rss_mb": 164.69,
+    "peak_rss_mb": 175.32,
+    "process_memory_growth_mb": 10.63,
+    "final_cpu_percent": 100.0,
+    "platform": {
+      "os": "Linux",
+      "release": "6.12.111+deb13-amd64",
+      "python_version": "3.13.5",
+      "cpu_cores": 2,
+      "total_ram_gb": 2.86
+    },
+    "disclaimer": "Synthetic benchmark measurements in the evaluation environment."
+  },
+  "benchmarks": [
+    {
+      "name": "Packet Parser",
+      "category": "Parser",
+      "load_level": 100,
+      "statistics": {
+        "samples": 100,
+        "total_duration_sec": 0.0038,
+        "throughput_ops_per_sec": 26065.73,
+        "mean_ms": 0.0378,
+        "median_ms": 0.0125,
+        "p95_ms": 0.0138,
+        "p99_ms": 0.0621,
+        "min_ms": 0.0092,
+        "max_ms": 2.5565
+      },
+      "details": {
+        "frame_size_bytes": 86
+      }
+    },
+    {
+      "name": "Packet Parser",
+      "category": "Parser",
+      "load_level": 1000,
+      "statistics": {
+        "samples": 1000,
+        "total_duration_sec": 0.0256,
+        "throughput_ops_per_sec": 39061.16,
+        "mean_ms": 0.0147,
+        "median_ms": 0.0071,
+        "p95_ms": 0.0143,
+        "p99_ms": 0.1467,
+        "min_ms": 0.0066,
+        "max_ms": 1.5079
+      },
+      "details": {
+        "frame_size_bytes": 86
+      }
+    },
+    {
+      "name": "Packet Parser",
+      "category": "Parser",
+      "load_level": 5000,
+      "statistics": {
+        "samples": 5000,
+        "total_duration_sec": 0.0538,
+        "throughput_ops_per_sec": 92968.88,
+        "mean_ms": 0.0105,
+        "median_ms": 0.007,
+        "p95_ms": 0.0127,
+        "p99_ms": 0.0559,
+        "min_ms": 0.0067,
+        "max_ms": 1.4164
+      },
+      "details": {
+        "frame_size_bytes": 86
+      }
+    },
+    {
+      "name": "Rule Detector",
+      "category": "Detection Rules",
+      "load_level": 100,
+      "statistics": {
+        "samples": 100,
+        "total_duration_sec": 0.0004,
+        "throughput_ops_per_sec": 225023.51,
+        "mean_ms": 0.004,
+        "median_ms": 0.0039,
+        "p95_ms": 0.0049,
+        "p99_ms": 0.0051,
+        "min_ms": 0.0028,
+        "max_ms": 0.007
+      },
+      "details": {
+        "alerts_generated": 0
+      }
+    },
+    {
+      "name": "Rule Detector",
+      "category": "Detection Rules",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 0.005,
+        "throughput_ops_per_sec": 100323.34,
+        "mean_ms": 0.0097,
+        "median_ms": 0.0084,
+        "p95_ms": 0.0144,
+        "p99_ms": 0.0391,
+        "min_ms": 0.0017,
+        "max_ms": 0.3063
+      },
+      "details": {
+        "alerts_generated": 2
+      }
+    },
+    {
+      "name": "Rule Detector",
+      "category": "Detection Rules",
+      "load_level": 1000,
+      "statistics": {
+        "samples": 1000,
+        "total_duration_sec": 0.0189,
+        "throughput_ops_per_sec": 53019.73,
+        "mean_ms": 0.0186,
+        "median_ms": 0.0182,
+        "p95_ms": 0.0294,
+        "p99_ms": 0.0916,
+        "min_ms": 0.0031,
+        "max_ms": 0.2543
+      },
+      "details": {
+        "alerts_generated": 0
+      }
+    },
+    {
+      "name": "ML Feature Extraction",
+      "category": "Machine Learning",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 0.0132,
+        "throughput_ops_per_sec": 37816.3,
+        "mean_ms": 0.0263,
+        "median_ms": 0.0117,
+        "p95_ms": 0.0227,
+        "p99_ms": 0.1139,
+        "min_ms": 0.0114,
+        "max_ms": 5.1108
+      },
+      "details": {
+        "window_packet_count": 25,
+        "feature_count": 13
+      }
+    },
+    {
+      "name": "Isolation Forest Inference",
+      "category": "Machine Learning",
+      "load_level": 50,
+      "statistics": {
+        "samples": 50,
+        "total_duration_sec": 0.703,
+        "throughput_ops_per_sec": 71.12,
+        "mean_ms": 14.0592,
+        "median_ms": 13.3758,
+        "p95_ms": 18.7599,
+        "p99_ms": 26.0336,
+        "min_ms": 10.8992,
+        "max_ms": 29.0283
+      },
+      "details": {
+        "model_status": "READY",
+        "n_estimators": 100
+      }
+    },
+    {
+      "name": "Isolation Forest Inference",
+      "category": "Machine Learning",
+      "load_level": 200,
+      "statistics": {
+        "samples": 200,
+        "total_duration_sec": 4.9233,
+        "throughput_ops_per_sec": 40.62,
+        "mean_ms": 24.6108,
+        "median_ms": 17.6526,
+        "p95_ms": 52.3921,
+        "p99_ms": 101.1336,
+        "min_ms": 11.7926,
+        "max_ms": 120.5874
+      },
+      "details": {
+        "model_status": "READY",
+        "n_estimators": 100
+      }
+    },
+    {
+      "name": "Isolation Forest Inference",
+      "category": "Machine Learning",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 14.1875,
+        "throughput_ops_per_sec": 35.24,
+        "mean_ms": 28.3727,
+        "median_ms": 18.3062,
+        "p95_ms": 54.1875,
+        "p99_ms": 88.9872,
+        "min_ms": 11.5521,
+        "max_ms": 353.0131
+      },
+      "details": {
+        "model_status": "READY",
+        "n_estimators": 100
+      }
+    },
+    {
+      "name": "Composite Risk Engine",
+      "category": "Risk Engine",
+      "load_level": 100,
+      "statistics": {
+        "samples": 100,
+        "total_duration_sec": 0.0049,
+        "throughput_ops_per_sec": 20347.4,
+        "mean_ms": 0.0487,
+        "median_ms": 0.0207,
+        "p95_ms": 0.0878,
+        "p99_ms": 0.7011,
+        "min_ms": 0.0147,
+        "max_ms": 1.2559
+      },
+      "details": {
+        "rule_weight": 0.65,
+        "ml_weight": 0.35
+      }
+    },
+    {
+      "name": "Composite Risk Engine",
+      "category": "Risk Engine",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 0.03,
+        "throughput_ops_per_sec": 16669.14,
+        "mean_ms": 0.0596,
+        "median_ms": 0.0199,
+        "p95_ms": 0.2347,
+        "p99_ms": 0.9755,
+        "min_ms": 0.0098,
+        "max_ms": 2.0492
+      },
+      "details": {
+        "rule_weight": 0.65,
+        "ml_weight": 0.35
+      }
+    },
+    {
+      "name": "Composite Risk Engine",
+      "category": "Risk Engine",
+      "load_level": 1000,
+      "statistics": {
+        "samples": 1000,
+        "total_duration_sec": 0.0222,
+        "throughput_ops_per_sec": 45127.41,
+        "mean_ms": 0.0219,
+        "median_ms": 0.0198,
+        "p95_ms": 0.0335,
+        "p99_ms": 0.0798,
+        "min_ms": 0.0094,
+        "max_ms": 0.2571
+      },
+      "details": {
+        "rule_weight": 0.65,
+        "ml_weight": 0.35
+      }
+    },
+    {
+      "name": "Incident Correlator",
+      "category": "Incident Management",
+      "load_level": 50,
+      "statistics": {
+        "samples": 50,
+        "total_duration_sec": 0.1317,
+        "throughput_ops_per_sec": 379.7,
+        "mean_ms": 2.6317,
+        "median_ms": 2.4885,
+        "p95_ms": 3.5354,
+        "p99_ms": 4.5731,
+        "min_ms": 2.0165,
+        "max_ms": 4.6531
+      },
+      "details": {
+        "active_incidents": 20
+      }
+    },
+    {
+      "name": "Incident Correlator",
+      "category": "Incident Management",
+      "load_level": 200,
+      "statistics": {
+        "samples": 200,
+        "total_duration_sec": 0.5398,
+        "throughput_ops_per_sec": 370.5,
+        "mean_ms": 2.6975,
+        "median_ms": 2.4206,
+        "p95_ms": 4.3462,
+        "p99_ms": 5.7612,
+        "min_ms": 1.9857,
+        "max_ms": 5.9591
+      },
+      "details": {
+        "active_incidents": 20
+      }
+    },
+    {
+      "name": "Incident Correlator",
+      "category": "Incident Management",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 1.2683,
+        "throughput_ops_per_sec": 394.23,
+        "mean_ms": 2.5351,
+        "median_ms": 2.3484,
+        "p95_ms": 3.5379,
+        "p99_ms": 4.3448,
+        "min_ms": 1.9354,
+        "max_ms": 5.6736
+      },
+      "details": {
+        "active_incidents": 20
+      }
+    },
+    {
+      "name": "SQLite Persistence & Query",
+      "category": "Persistence",
+      "load_level": 50,
+      "statistics": {
+        "samples": 51,
+        "total_duration_sec": 0.0257,
+        "throughput_ops_per_sec": 1984.84,
+        "mean_ms": 0.4913,
+        "median_ms": 0.3735,
+        "p95_ms": 0.6024,
+        "p99_ms": 2.7867,
+        "min_ms": 0.3398,
+        "max_ms": 4.2885
+      },
+      "details": {
+        "db_type": "SQLite"
+      }
+    },
+    {
+      "name": "SQLite Persistence & Query",
+      "category": "Persistence",
+      "load_level": 200,
+      "statistics": {
+        "samples": 201,
+        "total_duration_sec": 0.0893,
+        "throughput_ops_per_sec": 2249.63,
+        "mean_ms": 0.4181,
+        "median_ms": 0.3713,
+        "p95_ms": 0.6535,
+        "p99_ms": 0.9486,
+        "min_ms": 0.3228,
+        "max_ms": 3.0244
+      },
+      "details": {
+        "db_type": "SQLite"
+      }
+    },
+    {
+      "name": "SQLite Persistence & Query",
+      "category": "Persistence",
+      "load_level": 500,
+      "statistics": {
+        "samples": 501,
+        "total_duration_sec": 0.2336,
+        "throughput_ops_per_sec": 2144.3,
+        "mean_ms": 0.4526,
+        "median_ms": 0.3796,
+        "p95_ms": 0.6132,
+        "p99_ms": 1.173,
+        "min_ms": 0.3094,
+        "max_ms": 10.517
+      },
+      "details": {
+        "db_type": "SQLite"
+      }
+    },
+    {
+      "name": "End-to-End Pipeline",
+      "category": "Integrated Pipeline",
+      "load_level": 100,
+      "statistics": {
+        "samples": 100,
+        "total_duration_sec": 0.005,
+        "throughput_ops_per_sec": 20040.05,
+        "mean_ms": 0.0493,
+        "median_ms": 0.0409,
+        "p95_ms": 0.0974,
+        "p99_ms": 0.1466,
+        "min_ms": 0.0242,
+        "max_ms": 0.4944
+      },
+      "details": {
+        "subsystems_evaluated": [
+          "Parser",
+          "Detector",
+          "ML",
+          "RiskEngine",
+          "IncidentManager",
+          "SQLite"
+        ]
+      }
+    },
+    {
+      "name": "End-to-End Pipeline",
+      "category": "Integrated Pipeline",
+      "load_level": 500,
+      "statistics": {
+        "samples": 500,
+        "total_duration_sec": 0.0155,
+        "throughput_ops_per_sec": 32186.86,
+        "mean_ms": 0.0307,
+        "median_ms": 0.0262,
+        "p95_ms": 0.0428,
+        "p99_ms": 0.0706,
+        "min_ms": 0.0243,
+        "max_ms": 1.0356
+      },
+      "details": {
+        "subsystems_evaluated": [
+          "Parser",
+          "Detector",
+          "ML",
+          "RiskEngine",
+          "IncidentManager",
+          "SQLite"
+        ]
+      }
+    },
+    {
+      "name": "End-to-End Pipeline",
+      "category": "Integrated Pipeline",
+      "load_level": 1000,
+      "statistics": {
+        "samples": 1000,
+        "total_duration_sec": 0.2081,
+        "throughput_ops_per_sec": 4804.35,
+        "mean_ms": 0.2077,
+        "median_ms": 0.0281,
+        "p95_ms": 0.0505,
+        "p99_ms": 8.4738,
+        "min_ms": 0.0244,
+        "max_ms": 15.6158
+      },
+      "details": {
+        "subsystems_evaluated": [
+          "Parser",
+          "Detector",
+          "ML",
+          "RiskEngine",
+          "IncidentManager",
+          "SQLite"
+        ]
+      }
+    }
+  ],
+  "ml_evaluation": {
+    "model_parameters": {
+      "algorithm": "Isolation Forest (Unsupervised)",
+      "n_estimators": 100,
+      "contamination": "auto",
+      "random_state": 42,
+      "feature_names": [
+        "packets_per_second",
+        "bytes_per_second",
+        "average_packet_size",
+        "tcp_ratio",
+        "udp_ratio",
+        "icmp_ratio",
+        "syn_ratio",
+        "ack_ratio",
+        "rst_ratio",
+        "fin_ratio",
+        "unique_destination_ports",
+        "unique_source_ips",
+        "unique_destination_ips"
+      ]
+    },
+    "dataset_summary": {
+      "baseline_training_samples": 50,
+      "test_normal_samples": 100,
+      "test_anomaly_samples": 100,
+      "total_eval_samples": 200,
+      "feature_count": 13,
+      "training_test_separation": "Strictly independent seeds (seed 42 for train, seed 1337 for test)"
+    },
+    "production_threshold": 0.5,
+    "confusion_matrix": {
+      "true_positives": 100,
+      "true_negatives": 65,
+      "false_positives": 35,
+      "false_negatives": 0,
+      "total_samples": 200
+    },
+    "classification_metrics": {
+      "precision": 0.7407,
+      "recall": 1.0,
+      "f1_score": 0.8511,
+      "false_positive_rate": 0.35,
+      "false_negative_rate": 0.0,
+      "accuracy": 0.825
+    },
+    "threshold_analysis": [
+      {
+        "threshold": 0.3,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 0,
+          "false_positives": 100,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1_score": 0.6667,
+          "false_positive_rate": 1.0,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.5
+        }
+      },
+      {
+        "threshold": 0.35,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 0,
+          "false_positives": 100,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1_score": 0.6667,
+          "false_positive_rate": 1.0,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.5
+        }
+      },
+      {
+        "threshold": 0.4,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 3,
+          "false_positives": 97,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.5076,
+          "recall": 1.0,
+          "f1_score": 0.6734,
+          "false_positive_rate": 0.97,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.515
+        }
+      },
+      {
+        "threshold": 0.45,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 34,
+          "false_positives": 66,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.6024,
+          "recall": 1.0,
+          "f1_score": 0.7519,
+          "false_positive_rate": 0.66,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.67
+        }
+      },
+      {
+        "threshold": 0.5,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 65,
+          "false_positives": 35,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.7407,
+          "recall": 1.0,
+          "f1_score": 0.8511,
+          "false_positive_rate": 0.35,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.825
+        }
+      },
+      {
+        "threshold": 0.55,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 94,
+          "false_positives": 6,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 0.9434,
+          "recall": 1.0,
+          "f1_score": 0.9709,
+          "false_positive_rate": 0.06,
+          "false_negative_rate": 0.0,
+          "accuracy": 0.97
+        }
+      },
+      {
+        "threshold": 0.6,
+        "confusion_matrix": {
+          "true_positives": 100,
+          "true_negatives": 100,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "accuracy": 1.0
+        }
+      },
+      {
+        "threshold": 0.65,
+        "confusion_matrix": {
+          "true_positives": 98,
+          "true_negatives": 100,
+          "false_positives": 0,
+          "false_negatives": 2,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 1.0,
+          "recall": 0.98,
+          "f1_score": 0.9899,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.02,
+          "accuracy": 0.99
+        }
+      },
+      {
+        "threshold": 0.7,
+        "confusion_matrix": {
+          "true_positives": 14,
+          "true_negatives": 100,
+          "false_positives": 0,
+          "false_negatives": 86,
+          "total_samples": 200
+        },
+        "metrics": {
+          "precision": 1.0,
+          "recall": 0.14,
+          "f1_score": 0.2456,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.86,
+          "accuracy": 0.57
+        }
+      }
+    ],
+    "score_distribution": {
+      "normal_windows": {
+        "count": 100,
+        "mean": 0.4773,
+        "std": 0.0467,
+        "min": 0.3868,
+        "max": 0.5909
+      },
+      "anomalous_windows": {
+        "count": 100,
+        "mean": 0.6899,
+        "std": 0.014,
+        "min": 0.6491,
+        "max": 0.7177
+      },
+      "separation_margin": 0.2126
+    },
+    "sample_predictions": [
+      {
+        "sample_index": 0,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0007,
+        "normalized_anomaly_score": 0.5007,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 1,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0324,
+        "normalized_anomaly_score": 0.5324,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 2,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.065,
+        "normalized_anomaly_score": 0.435,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 3,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0216,
+        "normalized_anomaly_score": 0.4784,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 4,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0092,
+        "normalized_anomaly_score": 0.5092,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 5,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.019,
+        "normalized_anomaly_score": 0.481,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 6,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0094,
+        "normalized_anomaly_score": 0.5094,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 7,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0798,
+        "normalized_anomaly_score": 0.4202,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 8,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0531,
+        "normalized_anomaly_score": 0.4469,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 9,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0342,
+        "normalized_anomaly_score": 0.4658,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 10,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0346,
+        "normalized_anomaly_score": 0.4654,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 11,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0751,
+        "normalized_anomaly_score": 0.4249,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 12,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0902,
+        "normalized_anomaly_score": 0.4098,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 13,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.1132,
+        "normalized_anomaly_score": 0.3868,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 14,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0607,
+        "normalized_anomaly_score": 0.4393,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 15,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0909,
+        "normalized_anomaly_score": 0.5909,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 16,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0506,
+        "normalized_anomaly_score": 0.4494,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 17,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.076,
+        "normalized_anomaly_score": 0.424,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 18,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0595,
+        "normalized_anomaly_score": 0.4405,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 19,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0111,
+        "normalized_anomaly_score": 0.4889,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 20,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0231,
+        "normalized_anomaly_score": 0.5231,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 21,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0332,
+        "normalized_anomaly_score": 0.5332,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 22,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0227,
+        "normalized_anomaly_score": 0.4773,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 23,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0465,
+        "normalized_anomaly_score": 0.4535,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 24,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0462,
+        "normalized_anomaly_score": 0.5462,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 25,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0518,
+        "normalized_anomaly_score": 0.5518,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 26,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0649,
+        "normalized_anomaly_score": 0.4351,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 27,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0641,
+        "normalized_anomaly_score": 0.4359,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 28,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0407,
+        "normalized_anomaly_score": 0.4593,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 29,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0014,
+        "normalized_anomaly_score": 0.5014,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 30,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0688,
+        "normalized_anomaly_score": 0.4312,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 31,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0968,
+        "normalized_anomaly_score": 0.4032,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 32,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0234,
+        "normalized_anomaly_score": 0.4766,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 33,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0711,
+        "normalized_anomaly_score": 0.4289,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 34,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0212,
+        "normalized_anomaly_score": 0.5212,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 35,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0368,
+        "normalized_anomaly_score": 0.4632,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 36,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0095,
+        "normalized_anomaly_score": 0.5095,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 37,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0692,
+        "normalized_anomaly_score": 0.4308,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 38,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0725,
+        "normalized_anomaly_score": 0.4275,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 39,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0152,
+        "normalized_anomaly_score": 0.5152,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 40,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.047,
+        "normalized_anomaly_score": 0.453,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 41,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.1004,
+        "normalized_anomaly_score": 0.3996,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 42,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0013,
+        "normalized_anomaly_score": 0.4987,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 43,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0045,
+        "normalized_anomaly_score": 0.5045,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 44,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0561,
+        "normalized_anomaly_score": 0.4439,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 45,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0409,
+        "normalized_anomaly_score": 0.4591,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 46,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0396,
+        "normalized_anomaly_score": 0.4604,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 47,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0207,
+        "normalized_anomaly_score": 0.4793,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 48,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0222,
+        "normalized_anomaly_score": 0.4778,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 49,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0593,
+        "normalized_anomaly_score": 0.4407,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 50,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0644,
+        "normalized_anomaly_score": 0.4356,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 51,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0242,
+        "normalized_anomaly_score": 0.4758,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 52,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0744,
+        "normalized_anomaly_score": 0.4256,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 53,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0325,
+        "normalized_anomaly_score": 0.5325,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 54,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0959,
+        "normalized_anomaly_score": 0.4041,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 55,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0728,
+        "normalized_anomaly_score": 0.4272,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 56,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0552,
+        "normalized_anomaly_score": 0.4448,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 57,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0619,
+        "normalized_anomaly_score": 0.5619,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 58,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0041,
+        "normalized_anomaly_score": 0.5041,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 59,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0784,
+        "normalized_anomaly_score": 0.4216,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 60,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0059,
+        "normalized_anomaly_score": 0.4941,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 61,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0094,
+        "normalized_anomaly_score": 0.4906,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 62,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.054,
+        "normalized_anomaly_score": 0.554,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 63,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.038,
+        "normalized_anomaly_score": 0.462,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 64,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0032,
+        "normalized_anomaly_score": 0.4968,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 65,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0088,
+        "normalized_anomaly_score": 0.5088,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 66,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0279,
+        "normalized_anomaly_score": 0.4721,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 67,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0023,
+        "normalized_anomaly_score": 0.4977,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 68,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0126,
+        "normalized_anomaly_score": 0.5126,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 69,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0678,
+        "normalized_anomaly_score": 0.4322,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 70,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0881,
+        "normalized_anomaly_score": 0.4119,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 71,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0627,
+        "normalized_anomaly_score": 0.4373,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 72,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.017,
+        "normalized_anomaly_score": 0.483,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 73,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0043,
+        "normalized_anomaly_score": 0.5043,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 74,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0048,
+        "normalized_anomaly_score": 0.4952,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 75,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0035,
+        "normalized_anomaly_score": 0.4965,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 76,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0812,
+        "normalized_anomaly_score": 0.5812,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 77,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0897,
+        "normalized_anomaly_score": 0.5897,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 78,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0806,
+        "normalized_anomaly_score": 0.4194,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 79,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0299,
+        "normalized_anomaly_score": 0.5299,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 80,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0193,
+        "normalized_anomaly_score": 0.5193,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 81,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0433,
+        "normalized_anomaly_score": 0.4567,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 82,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0195,
+        "normalized_anomaly_score": 0.4805,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 83,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0914,
+        "normalized_anomaly_score": 0.4086,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 84,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0258,
+        "normalized_anomaly_score": 0.5258,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 85,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0113,
+        "normalized_anomaly_score": 0.5113,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 86,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0064,
+        "normalized_anomaly_score": 0.5064,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 87,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0454,
+        "normalized_anomaly_score": 0.5454,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 88,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0262,
+        "normalized_anomaly_score": 0.5262,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 89,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0075,
+        "normalized_anomaly_score": 0.5075,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 90,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0374,
+        "normalized_anomaly_score": 0.4626,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 91,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0104,
+        "normalized_anomaly_score": 0.4896,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 92,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0302,
+        "normalized_anomaly_score": 0.5302,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 93,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0743,
+        "normalized_anomaly_score": 0.4257,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 94,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.015,
+        "normalized_anomaly_score": 0.515,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 95,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0443,
+        "normalized_anomaly_score": 0.5443,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 96,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0772,
+        "normalized_anomaly_score": 0.4228,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 97,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.0143,
+        "normalized_anomaly_score": 0.4857,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 98,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": -0.0338,
+        "normalized_anomaly_score": 0.5338,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": false
+      },
+      {
+        "sample_index": 99,
+        "ground_truth": 0,
+        "label_name": "Normal Traffic",
+        "category": "normal",
+        "raw_decision_score": 0.1084,
+        "normalized_anomaly_score": 0.3916,
+        "predicted_anomaly_at_0_50": 0,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 100,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1998,
+        "normalized_anomaly_score": 0.6998,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 101,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 102,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 103,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 104,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 105,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1946,
+        "normalized_anomaly_score": 0.6946,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 106,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 107,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 108,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 109,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 110,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 111,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 112,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 113,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1498,
+        "normalized_anomaly_score": 0.6498,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 114,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 115,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 116,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 117,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 118,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1604,
+        "normalized_anomaly_score": 0.6604,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 119,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 120,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1998,
+        "normalized_anomaly_score": 0.6998,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 121,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 122,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 123,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1526,
+        "normalized_anomaly_score": 0.6526,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 124,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 125,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 126,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 127,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 128,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1778,
+        "normalized_anomaly_score": 0.6778,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 129,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 130,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1955,
+        "normalized_anomaly_score": 0.6955,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 131,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 132,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 133,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1504,
+        "normalized_anomaly_score": 0.6504,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 134,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 135,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 136,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 137,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 138,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 139,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 140,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2019,
+        "normalized_anomaly_score": 0.7019,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 141,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 142,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 143,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1758,
+        "normalized_anomaly_score": 0.6758,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 144,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 145,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.212,
+        "normalized_anomaly_score": 0.712,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 146,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 147,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 148,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 149,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 150,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 151,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 152,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 153,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1491,
+        "normalized_anomaly_score": 0.6491,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 154,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 155,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 156,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 157,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 158,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1602,
+        "normalized_anomaly_score": 0.6602,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 159,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 160,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 161,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 162,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 163,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 164,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 165,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 166,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 167,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 168,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 169,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 170,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 171,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 172,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 173,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1711,
+        "normalized_anomaly_score": 0.6711,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 174,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 175,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2032,
+        "normalized_anomaly_score": 0.7032,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 176,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 177,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 178,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1558,
+        "normalized_anomaly_score": 0.6558,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 179,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 180,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1946,
+        "normalized_anomaly_score": 0.6946,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 181,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 182,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 183,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 184,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 185,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 186,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 187,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 188,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1805,
+        "normalized_anomaly_score": 0.6805,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 189,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 190,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.2177,
+        "normalized_anomaly_score": 0.7177,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 191,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 192,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 193,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 194,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 195,
+        "ground_truth": 1,
+        "label_name": "SYN Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1927,
+        "normalized_anomaly_score": 0.6927,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 196,
+        "ground_truth": 1,
+        "label_name": "Port Scan Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1875,
+        "normalized_anomaly_score": 0.6875,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 197,
+        "ground_truth": 1,
+        "label_name": "UDP Flood Outlier",
+        "category": "anomaly",
+        "raw_decision_score": -0.1852,
+        "normalized_anomaly_score": 0.6852,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 198,
+        "ground_truth": 1,
+        "label_name": "Stealth Scan Flag Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1818,
+        "normalized_anomaly_score": 0.6818,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      },
+      {
+        "sample_index": 199,
+        "ground_truth": 1,
+        "label_name": "Host Sweep Cardinality Anomaly",
+        "category": "anomaly",
+        "raw_decision_score": -0.1999,
+        "normalized_anomaly_score": 0.6999,
+        "predicted_anomaly_at_0_50": 1,
+        "is_correct_at_0_50": true
+      }
+    ]
+  }
+}
