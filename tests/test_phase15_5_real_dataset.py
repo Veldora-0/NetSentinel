@@ -309,3 +309,90 @@ def test_security_invariants_preserved():
     assert Config.FIREWALL_SETTINGS["auto_block"] is False
     assert os.environ.get("NETSENTINEL_FIREWALL_ENABLED", "false").lower() in ("false", "0", "")
     assert os.environ.get("NETSENTINEL_AUTO_BLOCK", "false").lower() in ("false", "0", "")
+
+
+# =========================================================================
+# I. IMPORT ISOLATION & SIDE-EFFECT FREEDOM REGRESSION TESTS
+# =========================================================================
+
+def test_offline_evaluation_import_isolation_subprocess():
+    """Verify importing evaluation submodules does NOT import app or start live workers.
+
+    Uses an isolated Python subprocess so pytest collection state cannot mask
+    leaked imports.
+    """
+    import subprocess
+    import sys
+
+    script = (
+        "import sys\n"
+        "sys.path.insert(0, 'backend')\n"
+        "from evaluation import pcap_reader, zeek_parser, window_builder, real_dataset\n"
+        "from evaluation import RealDatasetEvaluator, TrafficWindowBuilder\n"
+        "assert 'app' not in sys.modules, f'app leaked into sys.modules: {sys.modules.get(\"app\")}'\n"
+        "assert 'evaluation.benchmarks' not in sys.modules, 'benchmarks leaked into sys.modules'\n"
+        "assert 'evaluation.runner' not in sys.modules, 'runner leaked into sys.modules'\n"
+        "print('ISOLATION_CONFIRMED')\n"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, f"Subprocess failed with stderr: {proc.stderr}"
+    assert "ISOLATION_CONFIRMED" in proc.stdout
+
+    # Verify no ambient workers or live log messages were emitted
+    combined_output = proc.stdout + proc.stderr
+    assert "AF_PACKET" not in combined_output
+    assert "ML Anomaly Detector worker started" not in combined_output
+    assert "FirewallManager initialized" not in combined_output
+    assert "HostDetectionManager background worker started" not in combined_output
+    assert "Host process baseline established" not in combined_output
+    assert "FIM: Restored" not in combined_output
+
+
+def test_real_dataset_cli_help_subprocess():
+    """Verify executing real_dataset.py --help does NOT initialize live backend components."""
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, "backend/evaluation/real_dataset.py", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "NetSentinel Phase 15.5: Real-World Dataset ML Evaluation" in proc.stdout
+
+    combined_output = proc.stdout + proc.stderr
+    assert "AF_PACKET" not in combined_output
+    assert "ML Anomaly Detector worker started" not in combined_output
+    assert "FirewallManager initialized" not in combined_output
+    assert "HostDetectionManager" not in combined_output
+    assert "Host process baseline established" not in combined_output
+
+
+def test_public_evaluation_api_exports_accessible():
+    """Verify that all public package exports from evaluation/__init__.py remain accessible."""
+    import evaluation
+    from evaluation import (
+        BenchmarkSuite,
+        BenchmarkResult,
+        EvaluationRunner,
+        RealDatasetEvaluator,
+        TrafficWindowBuilder,
+        MLEvaluator,
+    )
+
+    assert BenchmarkSuite is not None
+    assert BenchmarkResult is not None
+    assert EvaluationRunner is not None
+    assert RealDatasetEvaluator is not None
+    assert TrafficWindowBuilder is not None
+    assert MLEvaluator is not None

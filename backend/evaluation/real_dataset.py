@@ -732,8 +732,8 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=os.path.join(PROJECT_ROOT, "reports"),
-        help="Directory to write output JSON and CSV artifacts (default: reports/)",
+        default=None,
+        help="Directory to write output JSON and CSV artifacts (default: reports/ for dataset evaluations, temporary directory for --smoke-test)",
     )
     parser.add_argument(
         "--pcap-dir",

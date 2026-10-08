@@ -16,12 +16,7 @@ from .data_generator import (
     generate_synthetic_parsed_packet,
 )
 from .resource_monitor import ResourceMonitor, ResourceSnapshot
-from .benchmarks import (
-    BenchmarkSuite,
-    BenchmarkResult,
-)
 from .ml_evaluator import MLEvaluator, MLEvaluationResult
-from .runner import EvaluationRunner
 from .pcap_reader import (
     PcapPacketRecord,
     PcapReader,
@@ -47,6 +42,31 @@ from .real_dataset import (
     CaptureEvaluationMetrics,
     run_smoke_test,
 )
+
+# Lazy exports for modules with heavier dependencies (e.g. app / benchmarks runtime)
+# to keep offline evaluations lightweight and isolate them from live application workers.
+_LAZY_EXPORTS = {
+    "BenchmarkSuite": (".benchmarks", "BenchmarkSuite"),
+    "BenchmarkResult": (".benchmarks", "BenchmarkResult"),
+    "EvaluationRunner": (".runner", "EvaluationRunner"),
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        module_path, attr_name = _LAZY_EXPORTS[name]
+        import importlib
+
+        mod = importlib.import_module(module_path, __package__)
+        val = getattr(mod, attr_name)
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(list(globals().keys()) + list(_LAZY_EXPORTS.keys()))
+
 
 __all__ = [
     "calculate_statistics",

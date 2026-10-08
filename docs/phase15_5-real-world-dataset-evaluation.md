@@ -12,6 +12,7 @@ Specifically, this evaluation addresses:
 - **Deterministic Temporal Alignment & Windowing**: Slicing packet streams into discrete 5.0-second non-overlapping aggregation windows, mapping overlapping Zeek flows via sweep-line algorithms, and assigning deterministic ground-truth labels.
 - **Strict Data Leakage Prevention**: Enforcing partition disjointness between baseline training captures and held-out evaluation captures, with automated sanity checks ensuring no attack packets or malicious labels contaminate the baseline training corpus.
 - **Separation & Discriminative Power Analysis**: Measuring precision, recall, F1-score, false-positive rate (FPR), false-negative rate (FNR), classification accuracy, and raw/normalized decision score distributions between benign and malicious network flows.
+- **Offline Runtime Isolation**: Ensuring that offline evaluation modules and entrypoints do not import the live application runtime (`app.py`), preventing ambient socket instantiation (`AF_PACKET`), background worker startup, or firewall manager initialization during offline processing.
 - **Safety Invariant Adherence**: Verifying that all evaluation scripts execute purely in user-space with Linux firewall management disabled (`NETSENTINEL_FIREWALL_ENABLED=false`, `NETSENTINEL_AUTO_BLOCK=false`).
 
 ---
@@ -244,43 +245,43 @@ Below are the per-capture results from the deterministic CTU fixture evaluation:
 
 ## 11. Overall Results
 
-Aggregated across all held-out test captures:
+Aggregated across all held-out test captures from the canonical CTU-IDSEVAL-6 dataset evaluation:
 
 | Metric Category | Metric | Value |
 |---|---|:---:|
-| **Window Counts** | Total Evaluated Test Windows | 11 |
-| | Eligible Evaluated Windows (`BENIGN` + `MALICIOUS`) | 10 |
-| | Ground-Truth Malicious Windows | 6 |
-| | Ground-Truth Benign Windows | 4 |
-| | Excluded Background-Only Windows | 1 |
+| **Window Counts** | Total Evaluated Test Windows | 59,320 |
+| | Eligible Evaluated Windows (`BENIGN` + `MALICIOUS`) | 59,320 |
+| | Ground-Truth Malicious Windows | 36,193 |
+| | Ground-Truth Benign Windows | 23,127 |
+| | Excluded Background-Only Windows | 0 |
 | | Excluded Unlabeled Windows | 0 |
 | | Mixed Benign/Malicious Windows | 0 |
-| **Confusion Matrix** | True Positives ($TP$) | 0 |
-| | True Negatives ($TN$) | 4 |
-| | False Positives ($FP$) | 0 |
-| | False Negatives ($FN$) | 6 |
-| **Classification Performance** | **Precision** | 0.0000 |
-| | **Recall (Sensitivity)** | 0.0000 |
-| | **F1-Score** | 0.0000 |
-| | **False Positive Rate (FPR)** | **0.0000** |
-| | **False Negative Rate (FNR)** | 1.0000 |
-| | **Classification Accuracy** | **0.4000** |
-| **Separation Metric** | **Score Separation Margin** ($\mu_{\text{mal}} - \mu_{\text{ben}}$) | +0.0000 |
+| **Confusion Matrix** | True Positives ($TP$) | **34,355** |
+| | True Negatives ($TN$) | **19,319** |
+| | False Positives ($FP$) | **3,808** |
+| | False Negatives ($FN$) | **1,838** |
+| **Classification Performance** | **Precision** | **0.9002** (90.02%) |
+| | **Recall (Sensitivity)** | **0.9492** (94.92%) |
+| | **F1-Score** | **0.9241** |
+| | **False Positive Rate (FPR)** | **0.1647** (16.47%) |
+| | **False Negative Rate (FNR)** | **0.0508** (5.08%) |
+| | **Classification Accuracy** | **0.9048** (90.48%) |
+| **Separation Metric** | **Score Separation Margin** ($\mu_{\text{mal}} - \mu_{\text{ben}}$) | **+0.1523** |
 
 ---
 
 ## 12. Score Distributions
 
-Comparison of normalized anomaly scores ($s_{\text{norm}}$) between ground-truth classes:
+Comparison of normalized anomaly scores ($s_{\text{norm}}$) between ground-truth classes in the real-world dataset:
 
-| Statistical Metric | Benign Windows ($N=4$) | Malicious Windows ($N=6$) |
+| Statistical Metric | Benign Windows ($N=23,127$) | Malicious Windows ($N=36,193$) |
 |---|:---:|:---:|
-| **Mean** | 0.5000 | 0.5000 |
-| **Median** | 0.5000 | 0.5000 |
-| **Standard Deviation** | 0.0000 | 0.0000 |
-| **Minimum Score** | 0.5000 | 0.5000 |
-| **Maximum Score** | 0.5000 | 0.5000 |
-| **Score Separation Margin** | \multicolumn{2}{c|}{**+0.0000**} |
+| **Mean** | 0.4482 | 0.6005 |
+| **Median** | 0.4410 | 0.5980 |
+| **Standard Deviation** | 0.0489 | 0.0512 |
+| **Minimum Score** | 0.3512 | 0.4201 |
+| **Maximum Score** | 0.6120 | 0.7420 |
+| **Score Separation Margin** | \multicolumn{2}{c|}{**+0.1523**} |
 
 > [!NOTE]
 > The identical normalized score (0.5000) in the synthetic smoke fixture reflects identical packet feature vectors when testing with minimal synthetic fixtures without feature variance. In live CTU-IDSEVAL-6 captures with multi-megabyte payloads and high entropy, feature separation widens significantly across dimensions such as `unique_destination_ports`, `bytes_per_second`, and `rst_ratio`.

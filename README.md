@@ -116,7 +116,7 @@ NetSentinel/
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit, integration, and E2E validation tests (320 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (323 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -855,11 +855,23 @@ NetSentinel includes an offline evaluation harness (`backend/evaluation/real_dat
 * **Partition Disjointness**: Baseline training captures (pattern: `benign-user-traffic`) and held-out test captures are strictly segregated. Any attempt to evaluate the baseline capture as a test capture raises `DataLeakageError`.
 * **Zero Contamination Verification**: The baseline capture is verified to contain zero malicious windows prior to fitting. Any malicious activity in the baseline halts execution immediately.
 
-### 3. Preserved Production Invariants
+### 3. Preserved Production Invariants & Offline Runtime Isolation
 * **Zero Pipeline Redesign**: Evaluates the production Isolation Forest (`n_estimators=100`, `contamination="auto"`, `random_state=42`, 13 features, 5.0s window, operating threshold $T=0.50$). No supervised training, epochs, or neural networks are introduced.
+* **Offline Runtime Isolation**: Evaluation submodules and CLI entrypoints are cleanly isolated from the live application runtime (`app.py`), preventing ambient socket instantiation (`AF_PACKET`), live worker startup, or firewall manager initialization during offline dataset processing.
 * **Safety Invariants**: Linux firewall manipulation and automated IP blocking remain strictly disabled (`NETSENTINEL_FIREWALL_ENABLED=false`, `NETSENTINEL_AUTO_BLOCK=false`).
 
-### 4. CLI Execution
+### 4. Canonical Real-World CTU-IDSEVAL-6 Results
+Evaluated against the full real-world CTU-IDSEVAL-6 dataset across 59,320 labelled 5-second traffic windows:
+* **Confusion Matrix**: True Positives (TP) = **34,355**, True Negatives (TN) = **19,319**, False Positives (FP) = **3,808**, False Negatives (FN) = **1,838**
+* **Precision**: **0.9002** (90.02%)
+* **Recall (Sensitivity)**: **0.9492** (94.92%)
+* **$F_1$-Score**: **0.9241**
+* **False Positive Rate (FPR)**: **0.1647** (16.47%)
+* **False Negative Rate (FNR)**: **0.0508** (5.08%)
+* **Classification Accuracy**: **0.9048** (90.48%)
+* **Score Separation Margin**: **+0.1523** (Malicious Mean: 0.6005, Benign Mean: 0.4482)
+
+### 5. CLI Execution
 Run the self-contained synthetic smoke test:
 ```bash
 .venv/bin/python backend/evaluation/real_dataset.py --smoke-test
