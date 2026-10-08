@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 15 (Performance & Machine Learning Evaluation) is completed, alongside Phase 14 (End-to-End Attack Simulation & Validation), Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Harness** (`backend/evaluation/`, `reports/`, `docs/phase15-performance-ml-evaluation.md`). All 309 automated backend tests pass deterministically.
+> **Implementation Status:** Phase 15 (Performance & Machine Learning Evaluation) is completed, alongside Phase 14 (End-to-End Attack Simulation & Validation), Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Harness** (`backend/evaluation/`, `reports/`, `docs/phase15-performance-ml-evaluation.md`). All 323 automated backend tests pass deterministically.
 
 ---
 
@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (309 tests)
+* **pytest** - Automated test suite (323 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -110,8 +110,7 @@ NetSentinel/
 │   ├── evaluation_report.json    # Phase 15 benchmark & ML evaluation metrics
 │   ├── benchmark_summary.csv     # Phase 15 subsystem throughput and latency summary
 │   ├── ml_evaluation_samples.csv # Phase 15 ML sample-level evaluation predictions
-│   ├── phase15_5_real_dataset_evaluation.json # Phase 15.5 real dataset evaluation report
-│   └── phase15_5_real_dataset_windows.csv    # Phase 15.5 window-level prediction export
+│   └── phase15_5_real_dataset_evaluation.json # Phase 15.5 real dataset evaluation report
 │
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
@@ -648,7 +647,7 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 309 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
+All 323 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
@@ -869,7 +868,7 @@ Evaluated against the full real-world CTU-IDSEVAL-6 dataset across 59,320 labell
 * **False Positive Rate (FPR)**: **0.1647** (16.47%)
 * **False Negative Rate (FNR)**: **0.0508** (5.08%)
 * **Classification Accuracy**: **0.9048** (90.48%)
-* **Score Separation Margin**: **+0.1523** (Malicious Mean: 0.6005, Benign Mean: 0.4482)
+* **Score Separation Margin**: **+0.1523** (Malicious Mean: 0.5712, Benign Mean: 0.4189)
 
 ### 5. CLI Execution
 Run the self-contained synthetic smoke test:
@@ -889,8 +888,8 @@ Run unit test suite:
 
 Generated evaluation artifacts:
 * `reports/phase15_5_real_dataset_evaluation.json`: Complete JSON report with per-capture and overall confusion matrices, precision, recall, F1, FPR, FNR, accuracy, and score separation margins.
-* `reports/phase15_5_real_dataset_windows.csv`: Detailed CSV table with window-by-window ground-truth labels, decision scores, and predictions.
 * `docs/phase15_5-real-world-dataset-evaluation.md`: Comprehensive 16-section real-world dataset evaluation report.
+*(Note: The full 264,205-row window-level evaluation CSV was produced in the Kaggle offline environment and omitted from git tracking).*
 
 ---
 
