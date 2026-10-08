@@ -170,7 +170,7 @@ Given the set of overlapping flows in a window, ground truth is determined by th
 
 1. **Baseline Ingestion**:
    - The training baseline capture is identified by matching the pattern `benign-user-traffic` (`ctu-idseval-6-benign-user-traffic-1`).
-   - Packets in the capture are parsed and partitioned into 5.0-second aggregation windows, yielding **2,250 clean BENIGN windows**.
+   - Packets in the capture are parsed and partitioned into 5.0-second aggregation windows, yielding **2,250 clean BENIGN windows** (104,520 / 104,520 packets parsed successfully, 0 parse failures).
 2. **Data Leakage Safeguard**:
    - The evaluator inspects every window in the training capture. Zero malicious windows were found (0 malicious windows). If any window were tagged `MALICIOUS`, execution would immediately halt with a `DataLeakageError`.
    - Training/test partition disjointness was verified across all capture sets.
@@ -208,6 +208,7 @@ Below are the per-capture results from the canonical CTU-IDSEVAL-6 Kaggle evalua
 ### Capture 1: `ctu-idseval-6-malicious-portscan-1`
 - **Focus**: Targeted TCP port scan against isolated network services.
 - **Total Windows Generated**: 1
+- **Packet Ingestion**: 2,009 / 2,009 packets parsed successfully (0 parse failures).
 - **Ground Truth Composition**:
   - Malicious Windows: 1
   - Benign Windows: 0
@@ -227,6 +228,7 @@ Below are the per-capture results from the canonical CTU-IDSEVAL-6 Kaggle evalua
 ### Capture 2: `ctu-idseval-6-malicious-portscan-2`
 - **Focus**: Fast port sweep across specific destination ports.
 - **Total Windows Generated**: 1
+- **Packet Ingestion**: 206 / 206 packets parsed successfully (0 parse failures).
 - **Ground Truth Composition**:
   - Malicious Windows: 1
   - Benign Windows: 0
@@ -246,6 +248,7 @@ Below are the per-capture results from the canonical CTU-IDSEVAL-6 Kaggle evalua
 ### Capture 3: `ctu-idseval-6-malicious-portscan-3`
 - **Focus**: Multi-host horizontal port scan activity.
 - **Total Windows Generated**: 21
+- **Packet Ingestion**: 131,237 / 131,237 packets parsed successfully (0 parse failures).
 - **Ground Truth Composition**:
   - Malicious Windows: 21
   - Benign Windows: 0
