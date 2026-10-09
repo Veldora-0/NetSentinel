@@ -126,12 +126,12 @@ export function Overview() {
           return prev;
         });
       }
-      if (sumRes.status === 'fulfilled' && sumRes.value?.summary) setSummary(sumRes.value.summary);
-      if (incRes.status === 'fulfilled' && incRes.value?.incidents) setIncidents(incRes.value.incidents);
-      if (statsRes.status === 'fulfilled' && statsRes.value?.stats) setIncidentStats(statsRes.value.stats);
+      if (sumRes.status === 'fulfilled' && sumRes.value) setSummary(sumRes.value.summary || sumRes.value);
+      if (incRes.status === 'fulfilled' && incRes.value) setIncidents(incRes.value.incidents || (Array.isArray(incRes.value) ? incRes.value : []));
+      if (statsRes.status === 'fulfilled' && statsRes.value) setIncidentStats(statsRes.value.stats || statsRes.value);
       if (blockedRes.status === 'fulfilled' && Array.isArray(blockedRes.value)) setBlockedIPs(blockedRes.value);
-      if (risksRes.status === 'fulfilled' && risksRes.value?.assessments) setRecentRisks(risksRes.value.assessments);
-      if (riskStatsRes.status === 'fulfilled' && riskStatsRes.value?.stats) setRiskStats(riskStatsRes.value.stats);
+      if (risksRes.status === 'fulfilled' && risksRes.value) setRecentRisks(Array.isArray(risksRes.value) ? risksRes.value : (risksRes.value.assessments || []));
+      if (riskStatsRes.status === 'fulfilled' && riskStatsRes.value) setRiskStats(riskStatsRes.value.stats || riskStatsRes.value);
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
       if (telemRes.status === 'fulfilled' && telemRes.value?.telemetry) setTelemetry(telemRes.value.telemetry);
       if (telemHistRes.status === 'fulfilled' && telemHistRes.value?.history) {

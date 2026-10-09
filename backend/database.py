@@ -420,32 +420,32 @@ def save_security_event_record(event: Any) -> bool:
         if isinstance(event, dict):
             event_id = event.get("event_id") or str(uuid.uuid4())
             ts = float(event.get("timestamp", time.time()))
-            det_type = str(event.get("detection_type", "UNKNOWN"))
+            det_type = str(event.get("detection_type") or event.get("event_type") or "UNKNOWN")
             sev = str(event.get("severity", "LOW"))
             raw_src = event.get("source_ip")
-            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else "127.0.0.1"
+            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else ("127.0.0.1" if det_type != "ML_ANOMALY" else None)
             dst_ip = event.get("destination_ip")
             raw_proto = event.get("protocol")
             proto = str(raw_proto) if (raw_proto is not None and str(raw_proto).strip()) else None
             src_p = event.get("source_port")
             dst_p = event.get("destination_port")
             desc = event.get("description", "")
-            evidence_data = event.get("evidence", {})
+            evidence_data = event.get("evidence") or event.get("features") or {}
             rule_name = event.get("rule_name")
         else:
             event_id = getattr(event, "event_id", str(uuid.uuid4()))
             ts = float(getattr(event, "timestamp", time.time()))
-            det_type = str(getattr(event, "detection_type", "UNKNOWN"))
+            det_type = str(getattr(event, "detection_type", None) or getattr(event, "event_type", "UNKNOWN"))
             sev = str(getattr(event, "severity", "LOW"))
             raw_src = getattr(event, "source_ip", None)
-            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else "127.0.0.1"
+            src_ip = str(raw_src).strip() if (raw_src is not None and str(raw_src).strip()) else ("127.0.0.1" if det_type != "ML_ANOMALY" else None)
             dst_ip = getattr(event, "destination_ip", None)
             raw_proto = getattr(event, "protocol", None)
             proto = str(raw_proto) if (raw_proto is not None and str(raw_proto).strip()) else None
             src_p = getattr(event, "source_port", None)
             dst_p = getattr(event, "destination_port", None)
             desc = getattr(event, "description", "")
-            evidence_data = getattr(event, "evidence", {})
+            evidence_data = getattr(event, "evidence", None) or getattr(event, "features", {})
             rule_name = getattr(event, "rule_name", None)
 
         record = SecurityEventRecord(

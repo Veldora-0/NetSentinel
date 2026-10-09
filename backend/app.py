@@ -368,9 +368,27 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         try:
             with app.app_context():
                 save_security_event_record(event)
-                incident_manager.correlate_security_event(event)
+
+                assessment = None
+                if risk_engine:
+                    src_ip = getattr(event, "source_ip", None)
+                    dst_ip = getattr(event, "destination_ip", None)
+                    assessment = risk_engine.assess(
+                        source_ip=src_ip,
+                        destination_ip=dst_ip,
+                        rule_alerts=[],
+                        ml_anomaly_score=event.anomaly_score,
+                    )
+                    save_assessment_record(assessment)
+                    try:
+                        socketio.emit("risk_assessment", assessment.to_dict())
+                        socketio.emit("risk_status", risk_engine.get_stats())
+                    except Exception:
+                        pass
+
+                incident_manager.correlate_security_event(event, risk_assessment=assessment)
         except Exception as ex:
-            app.logger.debug("Error persisting ML anomaly: %s", ex)
+            app.logger.debug("Error in ML anomaly pipeline: %s", ex)
 
 
     ml_detector.add_anomaly_callback(_on_ml_anomaly)

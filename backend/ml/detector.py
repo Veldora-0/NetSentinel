@@ -34,6 +34,9 @@ class MLAnomalyEvent:
     features: Dict[str, float]
     model_status: str
     description: str
+    source_ip: Optional[str] = None
+    destination_ip: Optional[str] = None
+    detection_type: str = "ML_ANOMALY"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert dataclass to JSON-serializable dictionary."""
@@ -175,6 +178,8 @@ class MLAnomalyDetector:
                         # Cooldown check to avoid alert fatigue
                         if (now - self.last_alert_time) >= self.alert_cooldown_seconds:
                             self.last_alert_time = now
+                            top_src = getattr(self.window, "last_primary_source_ip", None)
+                            top_dst = getattr(self.window, "last_primary_destination_ip", None)
                             event = MLAnomalyEvent(
                                 event_id=uuid.uuid4().hex[:12],
                                 timestamp=now,
@@ -189,6 +194,9 @@ class MLAnomalyDetector:
                                     f"Anomalous traffic pattern detected: window score {norm_score:.4f} "
                                     f"(raw: {raw_score:+.4f}) deviates significantly from the learned baseline."
                                 ),
+                                source_ip=top_src,
+                                destination_ip=top_dst,
+                                detection_type="ML_ANOMALY",
                             )
                             self.anomaly_history.append(event)
 
@@ -240,11 +248,20 @@ class MLAnomalyDetector:
         """Return read-only current state summary for API and dashboard."""
         with self._lock:
             status_val = self.model.status.value
+            is_ready = (self.model.status == ModelStatus.READY)
+            training_count = getattr(self.model, "training_sample_count", 0)
+            collected_count = len(self.baseline_samples)
+            if is_ready and collected_count == 0:
+                collected_count = training_count or self.baseline_windows
+
             return {
                 "enabled": self.enabled,
                 "model_status": status_val,
-                "baseline_samples_collected": len(self.baseline_samples),
+                "model_ready": is_ready,
+                "baseline_established": is_ready,
+                "baseline_samples_collected": collected_count,
                 "baseline_target_samples": self.baseline_windows,
+                "training_sample_count": training_count,
                 "total_anomalies_detected": self.total_anomalies_detected,
                 "latest_prediction": self.latest_prediction,
                 "latest_anomaly_score": self.latest_anomaly_score,

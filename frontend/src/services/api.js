@@ -3,6 +3,28 @@
  * Interacts with the Flask backend API via relative endpoint paths (proxied by Vite).
  */
 
+export function getAuthHeaders(customHeaders = {}) {
+  const headers = { 'Accept': 'application/json', ...customHeaders };
+  try {
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('netsentinel_token') ||
+      sessionStorage.getItem('token');
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+  return headers;
+}
+
+export async function authFetch(url, options = {}) {
+  const customHeaders = options.headers || {};
+  const headers = getAuthHeaders(customHeaders);
+  return fetch(url, { ...options, headers });
+}
+
 async function parseResponseOrError(response) {
   let data = null;
   try {
@@ -25,7 +47,7 @@ async function parseResponseOrError(response) {
 
 export async function checkBackendHealth() {
   try {
-    const response = await fetch('/api/health', {
+    const response = await authFetch('/api/health', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -44,7 +66,7 @@ export async function checkBackendHealth() {
 
 export async function fetchTrafficMetrics() {
   try {
-    const response = await fetch('/api/metrics', {
+    const response = await authFetch('/api/metrics', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -56,7 +78,7 @@ export async function fetchTrafficMetrics() {
 
 export async function fetchSecurityAlerts(limit = 50) {
   try {
-    const response = await fetch(`/api/alerts?limit=${limit}`, {
+    const response = await authFetch(`/api/alerts?limit=${limit}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -69,7 +91,7 @@ export async function fetchSecurityAlerts(limit = 50) {
 
 export async function fetchMLStatus() {
   try {
-    const response = await fetch('/api/ml/status', {
+    const response = await authFetch('/api/ml/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -81,7 +103,7 @@ export async function fetchMLStatus() {
 
 export async function fetchMLMetrics() {
   try {
-    const response = await fetch('/api/ml/metrics', {
+    const response = await authFetch('/api/ml/metrics', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -93,7 +115,7 @@ export async function fetchMLMetrics() {
 
 export async function fetchRecentRisks(limit = 20) {
   try {
-    const response = await fetch(`/api/risk/recent?limit=${limit}`, {
+    const response = await authFetch(`/api/risk/recent?limit=${limit}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -106,7 +128,7 @@ export async function fetchRecentRisks(limit = 20) {
 
 export async function fetchRiskStats() {
   try {
-    const response = await fetch('/api/risk/stats', {
+    const response = await authFetch('/api/risk/stats', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -119,7 +141,7 @@ export async function fetchRiskStats() {
 
 export async function fetchFirewallStatus() {
   try {
-    const response = await fetch('/api/firewall/status', {
+    const response = await authFetch('/api/firewall/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -132,7 +154,7 @@ export async function fetchFirewallStatus() {
 
 export async function fetchBlockedIPs() {
   try {
-    const response = await fetch('/api/firewall/blocked', {
+    const response = await authFetch('/api/firewall/blocked', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -145,7 +167,7 @@ export async function fetchBlockedIPs() {
 
 export async function manualBlockIP(ip, reason = 'Operator Manual Block', duration = 300) {
   try {
-    const response = await fetch('/api/firewall/block', {
+    const response = await authFetch('/api/firewall/block', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ ip, reason: reason || 'Operator Manual Block', duration: Number(duration) || 300 }),
@@ -158,7 +180,7 @@ export async function manualBlockIP(ip, reason = 'Operator Manual Block', durati
 
 export async function manualUnblockIP(ip) {
   try {
-    const response = await fetch('/api/firewall/unblock', {
+    const response = await authFetch('/api/firewall/unblock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ ip }),
@@ -184,7 +206,7 @@ export async function fetchSecurityEvents(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/events?${qs}` : '/api/events';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -206,7 +228,7 @@ export async function fetchRiskHistory(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/risk/history?${qs}` : '/api/risk/history';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -219,7 +241,7 @@ export async function fetchRiskHistory(params = {}) {
 export async function fetchSecuritySummary(since = null) {
   try {
     const url = since ? `/api/security/summary?since=${since}` : '/api/security/summary';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -232,7 +254,7 @@ export async function fetchSecuritySummary(since = null) {
 
 export async function fetchTelemetryCurrent() {
   try {
-    const response = await fetch('/api/telemetry/current', {
+    const response = await authFetch('/api/telemetry/current', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -252,7 +274,7 @@ export async function fetchTelemetryHistory(limit = 60, since = null, until = nu
 
     const qs = query.toString();
     const url = qs ? `/api/telemetry/history?${qs}` : '/api/telemetry/history';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -267,7 +289,7 @@ export async function fetchTelemetryHistory(limit = 60, since = null, until = nu
 
 export async function fetchHostStatus() {
   try {
-    const response = await fetch('/api/host/status', {
+    const response = await authFetch('/api/host/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -291,7 +313,7 @@ export async function fetchHostEvents(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/host/events?${qs}` : '/api/host/events';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -305,7 +327,7 @@ export async function fetchHostEvents(params = {}) {
 
 export async function fetchNetworkStatus() {
   try {
-    const response = await fetch('/api/network/status', {
+    const response = await authFetch('/api/network/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -317,7 +339,7 @@ export async function fetchNetworkStatus() {
 
 export async function fetchARPMappings(limit = 100) {
   try {
-    const response = await fetch(`/api/network/arp?limit=${limit}`, {
+    const response = await authFetch(`/api/network/arp?limit=${limit}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -343,7 +365,7 @@ export async function fetchIncidents(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/incidents?${qs}` : '/api/incidents';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -356,7 +378,7 @@ export async function fetchIncidents(params = {}) {
 export async function fetchIncidentStats(since = null) {
   try {
     const url = since ? `/api/incidents/stats?since=${since}` : '/api/incidents/stats';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -370,7 +392,7 @@ export async function fetchIncidentStats(since = null) {
 export async function fetchIncidentDetail(incidentId) {
   if (!incidentId) return null;
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -384,7 +406,7 @@ export async function fetchIncidentDetail(incidentId) {
 export async function fetchIncidentTimeline(incidentId) {
   if (!incidentId) return [];
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/timeline`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/timeline`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -398,7 +420,7 @@ export async function fetchIncidentTimeline(incidentId) {
 export async function fetchIncidentSummary(incidentId) {
   if (!incidentId) return null;
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/summary`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/summary`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -411,7 +433,7 @@ export async function fetchIncidentSummary(incidentId) {
 
 export async function updateIncidentStatus(incidentId, status, analystNote = '', resolution = '') {
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/status`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ status, analyst_note: analystNote, resolution }),
@@ -424,7 +446,7 @@ export async function updateIncidentStatus(incidentId, status, analystNote = '',
 
 export async function acknowledgeIncident(incidentId, analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/acknowledge`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ analyst_note: analystNote }),
@@ -437,7 +459,7 @@ export async function acknowledgeIncident(incidentId, analystNote = '') {
 
 export async function resolveIncident(incidentId, resolution = '', analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/resolve`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ resolution, analyst_note: analystNote }),
@@ -450,7 +472,7 @@ export async function resolveIncident(incidentId, resolution = '', analystNote =
 
 export async function closeIncident(incidentId, resolution = '', analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/close`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ resolution, analyst_note: analystNote }),
@@ -463,7 +485,7 @@ export async function closeIncident(incidentId, resolution = '', analystNote = '
 
 export async function reopenIncident(incidentId, analystNote = '') {
   try {
-    const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/reopen`, {
+    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/reopen`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ analyst_note: analystNote }),
@@ -478,7 +500,7 @@ export async function reopenIncident(incidentId, analystNote = '') {
 
 export async function fetchFimStatus() {
   try {
-    const response = await fetch('/api/fim/status', {
+    const response = await authFetch('/api/fim/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -500,7 +522,7 @@ export async function fetchFimEvents(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/fim/events?${qs}` : '/api/fim/events';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -520,7 +542,7 @@ export async function fetchFimBaseline(params = {}) {
 
     const qs = query.toString();
     const url = qs ? `/api/fim/baseline?${qs}` : '/api/fim/baseline';
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -532,7 +554,7 @@ export async function fetchFimBaseline(params = {}) {
 
 export async function triggerFimRebaseline(paths = null) {
   try {
-    const response = await fetch('/api/fim/rebaseline', {
+    const response = await authFetch('/api/fim/rebaseline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(paths ? { paths } : {}),
@@ -549,7 +571,7 @@ export async function triggerFimRebaseline(paths = null) {
 
 export async function fetchThreatIntelStatus() {
   try {
-    const response = await fetch('/api/threat-intel/status', {
+    const response = await authFetch('/api/threat-intel/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -563,7 +585,7 @@ export async function fetchThreatIntelStatus() {
 export async function fetchThreatIntelIP(ip) {
   if (!ip) return null;
   try {
-    const response = await fetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}`, {
+    const response = await authFetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -576,7 +598,7 @@ export async function fetchThreatIntelIP(ip) {
 export async function requestThreatIntelLookup(ip) {
   if (!ip) return { status: 'error', message: 'No IP provided' };
   try {
-    const response = await fetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}/lookup`, {
+    const response = await authFetch(`/api/threat-intel/ip/${encodeURIComponent(ip)}/lookup`, {
       method: 'POST',
       headers: { 'Accept': 'application/json' },
     });
@@ -593,7 +615,7 @@ export async function requestThreatIntelLookup(ip) {
 
 export async function fetchReadiness() {
   try {
-    const response = await fetch('/api/ready', {
+    const response = await authFetch('/api/ready', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });
@@ -610,7 +632,7 @@ export async function fetchReadiness() {
 
 export async function fetchSystemStatus() {
   try {
-    const response = await fetch('/api/system/status', {
+    const response = await authFetch('/api/system/status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     });

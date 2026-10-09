@@ -72,9 +72,15 @@ export function Detection() {
 
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
       if (mlMetRes.status === 'fulfilled' && mlMetRes.value) setMlMetrics(mlMetRes.value);
-      if (risksRes.status === 'fulfilled' && risksRes.value?.assessments) setRecentRisks(risksRes.value.assessments);
-      if (riskStatRes.status === 'fulfilled' && riskStatRes.value?.stats) setRiskStats(riskStatRes.value.stats);
-      if (sumRes.status === 'fulfilled' && sumRes.value?.summary) setSummary(sumRes.value.summary);
+      if (risksRes.status === 'fulfilled' && risksRes.value) {
+        setRecentRisks(Array.isArray(risksRes.value) ? risksRes.value : (risksRes.value.assessments || []));
+      }
+      if (riskStatRes.status === 'fulfilled' && riskStatRes.value) {
+        setRiskStats(riskStatRes.value.stats || riskStatRes.value);
+      }
+      if (sumRes.status === 'fulfilled' && sumRes.value) {
+        setSummary(sumRes.value.summary || sumRes.value);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load detection and risk data');
     } finally {
@@ -181,7 +187,11 @@ export function Detection() {
         <MetricCard
           title="Isolation Forest Model"
           value={isModelReady ? 'MODEL READY' : isCollecting ? 'COLLECTING' : 'INITIALIZING'}
-          subtext={`Baseline: ${mlStatus?.baseline_samples_collected ?? mlStatus?.windows_collected ?? 0} / ${mlStatus?.baseline_target_samples ?? mlStatus?.baseline_windows_target ?? 10} samples`}
+          subtext={
+            isModelReady
+              ? `Baseline: ${mlStatus?.training_sample_count || mlStatus?.baseline_samples_collected || 10} / ${mlStatus?.baseline_target_samples || 10} samples (Active)`
+              : `Baseline: ${mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_target_samples ?? 10} samples`
+          }
           icon={Brain}
           badge={
             <StatusBadge

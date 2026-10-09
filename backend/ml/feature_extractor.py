@@ -118,6 +118,8 @@ class TrafficWindow:
         self._lock = threading.Lock()
         self._packets: List[ParsedPacket] = []
         self._window_start = time.time()
+        self.last_primary_source_ip: Optional[str] = None
+        self.last_primary_destination_ip: Optional[str] = None
 
     def add_packet(self, packet: ParsedPacket) -> None:
         """Add a parsed packet to the current window buffer."""
@@ -149,6 +151,23 @@ class TrafficWindow:
             self._packets = []
             elapsed = now - self._window_start
             self._window_start = now
+
+        top_src: Optional[str] = None
+        top_dst: Optional[str] = None
+        if pkts:
+            src_counts: Dict[str, int] = {}
+            dst_counts: Dict[str, int] = {}
+            for p in pkts:
+                if p.src_ip:
+                    src_counts[p.src_ip] = src_counts.get(p.src_ip, 0) + 1
+                if p.dst_ip:
+                    dst_counts[p.dst_ip] = dst_counts.get(p.dst_ip, 0) + 1
+            if src_counts:
+                top_src = max(src_counts, key=src_counts.get)
+            if dst_counts:
+                top_dst = max(dst_counts, key=dst_counts.get)
+        self.last_primary_source_ip = top_src
+        self.last_primary_destination_ip = top_dst
 
         duration = custom_duration if custom_duration is not None else max(self.window_seconds, elapsed)
         vec, f_dict = extract_features_from_window(pkts, duration)

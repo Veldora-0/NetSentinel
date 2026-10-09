@@ -234,12 +234,12 @@ class IncidentManager:
         """
         if isinstance(event_or_data, dict):
             src_ip = event_or_data.get("source_ip")
-            det_type = str(event_or_data.get("detection_type", "")).upper()
-            evidence = event_or_data.get("evidence", {})
+            det_type = str(event_or_data.get("detection_type") or event_or_data.get("event_type") or "").upper()
+            evidence = event_or_data.get("evidence") or event_or_data.get("features") or {}
         else:
             src_ip = getattr(event_or_data, "source_ip", None)
-            det_type = str(getattr(event_or_data, "detection_type", "")).upper()
-            evidence = getattr(event_or_data, "evidence", {})
+            det_type = str(getattr(event_or_data, "detection_type", None) or getattr(event_or_data, "event_type", "")).upper()
+            evidence = getattr(event_or_data, "evidence", None) or getattr(event_or_data, "features", {})
 
         src_ip_str = str(src_ip).strip() if (src_ip is not None and str(src_ip).strip()) else None
 
@@ -275,17 +275,17 @@ class IncidentManager:
             if isinstance(event, dict):
                 ev_id = event.get("event_id") or str(uuid.uuid4())
                 ev_ts = float(event.get("timestamp", time.time()))
-                det_type = str(event.get("detection_type", "UNKNOWN")).upper()
+                det_type = str(event.get("detection_type") or event.get("event_type") or "UNKNOWN").upper()
                 sev = str(event.get("severity", "LOW")).upper()
                 desc = str(event.get("description", ""))
-                ev_meta = event.get("evidence", {})
+                ev_meta = event.get("evidence") or event.get("features") or {}
             else:
                 ev_id = getattr(event, "event_id", str(uuid.uuid4()))
                 ev_ts = float(getattr(event, "timestamp", time.time()))
-                det_type = str(getattr(event, "detection_type", "UNKNOWN")).upper()
+                det_type = str(getattr(event, "detection_type", None) or getattr(event, "event_type", "UNKNOWN")).upper()
                 sev = str(getattr(event, "severity", "LOW")).upper()
                 desc = getattr(event, "description", "")
-                ev_meta = getattr(event, "evidence", {})
+                ev_meta = getattr(event, "evidence", None) or getattr(event, "features", {})
 
             corr_key, primary_src = self.resolve_correlation_key(event)
 
