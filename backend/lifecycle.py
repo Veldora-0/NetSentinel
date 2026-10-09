@@ -64,6 +64,8 @@ class WorkerRecord:
                 return STATUS_STOPPED
             if inst_status in ("permission_denied", "error"):
                 return STATUS_DEGRADED if self.is_optional else STATUS_FAILED
+            if inst_status == "starting":
+                return STATUS_HEALTHY
 
         # Check for thread failure if instance manages a thread
         thread_obj = None
@@ -75,8 +77,10 @@ class WorkerRecord:
                         thread_obj = t
                         break
 
-        if thread_obj and not thread_obj.is_alive() and self.instance and getattr(self.instance, "_running", False):
-            return STATUS_FAILED
+        if thread_obj and not thread_obj.is_alive() and self.instance:
+            inst_st = str(getattr(self.instance, "status", "")).lower()
+            if getattr(self.instance, "_running", False) or inst_st == "running":
+                return STATUS_FAILED
 
         # Check for stale heartbeat
         now = time.time()

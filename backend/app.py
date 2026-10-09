@@ -111,16 +111,33 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     app_start_time = app.start_time
 
     # 4. CORS Hardening
-    cors_origins = app.config.get("CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173"])
+    cors_origins = app.config.get("CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173", "http://10.0.2.3:5173"])
     if isinstance(cors_origins, str):
         cors_origins = [x.strip() for x in cors_origins.split(",") if x.strip()]
+    elif isinstance(cors_origins, (list, tuple, set)):
+        cors_origins = list(cors_origins)
+
+    # Automatically ensure active interface IPv4 addresses on port 5173 are included if not already present
+    try:
+        import psutil
+        for iface_name, addrs in psutil.net_if_addrs().items():
+            for addr in addrs:
+                if getattr(addr, "family", None) == socket.AF_INET:
+                    ip = addr.address
+                    if ip and not ip.startswith("127."):
+                        dev_origin = f"http://{ip}:5173"
+                        if dev_origin not in cors_origins:
+                            cors_origins.append(dev_origin)
+    except Exception:
+        pass
+
     socket_cors = "*" if "*" in cors_origins else cors_origins
     CORS(app, resources={r"/api/*": {"origins": cors_origins}, r"/socket.io/*": {"origins": socket_cors}})
 
     # 5. Initialize Security Middleware (Request correlation, rate limiting, security headers, error normalization)
     security_mw = SecurityMiddleware(
         app=app,
-        rate_limit=app.config.get("API_RATE_LIMIT", 60),
+        rate_limit=app.config.get("API_RATE_LIMIT", 240),
         sensitive_rate_limit=app.config.get("SENSITIVE_RATE_LIMIT", 10),
         enable_rate_limiting=not app.config.get("TESTING", False),
     )
@@ -376,8 +393,9 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     arp_detector.add_event_callback(_on_security_event)
 
     # 6. Resolve network interface & initialize PacketCapture
-    active_iface = resolve_network_interface(app.config.get("NETWORK_INTERFACE"))
-    packet_capture = PacketCapture(interface=active_iface)
+    configured_iface = app.config.get("NETWORK_INTERFACE")
+    active_iface = resolve_network_interface(configured_iface)
+    packet_capture = PacketCapture(interface=active_iface, configured_interface=configured_iface)
     app.packet_capture = packet_capture
 
     # Connect rule detector, ML detector, and ARP detector as observers to the single raw packet stream
@@ -492,8 +510,9 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         db_health = check_database_health()
         fw_cap_status = check_firewall_capabilities(firewall) if firewall else {"capable": False, "mode": "disabled"}
 
-        capture_status = packet_capture.status if packet_capture else "stopped"
-        capture_err = packet_capture.error_message if packet_capture else None
+        capture_metrics = packet_capture.get_metrics() if packet_capture else {}
+        capture_status = capture_metrics.get("status", "stopped")
+        capture_err = capture_metrics.get("error", None)
 
         diagnostics = {
             "status": "ok",
@@ -514,8 +533,12 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             },
             "packet_capture": {
                 "status": capture_status,
-                "interface": packet_capture.interface if packet_capture else "none",
+                "interface": capture_metrics.get("interface", "none"),
+                "configured_interface": capture_metrics.get("configured_interface", "none"),
+                "actual_interface": capture_metrics.get("actual_interface", None),
+                "socket_state": capture_metrics.get("socket_state", "CLOSED"),
                 "error": capture_err,
+                "total_packets": capture_metrics.get("total_packets", 0),
             },
             "workers": lifecycle_manager.get_all_worker_statuses() if lifecycle_manager else {},
             "configuration": Config.get_redacted_dict() if hasattr(Config, "get_redacted_dict") else {},
@@ -735,6 +758,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 "icmp_sweep": icmp_status,
                 "thresholds": thresholds,
             },
+            "capture": metrics,
             "arp": arp_status,
             "icmp_sweep": icmp_status,
         }), 200
@@ -1326,6 +1350,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 if lifecycle_manager.shutdown_event.is_set():
                     break
                 try:
+                    if packet_capture and packet_capture.runtime_status == "running":
+                        lifecycle_manager.record_heartbeat("packet_capture")
                     metrics = packet_capture.get_metrics()
                     socketio.emit("traffic_metrics", metrics)
                 except Exception:

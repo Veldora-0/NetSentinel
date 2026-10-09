@@ -27,7 +27,7 @@ class InMemoryRateLimiter:
 
     def __init__(
         self,
-        default_limit: int = 60,
+        default_limit: int = 240,
         sensitive_limit: int = 10,
         window_sec: float = 60.0,
         max_requests: Optional[int] = None,
@@ -116,7 +116,7 @@ class SecurityMiddleware:
     def __init__(
         self,
         app: Flask,
-        rate_limit: int = 60,
+        rate_limit: int = 240,
         sensitive_rate_limit: int = 10,
         enable_rate_limiting: bool = True,
     ):

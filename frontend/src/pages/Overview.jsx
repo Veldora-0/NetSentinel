@@ -88,7 +88,6 @@ export function Overview() {
     setError(null);
     try {
       const [
-        readyRes,
         trafficRes,
         sumRes,
         incRes,
@@ -100,7 +99,6 @@ export function Overview() {
         telemRes,
         telemHistRes,
       ] = await Promise.allSettled([
-        fetchReadiness(),
         fetchTrafficMetrics(),
         fetchSecuritySummary(),
         fetchIncidents({ limit: 5 }),
@@ -113,7 +111,6 @@ export function Overview() {
         fetchTelemetryHistory(20),
       ]);
 
-      if (readyRes.status === 'fulfilled' && readyRes.value) setReadiness(readyRes.value);
       if (trafficRes.status === 'fulfilled' && trafficRes.value) {
         setTrafficMetrics(trafficRes.value);
         // Seed first history point if empty
@@ -155,7 +152,7 @@ export function Overview() {
 
   useEffect(() => {
     loadOverviewData();
-    const interval = setInterval(loadOverviewData, 15000);
+    const interval = setInterval(loadOverviewData, 20000);
     return () => clearInterval(interval);
   }, [loadOverviewData]);
 

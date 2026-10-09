@@ -59,28 +59,43 @@ export function Network() {
   const loadNetworkData = useCallback(async () => {
     setError(null);
     try {
-      const [metricsRes, netStatusRes, arpRes, alertsRes] = await Promise.allSettled([
-        fetchTrafficMetrics(),
+      const [netStatusRes, arpRes, alertsRes] = await Promise.allSettled([
         fetchNetworkStatus(),
         fetchARPMappings(100),
         fetchSecurityAlerts(50),
       ]);
 
-      if (metricsRes.status === 'fulfilled' && metricsRes.value) {
-        setTrafficMetrics(metricsRes.value);
+      let captureData = null;
+      if (netStatusRes.status === 'fulfilled' && netStatusRes.value) {
+        const net = netStatusRes.value.network || netStatusRes.value;
+        if (netStatusRes.value.network) setNetworkStatus(netStatusRes.value.network);
+        captureData = net?.capture || netStatusRes.value.capture || null;
+      }
+
+      // Fallback to fetchTrafficMetrics only if network status did not provide capture payload
+      if (!captureData) {
+        try {
+          captureData = await fetchTrafficMetrics();
+        } catch {
+          // ignore fallback error
+        }
+      }
+
+      if (captureData) {
+        setTrafficMetrics(captureData);
         setTrafficHistory((prev) => {
           if (prev.length === 0) {
             const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             return [{
               time: nowStr,
-              pps: safeNumber(metricsRes.value.current_pps ?? metricsRes.value.packets_per_sec, 0),
-              bps: safeNumber(metricsRes.value.current_bps ?? metricsRes.value.bytes_per_sec, 0),
+              pps: safeNumber(captureData.current_pps ?? captureData.packets_per_sec, 0),
+              bps: safeNumber(captureData.current_bps ?? captureData.bytes_per_sec, 0),
             }];
           }
           return prev;
         });
       }
-      if (netStatusRes.status === 'fulfilled' && netStatusRes.value?.network) setNetworkStatus(netStatusRes.value.network);
+
       if (arpRes.status === 'fulfilled' && arpRes.value?.mappings) setArpMappings(arpRes.value.mappings);
       if (alertsRes.status === 'fulfilled' && Array.isArray(alertsRes.value)) setAlerts(alertsRes.value);
     } catch (err) {
@@ -92,7 +107,7 @@ export function Network() {
 
   useEffect(() => {
     loadNetworkData();
-    const interval = setInterval(loadNetworkData, 12000);
+    const interval = setInterval(loadNetworkData, 15000);
     return () => clearInterval(interval);
   }, [loadNetworkData]);
 
@@ -114,7 +129,10 @@ export function Network() {
   });
 
   useSocketEvent('network_status', (data) => {
-    if (data) setNetworkStatus(data);
+    if (data) {
+      setNetworkStatus(data);
+      if (data.capture) setTrafficMetrics(data.capture);
+    }
   });
 
   useSocketEvent('security_event', (event) => {
@@ -123,8 +141,31 @@ export function Network() {
     }
   });
 
-  const isCaptureRunning = trafficMetrics?.status === 'running';
-  const isPermissionDenied = trafficMetrics?.status === 'permission_denied';
+  const activeInterface =
+    trafficMetrics?.actual_interface ||
+    trafficMetrics?.interface ||
+    trafficMetrics?.configured_interface ||
+    networkStatus?.capture?.actual_interface ||
+    networkStatus?.capture?.interface ||
+    networkStatus?.capture?.configured_interface ||
+    'Unavailable';
+
+  const currentStatus = trafficMetrics?.status || networkStatus?.capture?.status || 'stopped';
+  const isCaptureRunning = currentStatus === 'running';
+  const isPermissionDenied = currentStatus === 'permission_denied';
+  const isCaptureError = currentStatus === 'error';
+
+  const socketState =
+    trafficMetrics?.socket_state ||
+    networkStatus?.capture?.socket_state ||
+    (isCaptureRunning ? 'OPEN' : isPermissionDenied ? 'PERMISSION_DENIED' : isCaptureError ? 'ERROR' : 'CLOSED');
+
+  const captureErrorMsg =
+    trafficMetrics?.error ||
+    trafficMetrics?.last_error ||
+    networkStatus?.capture?.error ||
+    networkStatus?.capture?.last_error ||
+    null;
 
   // Real protocol distribution breakdown
   const protocolData = [
@@ -161,23 +202,30 @@ export function Network() {
 
       {error && <ErrorState message={error} onRetry={loadNetworkData} />}
 
+      {captureErrorMsg && !isCaptureRunning && (
+        <div className="alert-banner warning" style={{ marginBottom: '1.25rem', padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderRadius: '6px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#eab308' }}>
+          <AlertTriangle size={18} />
+          <span><strong>Capture Subsystem:</strong> {captureErrorMsg}</span>
+        </div>
+      )}
+
       {/* Network KPI Cards */}
       <div className="metric-cards-grid">
         <MetricCard
           title="Capture Interface"
-          value={trafficMetrics?.interface || 'eth0'}
-          subtext={`Socket State: ${trafficMetrics?.status?.toUpperCase() || 'UNKNOWN'}`}
+          value={activeInterface}
+          subtext={`Socket State: ${socketState}`}
           icon={Radio}
           badge={
-            <span className={`badge ${isCaptureRunning ? 'badge-success' : isPermissionDenied ? 'badge-warning' : 'badge-danger'}`}>
-              {isCaptureRunning ? 'RUNNING' : isPermissionDenied ? 'PERM DENIED' : 'STOPPED'}
+            <span className={`badge ${isCaptureRunning ? 'badge-success' : isPermissionDenied ? 'badge-warning' : isCaptureError ? 'badge-critical' : 'badge-danger'}`}>
+              {isCaptureRunning ? 'RUNNING' : isPermissionDenied ? 'PERM DENIED' : isCaptureError ? 'ERROR' : 'STOPPED'}
             </span>
           }
         />
         <MetricCard
           title="Packet Ingestion Rate"
-          value={`${formatNumber(trafficMetrics?.current_pps ?? trafficMetrics?.packets_per_sec ?? 0, 0)} pps`}
-          subtext={`Total Frames: ${formatNumber(trafficMetrics?.total_packets || 0)}`}
+          value={`${formatNumber(trafficMetrics?.current_pps ?? trafficMetrics?.packets_per_sec ?? networkStatus?.capture?.current_pps ?? networkStatus?.capture?.packets_per_sec ?? 0, 0)} pps`}
+          subtext={`Total Frames: ${formatNumber(trafficMetrics?.total_packets ?? trafficMetrics?.total_frames ?? networkStatus?.capture?.total_packets ?? 0)}`}
           icon={Activity}
         />
         <MetricCard
