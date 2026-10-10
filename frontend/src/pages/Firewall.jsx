@@ -25,8 +25,12 @@ import {
   manualUnblockIP,
 } from '../services/api';
 import { formatNumber, formatFullTime, formatAlertTime } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 export default function Firewall() {
+  const { hasPermission } = useAuth();
+  const canManageFirewall = hasPermission('manage:firewall');
+
   const [firewallStatus, setFirewallStatus] = useState(null);
   const [blockedIPs, setBlockedIPs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -222,8 +226,25 @@ export default function Firewall() {
         </div>
       )}
 
-      {/* Manual IP Quarantine Form */}
+      {/* Manual IP Quarantine Control */}
       <DashboardCard title="Manual IP Quarantine Control" icon={PlusCircle}>
+        {!canManageFirewall && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 0.75rem',
+            marginBottom: '0.75rem',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(148, 163, 184, 0.1)',
+            border: '1px solid rgba(148, 163, 184, 0.2)',
+            color: '#94a3b8',
+            fontSize: '0.78rem',
+          }}>
+            <Info size={14} style={{ color: '#38bdf8', flexShrink: 0 }} />
+            <span>Read-only: Modifying firewall mitigation rules requires Administrator role (<code>manage:firewall</code>).</span>
+          </div>
+        )}
         <form onSubmit={handleManualBlock} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
             <div>
@@ -234,10 +255,10 @@ export default function Firewall() {
                 type="text"
                 className="ti-search-input"
                 style={{ width: '100%' }}
-                placeholder="e.g. 198.51.100.12 or 10.0.0.99"
+                placeholder={canManageFirewall ? "e.g. 198.51.100.12 or 10.0.0.99" : "Requires Administrator role"}
                 value={targetIP}
                 onChange={(e) => setTargetIP(e.target.value)}
-                disabled={actionLoading}
+                disabled={actionLoading || !canManageFirewall}
               />
             </div>
 
@@ -252,7 +273,7 @@ export default function Firewall() {
                 placeholder="Reason for blocking..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                disabled={actionLoading}
+                disabled={actionLoading || !canManageFirewall}
               />
             </div>
 
@@ -265,7 +286,7 @@ export default function Firewall() {
                 style={{ width: '100%', height: '36px' }}
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                disabled={actionLoading}
+                disabled={actionLoading || !canManageFirewall}
               >
                 <option value="60">1 Minute (Test)</option>
                 <option value="300">5 Minutes (Default)</option>
@@ -281,8 +302,14 @@ export default function Firewall() {
             <button
               type="submit"
               className="ti-btn-primary"
-              disabled={actionLoading || !targetIP.trim()}
-              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+              disabled={actionLoading || !targetIP.trim() || !canManageFirewall}
+              style={{
+                backgroundColor: canManageFirewall ? '#ef4444' : '#475569',
+                borderColor: canManageFirewall ? '#ef4444' : '#475569',
+                cursor: canManageFirewall ? 'pointer' : 'not-allowed',
+                opacity: canManageFirewall ? 1 : 0.6,
+              }}
+              title={canManageFirewall ? "Quarantine / Block IP" : "Requires Administrator role (manage:firewall)"}
             >
               <Lock size={14} style={{ marginRight: '0.35rem' }} />
               {actionLoading ? 'Applying...' : 'Quarantine / Block IP'}
@@ -335,9 +362,10 @@ export default function Firewall() {
                     <td>
                       <button
                         className="btn-unblock"
-                        disabled={actionLoading}
+                        disabled={actionLoading || !canManageFirewall}
                         onClick={() => handleUnblock(blk.ip)}
-                        title="Remove mitigation rule"
+                        title={canManageFirewall ? "Remove mitigation rule" : "Requires Administrator role (manage:firewall)"}
+                        style={!canManageFirewall ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                       >
                         <Unlock size={12} style={{ marginRight: '0.25rem' }} />
                         Unblock

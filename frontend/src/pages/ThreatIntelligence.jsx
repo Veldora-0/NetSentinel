@@ -29,6 +29,7 @@ import {
   formatConfidence,
   getReputationBadgeClass,
 } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 // Helper to check if an IPv4 address is private or loopback
 function isPrivateOrLoopbackIP(ip) {
@@ -48,6 +49,9 @@ function isPrivateOrLoopbackIP(ip) {
 }
 
 export default function ThreatIntelligence() {
+  const { hasPermission } = useAuth();
+  const canQueryTI = hasPermission('query:threat_intel');
+
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -334,7 +338,9 @@ export default function ThreatIntelligence() {
                 type="button"
                 className="ti-btn-primary"
                 onClick={handleLookup}
-                disabled={lookupLoading || !queryIP.trim()}
+                disabled={lookupLoading || !queryIP.trim() || !canQueryTI}
+                style={!canQueryTI ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                title={canQueryTI ? "Check indicator reputation" : "On-demand reputation lookups require Analyst or Administrator role (query:threat_intel)"}
               >
                 {lookupLoading ? 'Checking...' : 'Check Reputation'}
               </button>

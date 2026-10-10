@@ -45,8 +45,12 @@ import {
   formatFullTime,
   getRiskBadgeClass,
 } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 export default function HostSecurity() {
+  const { hasPermission } = useAuth();
+  const canManageFim = hasPermission('manage:fim');
+
   const [hostStatus, setHostStatus] = useState(null);
   const [hostTelemetry, setHostTelemetry] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState([]);
@@ -462,10 +466,17 @@ export default function HostSecurity() {
             </span>
             <button
               className="btn-refresh"
-              style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.3rem 0.6rem',
+                borderColor: canManageFim ? 'var(--accent-blue)' : 'var(--border-color)',
+                color: canManageFim ? 'var(--accent-blue)' : 'var(--text-muted)',
+                opacity: canManageFim ? 1 : 0.5,
+                cursor: canManageFim ? 'pointer' : 'not-allowed',
+              }}
               onClick={() => setShowRebaselineConfirm(true)}
-              disabled={rebaselining}
-              title="Rebuild Cryptographic Baseline"
+              disabled={rebaselining || !canManageFim}
+              title={canManageFim ? "Rebuild Cryptographic Baseline" : "Re-baselining requires Administrator role (manage:fim)"}
             >
               <CheckCircle2 size={13} /> {rebaselining ? 'Re-baselining...' : 'Re-baseline All'}
             </button>

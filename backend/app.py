@@ -261,8 +261,20 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     threat_intel_service.on_intel_updated = _on_threat_intel_updated
 
+    # Wire periodic worker activity callbacks to lifecycle heartbeats
+    if hasattr(ml_detector, "set_heartbeat_callback"):
+        ml_detector.set_heartbeat_callback(lambda: lifecycle_manager.record_heartbeat("ml_detector"))
+    if hasattr(telemetry_worker, "set_heartbeat_callback"):
+        telemetry_worker.set_heartbeat_callback(lambda: lifecycle_manager.record_heartbeat("telemetry"))
+    if hasattr(host_manager, "set_heartbeat_callback"):
+        host_manager.set_heartbeat_callback(lambda: lifecycle_manager.record_heartbeat("host_manager"))
+
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
+        try:
+            lifecycle_manager.record_heartbeat("detector")
+        except Exception:
+            pass
         try:
             socketio.emit("security_event", event.to_dict())
         except Exception:
@@ -294,7 +306,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     ml_anomaly_score=ml_score,
                     ti_summary=ti_summary,
                 )
-
+                if lifecycle_manager:
+                    lifecycle_manager.record_heartbeat("risk_engine")
 
                 # Automated firewall mitigation if conditions are met
                 if (
@@ -352,6 +365,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
                 # Phase 9: Correlate into Incident
                 incident_manager.correlate_security_event(event, risk_assessment=assessment)
+                if lifecycle_manager:
+                    lifecycle_manager.record_heartbeat("incident_manager")
 
         except Exception as ex:
             app.logger.debug("Error in risk assessment/incident pipeline: %s", ex)
@@ -379,6 +394,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                         rule_alerts=[],
                         ml_anomaly_score=event.anomaly_score,
                     )
+                    if lifecycle_manager:
+                        lifecycle_manager.record_heartbeat("risk_engine")
                     save_assessment_record(assessment)
                     try:
                         socketio.emit("risk_assessment", assessment.to_dict())
@@ -387,6 +404,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                         pass
 
                 incident_manager.correlate_security_event(event, risk_assessment=assessment)
+                if lifecycle_manager:
+                    lifecycle_manager.record_heartbeat("incident_manager")
         except Exception as ex:
             app.logger.debug("Error in ML anomaly pipeline: %s", ex)
 
@@ -417,9 +436,108 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     app.packet_capture = packet_capture
 
     # Connect rule detector, ML detector, and ARP detector as observers to the single raw packet stream
-    packet_capture.add_packet_callback(detector.analyze_packet)
-    packet_capture.add_packet_callback(ml_detector.process_packet)
-    packet_capture.add_packet_callback(arp_detector.process_packet)
+    def _on_capture_packet(pkt: Any) -> None:
+        try:
+            detector.analyze_packet(pkt)
+            lifecycle_manager.record_heartbeat("detector")
+        except Exception:
+            pass
+
+        try:
+            ml_detector.process_packet(pkt)
+        except Exception:
+            pass
+
+        try:
+            arp_detector.process_packet(pkt)
+            lifecycle_manager.record_heartbeat("arp_detector")
+        except Exception:
+            pass
+
+    packet_capture.add_packet_callback(_on_capture_packet)
+
+    # Define genuine domain health checks for each subsystem
+    def _check_packet_capture_health() -> Tuple[bool, Optional[str]]:
+        if not packet_capture:
+            return False, "PacketCapture instance is null"
+        st = packet_capture.runtime_status
+        if st in ("stopped", "idle"):
+            return True, None
+        if st in ("permission_denied", "error"):
+            return False, packet_capture.error_message or f"Capture error: {st}"
+        if packet_capture._capture_thread and not packet_capture._capture_thread.is_alive():
+            return False, "Packet capture thread is not alive"
+        return True, None
+
+    def _check_detector_health() -> Tuple[bool, Optional[str]]:
+        if not detector:
+            return False, "TrafficDetector instance is null"
+        if not hasattr(detector, "_lock") or not hasattr(detector, "_port_scan_state"):
+            return False, "TrafficDetector state corrupted"
+        return True, None
+
+    def _check_ml_detector_health() -> Tuple[bool, Optional[str]]:
+        if not ml_detector:
+            return False, "MLAnomalyDetector instance is null"
+        if ml_detector._worker_thread and ml_detector._worker_thread.ident is not None:
+            if not ml_detector._worker_thread.is_alive():
+                return False, "ML anomaly detector background thread is dead"
+        if not hasattr(ml_detector, "model") or ml_detector.model is None:
+            return False, "ML model not initialized"
+        return True, None
+
+    def _check_risk_engine_health() -> Tuple[bool, Optional[str]]:
+        if not risk_engine:
+            return False, "RiskEngine instance is null"
+        if not hasattr(risk_engine, "_lock") or not hasattr(risk_engine, "_ip_history"):
+            return False, "RiskEngine state corrupted"
+        return True, None
+
+    def _check_firewall_health() -> Tuple[bool, Optional[str]]:
+        if not firewall:
+            return False, "FirewallManager instance is null"
+        if not firewall.enabled:
+            return True, None
+        return True, None
+
+    def _check_telemetry_health() -> Tuple[bool, Optional[str]]:
+        if not telemetry_worker:
+            return False, "TelemetryWorker instance is null"
+        if telemetry_worker._thread and telemetry_worker._thread.ident is not None:
+            if not telemetry_worker._thread.is_alive():
+                return False, "TelemetryWorker background thread is dead"
+        return True, None
+
+    def _check_host_manager_health() -> Tuple[bool, Optional[str]]:
+        if not host_manager:
+            return False, "HostDetectionManager instance is null"
+        if not host_manager.enabled:
+            return True, None
+        if host_manager._thread and host_manager._thread.ident is not None:
+            if not host_manager._thread.is_alive():
+                return False, "HostDetectionManager background thread is dead"
+        return True, None
+
+    def _check_arp_detector_health() -> Tuple[bool, Optional[str]]:
+        if not arp_detector:
+            return False, "ARPDetector instance is null"
+        if not hasattr(arp_detector, "_lock") or not hasattr(arp_detector, "_ip_to_mac"):
+            return False, "ARPDetector state corrupted"
+        return True, None
+
+    def _check_incident_manager_health() -> Tuple[bool, Optional[str]]:
+        if not incident_manager:
+            return False, "IncidentManager instance is null"
+        if not hasattr(incident_manager, "_lock") or not hasattr(incident_manager, "_active_by_key"):
+            return False, "IncidentManager state corrupted"
+        return True, None
+
+    def _check_threat_intel_health() -> Tuple[bool, Optional[str]]:
+        if not threat_intel_service:
+            return False, "ThreatIntelService instance is null"
+        if not threat_intel_service.enabled:
+            return True, None
+        return True, None
 
     # Register all subsystem workers with LifecycleManager
     lifecycle_manager.register_worker(
@@ -427,30 +545,35 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         instance=packet_capture,
         role="Linux AF_PACKET Raw Frame Capture Engine",
         is_optional=False,
+        health_check=_check_packet_capture_health,
     )
     lifecycle_manager.register_worker(
         name="detector",
         instance=detector,
         role="Rule-Based Intrusion Detector",
         is_optional=False,
+        health_check=_check_detector_health,
     )
     lifecycle_manager.register_worker(
         name="ml_detector",
         instance=ml_detector,
         role="ML Anomaly Detector",
         is_optional=False,
+        health_check=_check_ml_detector_health,
     )
     lifecycle_manager.register_worker(
         name="risk_engine",
         instance=risk_engine,
         role="Composite Risk Assessment Engine",
         is_optional=False,
+        health_check=_check_risk_engine_health,
     )
     lifecycle_manager.register_worker(
         name="firewall",
         instance=firewall,
         role="Linux iptables Firewall Manager",
         is_optional=True,
+        health_check=_check_firewall_health,
     )
     fw_cap = check_firewall_capabilities(firewall)
     firewall.capability_status = fw_cap
@@ -460,30 +583,35 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         instance=telemetry_worker,
         role="Host System Telemetry Worker",
         is_optional=False,
+        health_check=_check_telemetry_health,
     )
     lifecycle_manager.register_worker(
         name="host_manager",
         instance=host_manager,
         role="Host Intrusion Detection & FIM Manager",
         is_optional=False,
+        health_check=_check_host_manager_health,
     )
     lifecycle_manager.register_worker(
         name="arp_detector",
         instance=arp_detector,
         role="ARP Spoofing & Cache Poisoning Detector",
         is_optional=False,
+        health_check=_check_arp_detector_health,
     )
     lifecycle_manager.register_worker(
         name="incident_manager",
         instance=incident_manager,
         role="Security Incident Correlator",
         is_optional=False,
+        health_check=_check_incident_manager_health,
     )
     lifecycle_manager.register_worker(
         name="threat_intel",
         instance=threat_intel_service,
         role="Threat Intelligence Enrichment Service",
         is_optional=True,
+        health_check=_check_threat_intel_health,
     )
 
     # Register API Routes
@@ -502,6 +630,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     @app.route("/api/ready", methods=["GET"])
     def readiness_check():
         """Readiness check endpoint verifying database connectivity and core workers."""
+        if lifecycle_manager:
+            lifecycle_manager.check_all_workers_health()
         db_health = check_database_health()
         is_ready, worker_checks = lifecycle_manager.assess_readiness() if lifecycle_manager else (True, {})
         overall_ready = db_health.get("healthy", False) and is_ready
@@ -523,6 +653,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     @login_required
     def get_system_status():
         """Comprehensive runtime operational diagnostics and subsystem health."""
+        if lifecycle_manager:
+            lifecycle_manager.check_all_workers_health()
         now = time.time()
         uptime = round(now - app_start_time, 2)
         db_health = check_database_health()
@@ -1368,8 +1500,8 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 if lifecycle_manager.shutdown_event.is_set():
                     break
                 try:
-                    if packet_capture and packet_capture.runtime_status == "running":
-                        lifecycle_manager.record_heartbeat("packet_capture")
+                    if lifecycle_manager:
+                        lifecycle_manager.check_all_workers_health()
                     metrics = packet_capture.get_metrics()
                     socketio.emit("traffic_metrics", metrics)
                 except Exception:

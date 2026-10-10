@@ -29,11 +29,15 @@ class HostDetectionManager:
         self.file_integrity = FileIntegrityMonitor(config=self.config)
 
         self._callbacks: List[Callable[[SecurityEvent], None]] = []
+        self._heartbeat_callback: Optional[Callable[[], None]] = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._last_process_scan: float = 0.0
         self._last_fim_scan: float = 0.0
 
+    def set_heartbeat_callback(self, callback: Callable[[], None]) -> None:
+        """Register a heartbeat callback invoked on host scan cycles."""
+        self._heartbeat_callback = callback
 
     def add_event_callback(self, callback: Callable[[SecurityEvent], None]) -> None:
         """Register a callback for host-generated SecurityEvents."""
@@ -100,6 +104,13 @@ class HostDetectionManager:
                         self._dispatch_event(ev)
                 except Exception as ex:
                     logger.debug("Error checking file integrity: %s", ex)
+
+            # Record heartbeat for successful scan pass
+            if self._heartbeat_callback:
+                try:
+                    self._heartbeat_callback()
+                except Exception:
+                    pass
 
             # Sleep briefly or exit if signaled
             if self._stop_event.wait(1.5):

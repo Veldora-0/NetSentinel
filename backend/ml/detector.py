@@ -84,6 +84,7 @@ class MLAnomalyDetector:
 
         # Event listeners (e.g. Socket.IO)
         self._anomaly_callbacks: List[Callable[[MLAnomalyEvent], None]] = []
+        self._heartbeat_callback: Optional[Callable[[], None]] = None
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
 
@@ -93,6 +94,10 @@ class MLAnomalyDetector:
 
         if self.model.status != ModelStatus.READY:
             self.model.status = ModelStatus.COLLECTING_BASELINE
+
+    def set_heartbeat_callback(self, callback: Callable[[], None]) -> None:
+        """Register a heartbeat callback invoked on completed window processing."""
+        self._heartbeat_callback = callback
 
     def add_anomaly_callback(self, callback: Callable[[MLAnomalyEvent], None]) -> None:
         """Register a callback for generated ML anomaly events."""
@@ -222,6 +227,11 @@ class MLAnomalyDetector:
                 break
             try:
                 self.evaluate_window()
+                if self._heartbeat_callback:
+                    try:
+                        self._heartbeat_callback()
+                    except Exception:
+                        pass
             except Exception as err:
                 logger.error("Unexpected error in ML worker loop: %s", err)
 

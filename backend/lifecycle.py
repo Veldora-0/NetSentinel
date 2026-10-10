@@ -42,6 +42,7 @@ class WorkerRecord:
     is_optional: bool = False
     instance: Optional[Any] = None
     stop_callable: Optional[Callable[[], Any]] = None
+    health_check_callable: Optional[Callable[[], Any]] = None
     stale_threshold_sec: float = 60.0
     last_heartbeat: float = field(default_factory=time.time)
     last_error: Optional[str] = None
@@ -70,17 +71,36 @@ class WorkerRecord:
         # Check for thread failure if instance manages a thread
         thread_obj = None
         if self.instance:
-            for attr in ("_thread", "_worker_thread", "_capture_thread", "thread"):
-                if hasattr(self.instance, attr):
-                    t = getattr(self.instance, attr)
-                    if isinstance(t, threading.Thread):
-                        thread_obj = t
-                        break
+            if isinstance(self.instance, threading.Thread):
+                thread_obj = self.instance
+            else:
+                for attr in ("_thread", "_worker_thread", "_capture_thread", "thread"):
+                    if hasattr(self.instance, attr):
+                        t = getattr(self.instance, attr)
+                        if isinstance(t, threading.Thread):
+                            thread_obj = t
+                            break
 
-        if thread_obj and not thread_obj.is_alive() and self.instance:
-            inst_st = str(getattr(self.instance, "status", "")).lower()
-            if getattr(self.instance, "_running", False) or inst_st == "running":
-                return STATUS_FAILED
+        if thread_obj:
+            if thread_obj.ident is not None and not thread_obj.is_alive():
+                is_stopped = False
+                if hasattr(self.instance, "_stop_event") and getattr(self.instance, "_stop_event").is_set():
+                    is_stopped = True
+                elif hasattr(self.instance, "runtime_status") and self.instance.runtime_status in ("stopped", "idle"):
+                    is_stopped = True
+                elif hasattr(self.instance, "status") and str(self.instance.status).lower() in ("stopped", "idle"):
+                    is_stopped = True
+
+                if not is_stopped:
+                    return STATUS_DEGRADED if self.is_optional else STATUS_FAILED
+
+        # Check for custom is_alive callable on instance (e.g. mock or custom worker)
+        if self.instance and hasattr(self.instance, "is_alive") and callable(self.instance.is_alive) and not isinstance(self.instance, threading.Thread):
+            try:
+                if not self.instance.is_alive():
+                    return STATUS_DEGRADED if self.is_optional else STATUS_FAILED
+            except Exception:
+                return STATUS_DEGRADED if self.is_optional else STATUS_FAILED
 
         # Check for stale heartbeat
         now = time.time()
@@ -115,6 +135,7 @@ class LifecycleManager:
         is_optional: bool = False,
         stale_threshold_sec: float = 60.0,
         stop_callable: Optional[Callable[[], Any]] = None,
+        health_check: Optional[Callable[[], Any]] = None,
     ) -> None:
         """Register a worker thread or subsystem manager with the lifecycle coordinator."""
         with self._lock:
@@ -122,24 +143,177 @@ class LifecycleManager:
             if stop_callable is None and hasattr(instance, "stop"):
                 stop_callable = instance.stop
 
+            # Derive health_check callable if not explicitly provided
+            if health_check is None:
+                if hasattr(instance, "check_health") and callable(instance.check_health):
+                    health_check = instance.check_health
+                elif hasattr(instance, "is_healthy") and callable(instance.is_healthy):
+                    health_check = instance.is_healthy
+
             self._workers[name] = WorkerRecord(
                 name=name,
                 role=role,
                 is_optional=is_optional,
                 instance=instance,
                 stop_callable=stop_callable,
+                health_check_callable=health_check,
                 stale_threshold_sec=stale_threshold_sec,
                 last_heartbeat=time.time(),
             )
             logger.debug("Registered worker '%s' (role=%s, optional=%s)", name, role, is_optional)
 
     def record_heartbeat(self, name: str) -> None:
-        """Update worker heartbeat timestamp."""
+        """Update worker heartbeat timestamp if worker is functioning."""
         with self._lock:
             w = self._workers.get(name)
-            if w:
-                w.last_heartbeat = time.time()
+            if not w:
+                return
+
+            inst = w.instance
+            # Verify thread is alive if worker manages an active thread
+            thread_obj = None
+            if inst:
+                if isinstance(inst, threading.Thread):
+                    thread_obj = inst
+                else:
+                    for attr in ("_thread", "_worker_thread", "_capture_thread", "thread"):
+                        if hasattr(inst, attr):
+                            t = getattr(inst, attr)
+                            if isinstance(t, threading.Thread):
+                                thread_obj = t
+                                break
+
+            if thread_obj and thread_obj.ident is not None and not thread_obj.is_alive():
+                # Thread unexpectedly died! Do not mark healthy or update heartbeat
+                w.last_error = f"Worker thread for '{name}' died unexpectedly"
+                return
+
+            # Check if custom is_alive returns False
+            if inst and hasattr(inst, "is_alive") and callable(inst.is_alive) and not isinstance(inst, threading.Thread):
+                try:
+                    if not inst.is_alive():
+                        w.last_error = f"Worker '{name}' is not alive"
+                        return
+                except Exception as ex:
+                    w.last_error = f"Worker '{name}' is_alive check failed: {ex}"
+                    return
+
+            # Check if instance is in explicit error status
+            if inst and hasattr(inst, "status") and str(inst.status).lower() in ("error", "permission_denied", "failed"):
+                return
+
+            w.last_heartbeat = time.time()
+            if w.last_error:
+                # Valid recovery: worker is genuinely operating without errors
                 w.last_error = None
+
+    def check_worker_health(self, name: str) -> Tuple[bool, Optional[str]]:
+        """Perform a valid health check on a registered worker and update lifecycle state.
+        
+        Returns:
+            Tuple of (is_healthy, error_or_reason).
+        """
+        with self._lock:
+            w = self._workers.get(name)
+            if not w:
+                return False, f"Worker '{name}' not found"
+
+            if w.override_status:
+                return (w.override_status == STATUS_HEALTHY), None
+
+            inst = w.instance
+
+            # 1. If disabled by configuration, it is in expected DISABLED posture (not an error)
+            if inst and hasattr(inst, "enabled") and not inst.enabled:
+                return True, None
+
+            # 2. Check thread failure if instance manages a thread
+            thread_obj = None
+            if inst:
+                if isinstance(inst, threading.Thread):
+                    thread_obj = inst
+                else:
+                    for attr in ("_thread", "_worker_thread", "_capture_thread", "thread"):
+                        if hasattr(inst, attr):
+                            t = getattr(inst, attr)
+                            if isinstance(t, threading.Thread):
+                                thread_obj = t
+                                break
+
+            if thread_obj and thread_obj.ident is not None and not thread_obj.is_alive():
+                is_stopped = False
+                if hasattr(inst, "_stop_event") and getattr(inst, "_stop_event").is_set():
+                    is_stopped = True
+                elif hasattr(inst, "runtime_status") and inst.runtime_status in ("stopped", "idle"):
+                    is_stopped = True
+                elif hasattr(inst, "status") and str(inst.status).lower() in ("stopped", "idle"):
+                    is_stopped = True
+
+                if not is_stopped:
+                    err_msg = f"Worker thread for '{name}' died unexpectedly"
+                    w.last_error = err_msg
+                    w.error_count += 1
+                    return False, err_msg
+
+            # 3. Check custom is_alive callable if present
+            if inst and hasattr(inst, "is_alive") and callable(inst.is_alive) and not isinstance(inst, threading.Thread):
+                try:
+                    if not inst.is_alive():
+                        err_msg = f"Worker '{name}' is not alive"
+                        w.last_error = err_msg
+                        w.error_count += 1
+                        return False, err_msg
+                except Exception as ex:
+                    err_msg = f"Worker '{name}' is_alive check failed: {ex}"
+                    w.last_error = err_msg
+                    w.error_count += 1
+                    return False, err_msg
+
+            # 4. Check instance status attribute for explicit error or permission denial
+            if inst and hasattr(inst, "status"):
+                st_lower = str(inst.status).lower()
+                if st_lower in ("error", "permission_denied", "failed"):
+                    err_msg = f"Worker '{name}' reported status: {inst.status}"
+                    w.last_error = err_msg
+                    return False, err_msg
+
+            # 5. Check custom health check callable if provided
+            if w.health_check_callable:
+                try:
+                    res = w.health_check_callable()
+                    ok = res[0] if isinstance(res, tuple) else bool(res)
+                    err_msg = res[1] if isinstance(res, tuple) and len(res) > 1 else None
+                    if not ok:
+                        msg = err_msg or f"Health check failed for '{name}'"
+                        w.last_error = msg
+                        w.error_count += 1
+                        return False, msg
+                except Exception as ex:
+                    msg = f"Health check exception for '{name}': {ex}"
+                    w.last_error = msg
+                    w.error_count += 1
+                    return False, msg
+
+            # 6. If all checks succeeded, verify recovery from any previous error
+            if w.last_error:
+                w.last_error = None
+
+            # 7. Record fresh heartbeat upon successful health check
+            w.last_heartbeat = time.time()
+            return True, None
+
+    def check_all_workers_health(self) -> Dict[str, Tuple[bool, Optional[str]]]:
+        """Perform health checks across all registered workers."""
+        with self._lock:
+            results = {}
+            for name in list(self._workers.keys()):
+                results[name] = self.check_worker_health(name)
+            return results
+
+    def record_recovery(self, name: str) -> bool:
+        """Attempt to validate recovery of a worker and clear its error if genuine."""
+        ok, _ = self.check_worker_health(name)
+        return ok
 
     def record_error(self, name: str, error_msg: str) -> None:
         """Record an operational error against a registered worker."""

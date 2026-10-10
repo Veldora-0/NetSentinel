@@ -10,7 +10,7 @@ import logging
 import os
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 import uuid
 
 import psutil
@@ -41,6 +41,7 @@ class TelemetryWorker:
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._heartbeat_callback: Optional[Callable[[], None]] = None
 
         # Prime psutil CPU utilization baseline so first sample is not 0.0
         try:
@@ -171,6 +172,10 @@ class TelemetryWorker:
         with self._lock:
             return dict(self._current_telemetry)
 
+    def set_heartbeat_callback(self, callback: Callable[[], None]) -> None:
+        """Register a heartbeat callback invoked when host telemetry sampling completes."""
+        self._heartbeat_callback = callback
+
     def start(self) -> bool:
         """Start the background sampling thread."""
         if self._thread and self._thread.is_alive():
@@ -203,6 +208,12 @@ class TelemetryWorker:
                 sample = self._sample_metrics()
                 with self._lock:
                     self._current_telemetry = sample
+
+                if self._heartbeat_callback:
+                    try:
+                        self._heartbeat_callback()
+                    except Exception:
+                        pass
 
                 # Emit real-time telemetry over Socket.IO
                 if self.socketio:

@@ -38,10 +38,13 @@ import {
   getIncidentStatusBadgeClass,
   getReputationBadgeClass,
 } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 export default function IncidentDetail() {
   const { incidentId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canManageIncidents = hasPermission('manage:incidents');
 
   const [incident, setIncident] = useState(null);
   const [timeline, setTimeline] = useState([]);
@@ -608,20 +611,39 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
             </button>
           </div>
         )}
+        {!canManageIncidents && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 0.75rem',
+            marginBottom: '0.75rem',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(148, 163, 184, 0.1)',
+            border: '1px solid rgba(148, 163, 184, 0.2)',
+            color: '#94a3b8',
+            fontSize: '0.78rem',
+          }}>
+            <Info size={14} style={{ color: '#38bdf8', flexShrink: 0 }} />
+            <span>Read-only: Incident state transitions require Analyst or Administrator role (<code>manage:incidents</code>).</span>
+          </div>
+        )}
         <div className="action-inputs-row">
           <input
             type="text"
             className="action-text-input"
-            placeholder="Add analyst investigation note..."
+            placeholder={canManageIncidents ? "Add analyst investigation note..." : "Requires Analyst role"}
             value={analystNote}
             onChange={(e) => setAnalystNote(e.target.value)}
+            disabled={actionLoading || !canManageIncidents}
           />
           <input
             type="text"
             className="action-text-input"
-            placeholder="Resolution summary (e.g. Block applied, harmless scan dismissed)..."
+            placeholder={canManageIncidents ? "Resolution summary (e.g. Block applied, harmless scan dismissed)..." : "Requires Analyst role"}
             value={resolutionNote}
             onChange={(e) => setResolutionNote(e.target.value)}
+            disabled={actionLoading || !canManageIncidents}
           />
         </div>
 
@@ -629,8 +651,10 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           {incident.status === 'OPEN' && (
             <button
               className="btn-action-ack"
-              disabled={actionLoading}
+              disabled={actionLoading || !canManageIncidents}
               onClick={() => handleAction('acknowledge')}
+              style={!canManageIncidents ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+              title={canManageIncidents ? "Acknowledge Incident" : "Requires Analyst role (manage:incidents)"}
             >
               Acknowledge Incident
             </button>
@@ -639,8 +663,10 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           {incident.status !== 'RESOLVED' && incident.status !== 'CLOSED' && (
             <button
               className="btn-action-resolve"
-              disabled={actionLoading}
+              disabled={actionLoading || !canManageIncidents}
               onClick={() => handleAction('resolve')}
+              style={!canManageIncidents ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+              title={canManageIncidents ? "Mark Resolved" : "Requires Analyst role (manage:incidents)"}
             >
               Mark Resolved
             </button>
@@ -649,8 +675,10 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           {incident.status !== 'CLOSED' && (
             <button
               className="btn-action-close"
-              disabled={actionLoading}
+              disabled={actionLoading || !canManageIncidents}
               onClick={() => handleAction('close')}
+              style={!canManageIncidents ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+              title={canManageIncidents ? "Close Incident" : "Requires Analyst role (manage:incidents)"}
             >
               Close Incident
             </button>
@@ -659,8 +687,10 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && (
             <button
               className="btn-action-reopen"
-              disabled={actionLoading}
+              disabled={actionLoading || !canManageIncidents}
               onClick={() => handleAction('reopen')}
+              style={!canManageIncidents ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+              title={canManageIncidents ? "Reopen Incident" : "Requires Analyst role (manage:incidents)"}
             >
               Reopen Incident
             </button>

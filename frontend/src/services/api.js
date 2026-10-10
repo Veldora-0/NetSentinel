@@ -34,6 +34,12 @@ async function parseResponseOrError(response) {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined') {
+      const url = response.url || '';
+      if (!url.includes('/api/auth/login')) {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { url } }));
+      }
+    }
     const errorMsg = data?.message || data?.error || `HTTP Error ${response.status}`;
     const err = new Error(errorMsg);
     err.status = response.status;
@@ -640,4 +646,55 @@ export async function fetchSystemStatus() {
   } catch (error) {
     return null;
   }
+}
+
+/**
+ * Authentication & Session Management APIs
+ */
+
+export async function loginUser(username, password) {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+  return await parseResponseOrError(response);
+}
+
+export async function logoutUser() {
+  try {
+    const response = await authFetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+    });
+    return await parseResponseOrError(response);
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function fetchCurrentUser() {
+  const response = await authFetch('/api/auth/me', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  const response = await authFetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+  return await parseResponseOrError(response);
 }
