@@ -379,7 +379,35 @@ class ConfigValidator:
                     except ConfigurationError as e:
                         errors.append(f"Invalid IP or CIDR in FIREWALL_ALLOWLIST: {e}")
 
-        # 11. Authentication & Authorization Settings (Phase 13)
+        # 11. Environment and SECRET_KEY Validation
+        raw_env = get_val("ENV", None)
+        if raw_env is None:
+            raw_env = os.environ.get("NETSENTINEL_ENV", os.environ.get("FLASK_ENV", "development"))
+        env = str(raw_env).lower().strip() if raw_env else "development"
+        is_production = env in ("production", "prod")
+
+        secret_key = get_val("SECRET_KEY", None)
+        insecure_keys = {
+            "netsentinel-dev-secret-key-change-in-production",
+            "change-this-to-a-secure-random-string-in-production",
+            "dev-secret",
+            "secret",
+            "changeme",
+            "default",
+            "password",
+        }
+        if is_production:
+            if not secret_key or not isinstance(secret_key, str) or not secret_key.strip():
+                errors.append("SECRET_KEY must be configured in production environment")
+            elif secret_key.strip() in insecure_keys or "change-in-production" in secret_key.lower():
+                errors.append("Insecure default SECRET_KEY is not permitted in production environment")
+            elif len(secret_key.strip()) < 16:
+                errors.append("SECRET_KEY must be at least 16 characters long in production environment")
+        else:
+            if not secret_key or (isinstance(secret_key, str) and (secret_key.strip() in insecure_keys or "change-in-production" in secret_key.lower())):
+                warnings.append("Using default development SECRET_KEY. Change in production.")
+
+        # 12. Authentication & Authorization Settings (Phase 13)
         auth = get_val("AUTH_SETTINGS", {})
         if auth:
             if "token_expire_seconds" in auth:
@@ -392,9 +420,14 @@ class ConfigValidator:
                     cls.validate_positive_int(auth["password_min_length"], "AUTH_SETTINGS.password_min_length", min_val=4)
                 except ConfigurationError as e:
                     errors.append(str(e))
-            env = str(get_val("ENV", os.environ.get("NETSENTINEL_ENV", "production"))).lower().strip()
-            if env == "production" and auth.get("auth_enabled") is False:
+
+        # Validate that authentication cannot be disabled outside explicit development/testing
+        auth_enabled = auth.get("auth_enabled") if (isinstance(auth, dict) and "auth_enabled" in auth) else get_val("AUTH_ENABLED", True)
+        if auth_enabled is False:
+            if is_production:
                 errors.append("AUTH_SETTINGS.auth_enabled cannot be False in production environment")
+            elif env not in ("development", "dev", "testing", "test", "local"):
+                errors.append(f"Authentication cannot be disabled in '{env}' environment. Only allowed in explicit development/testing.")
 
         # Rate limits (flat or namespaced)
         rate_limit = get_val("API_RATE_LIMIT", get_val("NETSENTINEL_API_RATE_LIMIT", 60))

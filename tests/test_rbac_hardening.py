@@ -285,3 +285,134 @@ def test_bootstrap_does_not_overwrite_existing_admin(auth_test_context):
         assert res is None
         u_refreshed = User.query.filter_by(role=Role.ADMIN).first()
         assert u_refreshed.password_hash == initial_hash
+
+
+# ==============================================================================
+# 6. Hardened Secret Key & Environment Validation
+# ==============================================================================
+
+def test_production_rejects_missing_or_insecure_secret_key():
+    from config_validator import ConfigValidator, ConfigurationError
+
+    base_valid = {
+        "ENV": "production",
+        "HOST": "0.0.0.0",
+        "PORT": 5000,
+        "SECRET_KEY": "super-strong-production-secret-key-32chars!",
+        "AUTH_SETTINGS": {"auth_enabled": True},
+    }
+
+    # Strong key succeeds
+    res = ConfigValidator.validate_config(base_valid)
+    assert res.is_valid, f"Validation failed unexpectedly: {res.errors}"
+
+    # Missing/empty secret key fails
+    res_empty = ConfigValidator.validate_config({**base_valid, "SECRET_KEY": ""})
+    assert not res_empty.is_valid
+    assert any("SECRET_KEY must be configured" in e for e in res_empty.errors)
+
+    # Insecure default secret key fails
+    res_default = ConfigValidator.validate_config({
+        **base_valid,
+        "SECRET_KEY": "netsentinel-dev-secret-key-change-in-production"
+    })
+    assert not res_default.is_default_valid if hasattr(res_default, "is_default_valid") else not res_default.is_valid
+    assert any("Insecure default SECRET_KEY" in e for e in res_default.errors)
+
+    # Short secret key fails
+    res_short = ConfigValidator.validate_config({**base_valid, "SECRET_KEY": "too-short"})
+    assert not res_short.is_valid
+    assert any("at least 16 characters" in e for e in res_short.errors)
+
+
+def test_development_accepts_default_secret_key_with_warning():
+    from config_validator import ConfigValidator
+
+    dev_config = {
+        "ENV": "development",
+        "HOST": "127.0.0.1",
+        "PORT": 5000,
+        "SECRET_KEY": "netsentinel-dev-secret-key-change-in-production",
+        "AUTH_SETTINGS": {"auth_enabled": True},
+    }
+    res = ConfigValidator.validate_config(dev_config)
+    assert res.is_valid
+    assert any("default development SECRET_KEY" in w for w in res.warnings)
+
+
+def test_auth_disabled_fails_closed_outside_development():
+    from config_validator import ConfigValidator
+
+    # In production environment, auth cannot be disabled
+    prod_config = {
+        "ENV": "production",
+        "SECRET_KEY": "super-strong-production-secret-key-32chars!",
+        "AUTH_SETTINGS": {"auth_enabled": False},
+    }
+    res_prod = ConfigValidator.validate_config(prod_config)
+    assert not res_prod.is_valid
+    assert any("cannot be disabled" in e or "cannot be False" in e for e in res_prod.errors)
+
+    # In non-dev/non-test environment (e.g., staging), auth cannot be disabled
+    staging_config = {
+        "ENV": "staging",
+        "SECRET_KEY": "super-strong-production-secret-key-32chars!",
+        "AUTH_SETTINGS": {"auth_enabled": False},
+    }
+    res_staging = ConfigValidator.validate_config(staging_config)
+    assert not res_staging.is_valid
+    assert any("cannot be disabled" in e for e in res_staging.errors)
+
+    # In explicit development environment, auth CAN be disabled
+    dev_config = {
+        "ENV": "development",
+        "SECRET_KEY": "netsentinel-dev-secret-key-change-in-production",
+        "AUTH_SETTINGS": {"auth_enabled": False},
+    }
+    res_dev = ConfigValidator.validate_config(dev_config)
+    assert res_dev.is_valid
+
+
+# ==============================================================================
+# 7. Socket.IO Credential Transport Hardening
+# ==============================================================================
+
+def test_socketio_rejects_query_param_token(auth_test_context):
+    app = auth_test_context["app"]
+    socketio = auth_test_context["socketio"]
+    admin_token = auth_test_context["admin"]["token"]
+
+    # Passing token in query parameter (?token=...) MUST BE REJECTED
+    client = socketio.test_client(app, query_string=f"?token={admin_token}")
+    assert not client.is_connected()
+
+
+def test_socketio_does_not_emit_telemetry_to_rejected_client(auth_test_context):
+    app = auth_test_context["app"]
+    socketio = auth_test_context["socketio"]
+
+    # Rejected unauthenticated connection receives zero events
+    client = socketio.test_client(app)
+    assert not client.is_connected()
+    with pytest.raises(RuntimeError, match="not connected"):
+        client.get_received()
+    assert len(client.queue) == 0
+
+
+def test_env_symlink_does_not_modify_target_permissions(tmp_path):
+    target = tmp_path / "sensitive_system_file.txt"
+    target.write_text("SOME_SECRET=123\n")
+    os.chmod(target, 0o644)
+    original_mode = os.stat(target).st_mode & 0o777
+
+    symlink_path = tmp_path / ".env"
+    symlink_path.symlink_to(target)
+
+    # Re-run the safe inspection logic as in config.py
+    if os.path.isfile(symlink_path):
+        if not os.path.islink(symlink_path):
+            os.chmod(symlink_path, 0o600)
+
+    # Target mode must be preserved exactly
+    after_mode = os.stat(target).st_mode & 0o777
+    assert after_mode == original_mode

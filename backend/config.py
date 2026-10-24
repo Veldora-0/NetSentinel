@@ -6,9 +6,12 @@ unsupervised machine learning anomaly detection settings.
 """
 
 import os
+import logging
 from typing import Optional
 from dotenv import load_dotenv
 import psutil
+
+logger = logging.getLogger("netsentinel.config")
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -18,14 +21,27 @@ MODELS_DIR = os.path.join(DATA_DIR, "models")
 # Securely load project-root .env without overriding existing environment variables
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
 if os.path.isfile(ENV_PATH):
+    # Avoid modifying permissions on symlinks or unrelated files
+    if os.path.islink(ENV_PATH):
+        logger.warning("The .env file at %s is a symlink; skipping permission hardening.", ENV_PATH)
+    else:
+        try:
+            stat_info = os.stat(ENV_PATH)
+            # Only enforce 0600 if the current process owns the file
+            if hasattr(os, "getuid") and stat_info.st_uid == os.getuid():
+                current_mode = stat_info.st_mode & 0o777
+                if current_mode != 0o600:
+                    try:
+                        os.chmod(ENV_PATH, 0o600)
+                    except OSError as ex:
+                        logger.warning("Could not set 0600 permissions on .env file: %s", ex)
+        except Exception as ex:
+            logger.warning("Error inspecting .env file permissions: %s", ex)
+
     try:
         load_dotenv(dotenv_path=ENV_PATH, override=False)
-        # Ensure owner-only permissions on POSIX systems if supported
-        current_mode = os.stat(ENV_PATH).st_mode & 0o777
-        if current_mode != 0o600:
-            os.chmod(ENV_PATH, 0o600)
-    except Exception:
-        pass
+    except Exception as ex:
+        logger.warning("Error loading environment configuration from %s: %s", ENV_PATH, ex)
 
 
 def resolve_network_interface(configured_iface: Optional[str] = None) -> str:
@@ -65,7 +81,7 @@ def resolve_network_interface(configured_iface: Optional[str] = None) -> str:
 
 class Config:
     """Base Configuration."""
-    ENV = os.environ.get("NETSENTINEL_ENV", os.environ.get("FLASK_ENV", None))
+    ENV = os.environ.get("NETSENTINEL_ENV", os.environ.get("FLASK_ENV", "development"))
     TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY", "netsentinel-dev-secret-key-change-in-production")
     DEBUG = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1", "t")

@@ -38,15 +38,20 @@ def get_current_user_from_request() -> Optional[User]:
 
 
 def _is_auth_globally_disabled() -> bool:
-    """Check if authentication is disabled, strictly prohibiting it in production."""
+    """Check if authentication is disabled, strictly prohibiting it in production or unspecified environments."""
     if current_app.config.get("AUTH_ENABLED", True):
         return False
-    env = str(current_app.config.get("ENV", "")).lower().strip()
-    netsentinel_env = str(os.environ.get("NETSENTINEL_ENV", "")).lower().strip()
-    if env == "production" or netsentinel_env == "production":
-        logger.error("Security violation: AUTH_ENABLED cannot be False in production. Enforcing authentication.")
-        return False
-    return True
+
+    raw_env = current_app.config.get("ENV") or os.environ.get("NETSENTINEL_ENV") or os.environ.get("FLASK_ENV")
+    env = str(raw_env).lower().strip() if raw_env else "production"
+
+    # Only permit auth to be disabled in explicitly declared non-production development/testing environments
+    if env in ("development", "dev", "testing", "test", "local"):
+        logger.warning("Security notice: Global authentication is disabled (development/test mode only).")
+        return True
+
+    logger.error("Security violation: AUTH_ENABLED cannot be False in '%s' environment. Enforcing authentication.", env)
+    return False
 
 
 def _is_test_auth_bypass_allowed() -> bool:

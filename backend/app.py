@@ -1447,8 +1447,10 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         is_auth_disabled = _is_auth_globally_disabled()
         user = None
 
-        if not is_auth_disabled:
-            # Extract token from Socket.IO auth payload dict or query params
+        if is_auth_disabled:
+            app.logger.warning("Socket.IO client connected with global authentication disabled (development mode only).")
+        else:
+            # Prefer Socket.IO connection auth payload; fallback to HTTP Authorization header during handshake
             raw_token = None
             if isinstance(auth, dict):
                 raw_token = auth.get("token") or auth.get("Authorization") or auth.get("bearer")
@@ -1456,12 +1458,9 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     raw_token = raw_token.split(None, 1)[1].strip()
 
             if not raw_token:
-                # Also check request.args or request.headers for compatibility
                 auth_header = request.headers.get("Authorization", "")
                 if auth_header.lower().startswith("bearer "):
                     raw_token = auth_header.split(None, 1)[1].strip()
-                elif request.args.get("token"):
-                    raw_token = request.args.get("token").strip()
 
             if raw_token:
                 user = AuthService.verify_token(raw_token)
