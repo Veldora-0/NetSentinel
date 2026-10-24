@@ -23,7 +23,16 @@ def bootstrap_admin_if_needed(app) -> Optional[User]:
     with app.app_context():
         try:
             admin_count = User.query.filter_by(role=Role.ADMIN).count()
-            if admin_count > 0:
+            if admin_count > 1:
+                logger.error(
+                    "SECURITY INTEGRITY WARNING: Detected %d administrator accounts in database. "
+                    "NetSentinel enforces a single administrator policy. Multiple administrators will NOT be "
+                    "silently deleted or demoted. Run 'python backend/bootstrap.py --resolve-multiple-admins' "
+                    "or manually resolve administrator accounts in the database.",
+                    admin_count,
+                )
+                return None
+            if admin_count == 1:
                 return None
 
             admin_password = app.config.get("AUTH_ADMIN_PASSWORD", "").strip()
@@ -32,7 +41,16 @@ def bootstrap_admin_if_needed(app) -> Optional[User]:
 
             if not admin_password:
                 logger.info(
-                    "No administrator account found in database. Configure NETSENTINEL_ADMIN_PASSWORD or run 'python backend/bootstrap.py' to initialize."
+                    "No administrator account found in database. Configure NETSENTINEL_ADMIN_PASSWORD in .env or run 'python backend/bootstrap.py' to initialize."
+                )
+                return None
+
+            p_valid, p_err = AuthService.validate_password(admin_password, min_length=min_length)
+            if not p_valid:
+                logger.warning(
+                    "Failed to auto-bootstrap administrator account '%s': %s",
+                    admin_username,
+                    p_err,
                 )
                 return None
 

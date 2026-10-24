@@ -1,6 +1,6 @@
 {
-  "timestamp": 1792860743.4285705,
-  "timestamp_iso": "2026-10-24T16:52:23Z",
+  "timestamp": 1792863037.2345104,
+  "timestamp_iso": "2026-10-24T17:30:37Z",
   "environment": {
     "os": "Linux",
     "release": "6.12.111+deb13-amd64",
@@ -13,7 +13,7 @@
     "passed": 13,
     "failed": 0,
     "success_rate_percent": 100.0,
-    "total_duration_ms": 2444.66
+    "total_duration_ms": 1549.16
   },
   "scenarios": [
     {
@@ -23,7 +23,7 @@
       "expected_behavior": "Benign traffic processed without triggering security alerts, incidents, or firewall mitigation.",
       "actual_behavior": "Generated 0 rule events, 0 persisted events, 0 incidents. Firewall enabled=False.",
       "status": "PASS",
-      "execution_time_ms": 131.99,
+      "execution_time_ms": 77.21,
       "observed_values": {
         "packets_sent": 20,
         "rule_alerts_count": 0,
@@ -41,14 +41,14 @@
       "scenario_name": "Port Scan Detection & Correlation",
       "category": "Network Rules",
       "expected_behavior": "Generate PORT_SCAN alert at threshold=15 distinct ports, create incident, attach evidence.",
-      "actual_behavior": "Generated 1 PORT_SCAN event(s). Persisted events: 1. Incident: inc-8a9f1e2ad8f5 with risk 0.4.",
+      "actual_behavior": "Generated 1 PORT_SCAN event(s). Persisted events: 1. Incident: inc-d4131e945479 with risk 0.4.",
       "status": "PASS",
-      "execution_time_ms": 81.59,
+      "execution_time_ms": 81.93,
       "observed_values": {
         "threshold_tested": 15,
         "ports_probed": 15,
         "rule_alerts": 1,
-        "incident_id": "inc-8a9f1e2ad8f5",
+        "incident_id": "inc-d4131e945479",
         "incident_risk_score": 0.4,
         "persisted_events_count": 1
       },
@@ -63,14 +63,14 @@
       "scenario_name": "SYN Flood Detection & Mitigation Safety",
       "category": "Network Rules",
       "expected_behavior": "Trigger SYN_FLOOD alert at threshold=50 pkts/window, assess risk, persist incident.",
-      "actual_behavior": "Generated 1 SYN_FLOOD event(s) with HIGH severity. Incident: inc-db1bf7ea10b3, severity=HIGH.",
+      "actual_behavior": "Generated 1 SYN_FLOOD event(s) with HIGH severity. Incident: inc-6630681f3a0e, severity=HIGH.",
       "status": "PASS",
-      "execution_time_ms": 97.52,
+      "execution_time_ms": 75.64,
       "observed_values": {
         "threshold_tested": 50,
         "packets_sent": 50,
         "event_severity": "HIGH",
-        "incident_id": "inc-db1bf7ea10b3",
+        "incident_id": "inc-6630681f3a0e",
         "incident_risk_score": 0.7
       },
       "auth_involved": false,
@@ -86,12 +86,12 @@
       "expected_behavior": "Detect stealth NULL and XMAS scans deterministically with HIGH severity and correlate incidents.",
       "actual_behavior": "NULL scan: 1 alert (NULL_SCAN); XMAS scan: 1 alert (XMAS_SCAN). Both correlated into separate incidents.",
       "status": "PASS",
-      "execution_time_ms": 94.71,
+      "execution_time_ms": 89.02,
       "observed_values": {
         "null_detected": true,
         "xmas_detected": true,
-        "null_incident": "inc-7859178e4d38",
-        "xmas_incident": "inc-feacd011bfe2"
+        "null_incident": "inc-2ec8774b00a4",
+        "xmas_incident": "inc-f4024cb4d631"
       },
       "auth_involved": false,
       "persistence_verified": true,
@@ -106,12 +106,12 @@
       "expected_behavior": "Do not alert below threshold; alert once reaching threshold=10 distinct targets.",
       "actual_behavior": "Below-threshold (5 targets): 0 alerts. At-threshold (10 targets): 1 alert. Incident created: True.",
       "status": "PASS",
-      "execution_time_ms": 95.53,
+      "execution_time_ms": 72.81,
       "observed_values": {
         "threshold": 10,
         "below_threshold_alerts": 0,
         "at_threshold_alerts": 1,
-        "incident_id": "inc-f3ebd09f62b9"
+        "incident_id": "inc-b2a18eb85a35"
       },
       "auth_involved": false,
       "persistence_verified": true,
@@ -126,11 +126,11 @@
       "expected_behavior": "Detect ARP MAC-IP binding conflict and multi-IP claiming without altering kernel tables.",
       "actual_behavior": "Baseline: 0 alerts. Spoofing: 1 alert(s). Identity conflict: 1 alert(s). Incident created: 1.",
       "status": "PASS",
-      "execution_time_ms": 131.5,
+      "execution_time_ms": 101.9,
       "observed_values": {
         "spoofing_detected": true,
         "conflict_detected": true,
-        "incident_id": "inc-ee6d8972701b"
+        "incident_id": "inc-d1f58082c790"
       },
       "auth_involved": false,
       "persistence_verified": true,
@@ -145,7 +145,7 @@
       "expected_behavior": "Accurately report FILE_MODIFIED and FILE_DELETED, support operator rebaseline, and persist exists flag cleanly.",
       "actual_behavior": "Unchanged: 0 evts. Modified: 1 (FILE_MODIFIED). Rebaseline updated: 1. Deleted: 1 (FILE_DELETED). DB baseline exists attribute: True.",
       "status": "PASS",
-      "execution_time_ms": 101.27,
+      "execution_time_ms": 49.23,
       "observed_values": {
         "unchanged_events": 0,
         "modified_events": 1,
@@ -164,20 +164,20 @@
       "scenario_name": "Multi-Vector Incident Correlation",
       "category": "Correlation",
       "expected_behavior": "Merge network + host events into single incident, apply cross-domain and multi-vector boosts, maintain monotonic risk and timeline ordering.",
-      "actual_behavior": "Incident merged: True (ID inc-bacf94e00f53). Domains: {'network', 'host'}. Vectors: {'SYN_FLOOD', 'PORT_SCAN', 'SSH_AUTH_FAILURE'}. Risk progression: 0.40 -> 0.55 -> 0.85. Timeline events count: 4 (chronologically ordered: True).",
+      "actual_behavior": "Incident merged: True (ID inc-d7d7fb793538). Domains: {'host', 'network'}. Vectors: {'SSH_AUTH_FAILURE', 'SYN_FLOOD', 'PORT_SCAN'}. Risk progression: 0.40 -> 0.55 -> 0.85. Timeline events count: 4 (chronologically ordered: True).",
       "status": "PASS",
-      "execution_time_ms": 87.77,
+      "execution_time_ms": 62.91,
       "observed_values": {
         "single_incident_merged": true,
         "final_risk_score": 0.85,
         "attack_domains": [
-          "network",
-          "host"
+          "host",
+          "network"
         ],
         "detection_types": [
+          "SSH_AUTH_FAILURE",
           "SYN_FLOOD",
-          "PORT_SCAN",
-          "SSH_AUTH_FAILURE"
+          "PORT_SCAN"
         ],
         "evidence_items_count": 3,
         "timeline_ordered": true
@@ -195,7 +195,7 @@
       "expected_behavior": "Model transitions to READY, flags outliers (>0.5 score), and enforces ML-alone cannot block or reach CRITICAL.",
       "actual_behavior": "Lifecycle: COLLECTING_BASELINE -> READY. Normal window score: 0.4833. Anomalous window score: 0.6065. ML-only max score: 0.3500 (Level: MEDIUM, Action: log). Rule+ML score: 0.5400 (expected: 0.5400).",
       "status": "PASS",
-      "execution_time_ms": 310.63,
+      "execution_time_ms": 169.44,
       "observed_values": {
         "lifecycle": "COLLECTING_BASELINE -> READY",
         "normal_score": 0.4833,
@@ -218,7 +218,7 @@
       "expected_behavior": "Verify deterministic rule/ML weighting, incremental repeat boost capped at 0.20, and CRITICAL mapping.",
       "actual_behavior": "Progression: 0.1300 -> 0.1625 -> 0.1950. Capped score at max repeats: 0.2600 (expected 0.2600). Critical assessment: 0.9000 (Level: CRITICAL, Action: block).",
       "status": "PASS",
-      "execution_time_ms": 0.2,
+      "execution_time_ms": 0.21,
       "observed_values": {
         "base_low_score": 0.13,
         "first_repeat_score": 0.1625,
@@ -240,12 +240,12 @@
       "expected_behavior": "Persist security events, assessments, and incidents to SQLite and retrieve them without loss.",
       "actual_behavior": "Persisted and retrieved: SecurityEvent=True, RiskAssessment=True, Incident=True.",
       "status": "PASS",
-      "execution_time_ms": 91.85,
+      "execution_time_ms": 70.4,
       "observed_values": {
         "event_persisted": true,
         "risk_persisted": true,
         "incident_persisted": true,
-        "recovered_incident_id": "inc-ebbefa643d79"
+        "recovered_incident_id": "inc-2a2e45939c5f"
       },
       "auth_involved": false,
       "persistence_verified": true,
@@ -260,7 +260,7 @@
       "expected_behavior": "Enforce 401 unauthenticated, 403 role boundary (VIEWER/ANALYST/ADMIN), and prevent username enumeration.",
       "actual_behavior": "Health: 200. Unauthenticated: 401. Uniform login failure: True ('Invalid username or password.'). Viewer read/mut: 200/403. Analyst mut/fw: 200/403. Admin fw: 200.",
       "status": "PASS",
-      "execution_time_ms": 1156.42,
+      "execution_time_ms": 632.7,
       "observed_values": {
         "health_status": 200,
         "unauth_status": 401,
@@ -283,7 +283,7 @@
       "expected_behavior": "Firewall remains disabled, auto-block remains disabled, CRITICAL events cannot trigger kernel iptables modifications.",
       "actual_behavior": "Firewall state: enabled=False, auto_block=False, dry_run=True. Pipeline auto-block prevented (blocked=False). Direct block simulated safely: status=simulated, mode=disabled.",
       "status": "PASS",
-      "execution_time_ms": 62.15,
+      "execution_time_ms": 64.3,
       "observed_values": {
         "firewall_enabled": false,
         "auto_block": false,

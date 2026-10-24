@@ -28,7 +28,7 @@ export default function UsersManagement() {
   // Form states for creating a user
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('VIEWER');
+  const [newRole, setNewRole] = useState('ANALYST');
   const [createLoading, setCreateLoading] = useState(false);
 
   // Modal / action state for updating password
@@ -68,7 +68,7 @@ export default function UsersManagement() {
       setFeedback({ type: 'success', text: `User '${newUsername.trim()}' created successfully.` });
       setNewUsername('');
       setNewPassword('');
-      setNewRole('VIEWER');
+      setNewRole('ANALYST');
       await loadUsers();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Failed to create user.' });
@@ -150,6 +150,26 @@ export default function UsersManagement() {
         }
       />
 
+      <div
+        style={{
+          padding: '10px 14px',
+          borderRadius: '6px',
+          marginBottom: '1rem',
+          fontSize: '0.825rem',
+          background: 'rgba(56, 189, 248, 0.08)',
+          border: '1px solid rgba(56, 189, 248, 0.25)',
+          color: '#bae6fd',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}
+      >
+        <Shield size={16} style={{ color: '#38bdf8', flexShrink: 0 }} />
+        <span>
+          <strong>Account Policy:</strong> NetSentinel enforces a single administrator account. Additional operators are provisioned as Analysts (incident response & threat intelligence) or Viewers (read-only monitoring).
+        </span>
+      </div>
+
       {feedback && (
         <div
           style={{
@@ -187,6 +207,7 @@ export default function UsersManagement() {
               <tbody>
                 {users.map((u) => {
                   const isSelf = currentUser && currentUser.id === u.id;
+                  const isAdmin = u.role === 'ADMIN';
                   return (
                     <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 600, color: '#f8fafc' }}>
@@ -194,23 +215,38 @@ export default function UsersManagement() {
                         {isSelf && <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: '#38bdf8' }}>(You)</span>}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleRoleChange(u, e.target.value)}
-                          disabled={isSelf}
-                          style={{
-                            background: 'var(--bg-dark, #0b0f19)',
-                            color: '#f8fafc',
-                            border: '1px solid var(--border-color, #1e293b)',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            fontSize: '0.8rem',
-                          }}
-                        >
-                          <option value="VIEWER">VIEWER</option>
-                          <option value="ANALYST">ANALYST</option>
-                          <option value="ADMIN">ADMIN</option>
-                        </select>
+                        {isAdmin ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: 'rgba(56, 189, 248, 0.2)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.4)',
+                            }}
+                          >
+                            ADMIN (Primary)
+                          </span>
+                        ) : (
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u, e.target.value)}
+                            style={{
+                              background: 'var(--bg-dark, #0b0f19)',
+                              color: '#f8fafc',
+                              border: '1px solid var(--border-color, #1e293b)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            <option value="ANALYST">ANALYST</option>
+                            <option value="VIEWER">VIEWER</option>
+                          </select>
+                        )}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <span
@@ -234,16 +270,16 @@ export default function UsersManagement() {
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button
                             onClick={() => handleToggleStatus(u)}
-                            disabled={isSelf}
-                            title={u.is_active ? 'Deactivate user' : 'Activate user'}
+                            disabled={isAdmin}
+                            title={isAdmin ? 'The administrator account cannot be disabled' : (u.is_active ? 'Deactivate user' : 'Activate user')}
                             style={{
                               background: 'transparent',
                               border: '1px solid var(--border-color, #1e293b)',
                               color: u.is_active ? '#f87171' : '#4ade80',
                               borderRadius: '4px',
                               padding: '4px 6px',
-                              cursor: isSelf ? 'not-allowed' : 'pointer',
-                              opacity: isSelf ? 0.4 : 1,
+                              cursor: isAdmin ? 'not-allowed' : 'pointer',
+                              opacity: isAdmin ? 0.3 : 1,
                             }}
                           >
                             {u.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -264,16 +300,16 @@ export default function UsersManagement() {
                           </button>
                           <button
                             onClick={() => handleDeleteUser(u)}
-                            disabled={isSelf}
-                            title="Delete user"
+                            disabled={isAdmin}
+                            title={isAdmin ? 'The administrator account cannot be deleted' : 'Delete user'}
                             style={{
                               background: 'transparent',
                               border: '1px solid var(--border-color, #1e293b)',
                               color: '#ef4444',
                               borderRadius: '4px',
                               padding: '4px 6px',
-                              cursor: isSelf ? 'not-allowed' : 'pointer',
-                              opacity: isSelf ? 0.4 : 1,
+                              cursor: isAdmin ? 'not-allowed' : 'pointer',
+                              opacity: isAdmin ? 0.3 : 1,
                             }}
                           >
                             <Trash2 size={14} />
@@ -383,9 +419,8 @@ export default function UsersManagement() {
                   fontSize: '0.85rem',
                 }}
               >
-                <option value="VIEWER">VIEWER (Read-Only SOC)</option>
-                <option value="ANALYST">ANALYST (Incidents & Threat Intel)</option>
-                <option value="ADMIN">ADMIN (Full Security Management)</option>
+                <option value="ANALYST">ANALYST (Incidents, Investigation & Threat Intel)</option>
+                <option value="VIEWER">VIEWER (Read-Only Dashboards & Telemetry)</option>
               </select>
             </div>
             <button

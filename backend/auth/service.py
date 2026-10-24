@@ -8,6 +8,7 @@ import hashlib
 import logging
 import re
 import secrets
+import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -26,6 +27,7 @@ class AuthService:
     DEFAULT_MIN_PASSWORD_LENGTH = 8
     MAX_PASSWORD_LENGTH = 128
     DEFAULT_TOKEN_EXPIRY_SECONDS = 86400.0  # 24 hours
+    _user_mutation_lock = threading.Lock()
 
     @classmethod
     def validate_username(cls, username: Any) -> Tuple[bool, Optional[str]]:
@@ -83,29 +85,35 @@ class AuthService:
         if normalized_role not in ALL_ROLES:
             return None, f"Invalid role '{role}'. Allowed roles: {', '.join(ALL_ROLES)}"
 
-        normalized_username = username.strip().lower()
-        existing = User.query.filter_by(username=normalized_username).first()
-        if existing:
-            return None, f"Username '{normalized_username}' already exists."
+        with cls._user_mutation_lock:
+            if normalized_role == Role.ADMIN:
+                admin_count = User.query.filter_by(role=Role.ADMIN).count()
+                if admin_count >= 1:
+                    return None, "Cannot create additional administrator accounts. NetSentinel enforces a single administrator policy."
 
-        user = User(
-            username=normalized_username,
-            role=normalized_role,
-            is_active=bool(is_active),
-            created_at=time.time(),
-            updated_at=time.time(),
-        )
-        user.set_password(password)
+            normalized_username = username.strip().lower()
+            existing = User.query.filter_by(username=normalized_username).first()
+            if existing:
+                return None, f"Username '{normalized_username}' already exists."
 
-        try:
-            db.session.add(user)
-            db.session.commit()
-            logger.info("Created user '%s' with role '%s'", user.username, user.role)
-            return user, None
-        except Exception as ex:
-            db.session.rollback()
-            logger.error("Failed to persist user '%s': %s", normalized_username, ex)
-            return None, "Database error creating user."
+            user = User(
+                username=normalized_username,
+                role=normalized_role,
+                is_active=bool(is_active),
+                created_at=time.time(),
+                updated_at=time.time(),
+            )
+            user.set_password(password)
+
+            try:
+                db.session.add(user)
+                db.session.commit()
+                logger.info("Created user '%s' with role '%s'", user.username, user.role)
+                return user, None
+            except Exception as ex:
+                db.session.rollback()
+                logger.error("Failed to persist user '%s': %s", normalized_username, ex)
+                return None, "Database error creating user."
 
     @classmethod
     def authenticate(

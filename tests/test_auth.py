@@ -423,24 +423,25 @@ def test_api_last_admin_protection(auth_app, auth_client):
     assert resp_del.status_code == 400
     assert "Cannot delete your own administrator account" in resp_del.get_json()["message"]
 
-    # Now create a second admin (admin2)
+    # Attempting to create a second admin via service layer must fail
     with auth_app.app_context():
-        admin2, _ = AuthService.create_user("admin2", "AdminPass456!", Role.ADMIN)
-        admin2_id = admin2.id
+        admin2, err2 = AuthService.create_user("admin2", "AdminPass456!", Role.ADMIN)
+        assert admin2 is None
+        assert "single administrator policy" in err2.lower()
 
-    resp2 = auth_client.post("/api/auth/login", json={
+    # Attempting to create a second admin via API must fail with 400
+    resp_create_admin2 = auth_client.post("/api/auth/users", headers=headers, json={
         "username": "admin2",
         "password": "AdminPass456!",
+        "role": Role.ADMIN,
     })
-    headers2 = {"Authorization": f"Bearer {resp2.get_json()['token']}"}
+    assert resp_create_admin2.status_code == 400
+    assert "single administrator" in resp_create_admin2.get_json()["message"].lower()
 
-    # Admin2 can delete only_admin now because admin2 is still active
-    resp_del_ok = auth_client.delete(f"/api/auth/users/{admin_id}", headers=headers2)
-    assert resp_del_ok.status_code == 200
-
-    # But now admin2 is the sole remaining active admin, so they cannot delete or disable themselves
-    resp_del_sole = auth_client.delete(f"/api/auth/users/{admin2_id}", headers=headers2)
+    # Sole admin still cannot be deleted
+    resp_del_sole = auth_client.delete(f"/api/auth/users/{admin_id}", headers=headers)
     assert resp_del_sole.status_code == 400
+
 
 
 def test_admin_bootstrap(auth_app):

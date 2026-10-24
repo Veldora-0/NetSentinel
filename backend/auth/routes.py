@@ -160,22 +160,32 @@ def change_password():
 def list_users():
     """Administrator endpoint: list all registered users."""
     users = User.query.order_by(User.id).all()
-    return jsonify({
+    admin_count = sum(1 for u in users if u.role == Role.ADMIN)
+
+    response_payload = {
         "status": "ok",
         "count": len(users),
+        "admin_count": admin_count,
         "users": [u.to_dict() for u in users],
         "request_id": getattr(g, "request_id", "-"),
-    }), 200
+    }
+    if admin_count > 1:
+        response_payload["policy_warning"] = (
+            f"Multiple administrator accounts ({admin_count}) detected. "
+            "NetSentinel enforces a single administrator policy. Run "
+            "'python backend/bootstrap.py --resolve-multiple-admins' to resolve."
+        )
+    return jsonify(response_payload), 200
 
 
 @auth_bp.route("/users", methods=["POST"])
 @permission_required(Permission.MANAGE_USERS)
 def create_user():
-    """Administrator endpoint: create a new user."""
+    """Administrator endpoint: create a new user (Analyst or Viewer)."""
     data = request.get_json(silent=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
-    role = data.get("role", Role.VIEWER)
+    role = data.get("role", Role.ANALYST)
     is_active = data.get("is_active", True)
 
     if not username or not password:
@@ -186,13 +196,23 @@ def create_user():
             "request_id": getattr(g, "request_id", "-"),
         }), 400
 
+    # NetSentinel single-administrator policy: never allow creating another ADMIN via API
+    req_role = str(role).upper().strip()
+    if req_role == Role.ADMIN:
+        return jsonify({
+            "error": "bad_request",
+            "message": "Cannot create additional administrator accounts. NetSentinel enforces a single administrator policy.",
+            "status_code": 400,
+            "request_id": getattr(g, "request_id", "-"),
+        }), 400
+
     from flask import current_app
     min_len = current_app.config.get("AUTH_PASSWORD_MIN_LENGTH", 8)
 
     user, err = AuthService.create_user(
         username=username,
         password=password,
-        role=role,
+        role=req_role,
         is_active=is_active,
         min_password_length=min_len,
     )
@@ -235,94 +255,86 @@ def update_user(user_id: int):
     admin_user = getattr(g, "current_user", None)
     admin_name = getattr(admin_user, "username", "admin")
 
-    # Guardrails for self-modification
-    if admin_user and target_user.id == admin_user.id:
-        if "is_active" in data and not data["is_active"]:
-            return jsonify({
-                "error": "bad_request",
-                "message": "Cannot disable your own administrator account.",
-                "status_code": 400,
-                "request_id": getattr(g, "request_id", "-"),
-            }), 400
-        if "role" in data and str(data["role"]).upper() != Role.ADMIN:
-            return jsonify({
-                "error": "bad_request",
-                "message": "Cannot demote your own administrator account.",
-                "status_code": 400,
-                "request_id": getattr(g, "request_id", "-"),
-            }), 400
-
-    # Guardrails for last active administrator
-    if target_user.role == Role.ADMIN:
-        will_demote = "role" in data and str(data["role"]).upper() != Role.ADMIN
-        will_disable = "is_active" in data and not data["is_active"]
-        if will_demote or will_disable:
-            other_active_admins = User.query.filter(
-                User.role == Role.ADMIN,
-                User.is_active == True,
-                User.id != target_user.id,
-            ).count()
-            if other_active_admins == 0:
-                action = "demote" if will_demote else "disable"
+    with AuthService._user_mutation_lock:
+        # Guardrails for the administrator account: cannot demote or disable
+        if target_user.role == Role.ADMIN:
+            is_self = admin_user and target_user.id == admin_user.id
+            if "role" in data and str(data["role"]).upper().strip() != Role.ADMIN:
+                msg = "Cannot demote your own administrator account." if is_self else "Cannot demote the sole administrator account."
                 return jsonify({
                     "error": "bad_request",
-                    "message": f"Cannot {action} the last active administrator account.",
+                    "message": msg,
+                    "status_code": 400,
+                    "request_id": getattr(g, "request_id", "-"),
+                }), 400
+            if "is_active" in data and not data["is_active"]:
+                msg = "Cannot disable your own administrator account." if is_self else "Cannot disable the sole administrator account."
+                return jsonify({
+                    "error": "bad_request",
+                    "message": msg,
                     "status_code": 400,
                     "request_id": getattr(g, "request_id", "-"),
                 }), 400
 
-    # Role update
-    if "role" in data:
-        new_role = str(data["role"]).upper().strip()
-        if new_role not in ALL_ROLES:
+        # Guardrails for non-admin accounts: cannot promote to ADMIN
+        if "role" in data:
+            new_role = str(data["role"]).upper().strip()
+            if new_role == Role.ADMIN and target_user.role != Role.ADMIN:
+                return jsonify({
+                    "error": "bad_request",
+                    "message": "Cannot promote accounts to administrator. NetSentinel enforces a single administrator policy.",
+                    "status_code": 400,
+                    "request_id": getattr(g, "request_id", "-"),
+                }), 400
+            if new_role not in ALL_ROLES:
+                return jsonify({
+                    "error": "bad_request",
+                    "message": f"Invalid role '{new_role}'. Allowed: {', '.join(ALL_ROLES)}",
+                    "status_code": 400,
+                    "request_id": getattr(g, "request_id", "-"),
+                }), 400
+            target_user.role = new_role
+
+        # Active status update
+        if "is_active" in data:
+            target_user.is_active = bool(data["is_active"])
+
+        # Password reset
+        if "password" in data:
+            from flask import current_app
+            min_len = current_app.config.get("AUTH_PASSWORD_MIN_LENGTH", 8)
+            success, err = AuthService.admin_reset_password(
+                user=target_user,
+                new_password=data["password"],
+                admin_username=admin_name,
+                min_password_length=min_len,
+            )
+            if not success:
+                return jsonify({
+                    "error": "bad_request",
+                    "message": err or "Failed to reset password.",
+                    "status_code": 400,
+                    "request_id": getattr(g, "request_id", "-"),
+                }), 400
+
+        try:
+            db.session.commit()
+            logger.info("Admin '%s' updated user id %d ('%s')", admin_name, target_user.id, target_user.username)
             return jsonify({
-                "error": "bad_request",
-                "message": f"Invalid role '{new_role}'. Allowed: {', '.join(ALL_ROLES)}",
-                "status_code": 400,
+                "status": "ok",
+                "message": "User updated successfully",
+                "user": target_user.to_dict(),
                 "request_id": getattr(g, "request_id", "-"),
-            }), 400
-        target_user.role = new_role
-
-    # Active status update
-    if "is_active" in data:
-        target_user.is_active = bool(data["is_active"])
-
-    # Password reset
-    if "password" in data:
-        from flask import current_app
-        min_len = current_app.config.get("AUTH_PASSWORD_MIN_LENGTH", 8)
-        success, err = AuthService.admin_reset_password(
-            user=target_user,
-            new_password=data["password"],
-            admin_username=admin_name,
-            min_password_length=min_len,
-        )
-        if not success:
+            }), 200
+        except Exception as ex:
+            db.session.rollback()
+            logger.error("Failed to update user %d: %s", target_user.id, ex)
             return jsonify({
-                "error": "bad_request",
-                "message": err or "Failed to reset password.",
-                "status_code": 400,
+                "error": "internal_error",
+                "message": "Database error updating user.",
+                "status_code": 500,
                 "request_id": getattr(g, "request_id", "-"),
-            }), 400
-
-    try:
-        db.session.commit()
-        logger.info("Admin '%s' updated user id %d ('%s')", admin_name, target_user.id, target_user.username)
-        return jsonify({
-            "status": "ok",
-            "message": "User updated successfully",
-            "user": target_user.to_dict(),
-            "request_id": getattr(g, "request_id", "-"),
-        }), 200
-    except Exception as ex:
-        db.session.rollback()
-        logger.error("Failed to update user %d: %s", target_user.id, ex)
-        return jsonify({
-            "error": "internal_error",
-            "message": "Database error updating user.",
-            "status_code": 500,
-            "request_id": getattr(g, "request_id", "-"),
-        }), 500
+            }), 500
 
 
 @auth_bp.route("/users/<int:user_id>", methods=["DELETE"])
@@ -339,33 +351,23 @@ def delete_user(user_id: int):
         }), 404
 
     admin_user = getattr(g, "current_user", None)
-    if admin_user and target_user.id == admin_user.id:
+    admin_name = getattr(admin_user, "username", "admin")
+
+    # Enforce policy: cannot delete the administrator account
+    if target_user.role == Role.ADMIN:
+        is_self = admin_user and target_user.id == admin_user.id
+        msg = "Cannot delete your own administrator account." if is_self else "Cannot delete the sole administrator account."
         return jsonify({
             "error": "bad_request",
-            "message": "Cannot delete your own administrator account.",
+            "message": msg,
             "status_code": 400,
             "request_id": getattr(g, "request_id", "-"),
         }), 400
-
-    if target_user.role == Role.ADMIN:
-        remaining_admins = User.query.filter(
-            User.role == Role.ADMIN,
-            User.is_active == True,
-            User.id != target_user.id,
-        ).count()
-        if remaining_admins == 0:
-            return jsonify({
-                "error": "bad_request",
-                "message": "Cannot delete the last active administrator account.",
-                "status_code": 400,
-                "request_id": getattr(g, "request_id", "-"),
-            }), 400
 
     try:
         username = target_user.username
         db.session.delete(target_user)
         db.session.commit()
-        admin_name = getattr(admin_user, "username", "admin")
         logger.info("Admin '%s' deleted user id %d ('%s')", admin_name, user_id, username)
         return jsonify({
             "status": "ok",

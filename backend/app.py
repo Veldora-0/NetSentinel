@@ -695,6 +695,26 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "timestamp": now,
             "request_id": getattr(g, "request_id", "-"),
         }
+
+        # Account policy integrity check
+        try:
+            from auth.models import User
+            from auth.roles import Role
+            admin_count = User.query.filter_by(role=Role.ADMIN).count()
+            if admin_count > 1:
+                diagnostics["account_policy"] = {
+                    "status": "VIOLATION_MULTIPLE_ADMINS",
+                    "admin_count": admin_count,
+                    "resolution": "NetSentinel requires exactly one administrator account. Run 'python backend/bootstrap.py --resolve-multiple-admins' to resolve.",
+                }
+            else:
+                diagnostics["account_policy"] = {
+                    "status": "OK",
+                    "admin_count": admin_count,
+                }
+        except Exception:
+            pass
+
         return jsonify(diagnostics), 200
 
     @app.route("/api/metrics", methods=["GET"])

@@ -28,9 +28,12 @@ from auth.service import AuthService
 @pytest.fixture
 def rbac_app():
     """Create Flask app with in-memory DB and strict auth enforcement enabled."""
-    app, socketio = create_app(start_capture=False)
-    app.config["TESTING"] = True
-    app.config["AUTH_ENFORCE_IN_TESTS"] = True
+    cfg = {
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "AUTH_ENFORCE_IN_TESTS": True,
+    }
+    app, socketio = create_app(config_class=cfg, start_capture=False)
 
     with app.app_context():
         db.create_all()
@@ -273,9 +276,12 @@ def test_production_configuration_always_requires_auth():
 
 def test_auth_enforce_in_tests_enforces_real_auth():
     """Verify AUTH_ENFORCE_IN_TESTS=True strictly requires authentic Bearer credentials."""
-    app, _ = create_app(start_capture=False)
-    app.config["TESTING"] = True
-    app.config["AUTH_ENFORCE_IN_TESTS"] = True
+    cfg = {
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "AUTH_ENFORCE_IN_TESTS": True,
+    }
+    app, _ = create_app(config_class=cfg, start_capture=False)
 
     with app.app_context():
         db.create_all()

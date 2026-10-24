@@ -416,3 +416,156 @@ def test_env_symlink_does_not_modify_target_permissions(tmp_path):
     # Target mode must be preserved exactly
     after_mode = os.stat(target).st_mode & 0o777
     assert after_mode == original_mode
+
+
+# ==============================================================================
+# 6. Single Administrator Policy & Analyst Management Lifecycle
+# ==============================================================================
+
+def test_admin_cannot_create_second_admin_via_api(auth_test_context):
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # Attempt to create a second admin via POST /api/auth/users
+    resp = client.post("/api/auth/users", headers=admin_headers, json={
+        "username": "second_admin",
+        "password": "ValidAdminPassword123!",
+        "role": Role.ADMIN,
+    })
+    assert resp.status_code == 400
+    assert "single administrator" in resp.get_json()["message"].lower()
+
+
+def test_admin_cannot_promote_user_to_admin(auth_test_context):
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+    analyst_id = auth_test_context["analyst"]["user"].id
+
+    # Attempt to promote analyst to ADMIN via PATCH /api/auth/users/<id>
+    resp = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "role": Role.ADMIN,
+    })
+    assert resp.status_code == 400
+    assert "cannot promote" in resp.get_json()["message"].lower() or "single administrator" in resp.get_json()["message"].lower()
+
+
+def test_admin_can_manage_analyst_full_lifecycle(auth_test_context):
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # 1. Admin creates an Analyst
+    resp_create = client.post("/api/auth/users", headers=admin_headers, json={
+        "username": "tier1_analyst",
+        "password": "AnalystPassword123!",
+        "role": Role.ANALYST,
+    })
+    assert resp_create.status_code == 201
+    analyst_data = resp_create.get_json()["user"]
+    analyst_id = analyst_data["id"]
+    assert analyst_data["role"] == Role.ANALYST
+
+    # 2. Admin resets Analyst password
+    resp_pw = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "password": "NewAnalystPassword456!",
+    })
+    assert resp_pw.status_code == 200
+
+    # Verify analyst can log in with new password
+    login_resp = client.post("/api/auth/login", json={
+        "username": "tier1_analyst",
+        "password": "NewAnalystPassword456!",
+    })
+    assert login_resp.status_code == 200
+    analyst_token = login_resp.get_json()["token"]
+
+    # 3. Admin deactivates Analyst
+    resp_deact = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "is_active": False,
+    })
+    assert resp_deact.status_code == 200
+
+    # Deactivated analyst cannot login
+    bad_login = client.post("/api/auth/login", json={
+        "username": "tier1_analyst",
+        "password": "NewAnalystPassword456!",
+    })
+    assert bad_login.status_code == 401
+
+    # 4. Admin reactivates Analyst
+    resp_react = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "is_active": True,
+    })
+    assert resp_react.status_code == 200
+
+    # 5. Admin deletes Analyst
+    resp_del = client.delete(f"/api/auth/users/{analyst_id}", headers=admin_headers)
+    assert resp_del.status_code == 200
+    assert "deleted" in resp_del.get_json()["message"].lower()
+
+
+def test_analyst_and_viewer_cannot_manage_users(auth_test_context):
+    client = auth_test_context["client"]
+    analyst_headers = {"Authorization": f"Bearer {auth_test_context['analyst']['token']}"}
+    viewer_headers = {"Authorization": f"Bearer {auth_test_context['viewer']['token']}"}
+    target_id = auth_test_context["viewer"]["user"].id
+
+    for role_name, headers in [("analyst", analyst_headers), ("viewer", viewer_headers)]:
+        # Attempt list users -> 403
+        r_list = client.get("/api/auth/users", headers=headers)
+        assert r_list.status_code == 403, f"{role_name} should not be allowed to list users"
+
+        # Attempt create user -> 403
+        r_create = client.post("/api/auth/users", headers=headers, json={
+            "username": f"hacker_{role_name}",
+            "password": "HackerPassword123!",
+            "role": Role.ANALYST,
+        })
+        assert r_create.status_code == 403, f"{role_name} should not be allowed to create users"
+
+        # Attempt update user -> 403
+        r_update = client.patch(f"/api/auth/users/{target_id}", headers=headers, json={
+            "role": Role.ADMIN,
+        })
+        assert r_update.status_code == 403, f"{role_name} should not be allowed to update users"
+
+        # Attempt delete user -> 403
+        r_del = client.delete(f"/api/auth/users/{target_id}", headers=headers)
+        assert r_del.status_code == 403, f"{role_name} should not be allowed to delete users"
+
+
+def test_cli_resolve_multiple_admins(auth_test_context, monkeypatch):
+    import sys
+    from auth.models import User, db
+
+    app = auth_test_context["app"]
+
+    with app.app_context():
+        # Inject a second admin directly into the database (simulating legacy state)
+        admin2 = User(username="legacy_admin2", role=Role.ADMIN, is_active=True)
+        admin2.set_password("LegacyAdminPass123!")
+        db.session.add(admin2)
+        db.session.commit()
+
+        # Verify two admins exist
+        assert User.query.filter_by(role=Role.ADMIN).count() == 2
+
+        from bootstrap import main as bootstrap_main
+
+        # Run resolution keeping the primary admin
+        primary_admin_name = auth_test_context["admin"]["user"].username
+        test_args = ["bootstrap.py", "--resolve-multiple-admins", "--keep-admin", primary_admin_name]
+        monkeypatch.setattr(sys, "argv", test_args)
+
+        # Execute resolution
+        bootstrap_main(app=app)
+
+        # Verify exactly 1 admin remains and legacy_admin2 was demoted to ANALYST
+        admins = User.query.filter_by(role=Role.ADMIN).all()
+        assert len(admins) == 1
+        assert admins[0].username == primary_admin_name
+
+        demoted = User.query.filter_by(username="legacy_admin2").first()
+        assert demoted is not None
+        assert demoted.role == Role.ANALYST
+        assert demoted.is_active is True
+
