@@ -5,10 +5,11 @@ self-service password changes, and administrator user provisioning.
 """
 
 import logging
+import time
 from flask import Blueprint, jsonify, request, g
 
 from database import db
-from auth.models import User
+from auth.models import User, AuthTokenRecord
 from auth.roles import Role, Permission, ALL_ROLES
 from auth.service import AuthService
 from auth.decorators import (
@@ -293,11 +294,22 @@ def update_user(user_id: int):
                     "status_code": 400,
                     "request_id": getattr(g, "request_id", "-"),
                 }), 400
-            target_user.role = new_role
+            if new_role != target_user.role:
+                target_user.role = new_role
+                # Revoke active sessions on role change so new permissions require new session
+                AuthTokenRecord.query.filter_by(user_id=target_user.id, revoked=False).update(
+                    {"revoked": True, "revoked_at": time.time()}
+                )
 
         # Active status update
         if "is_active" in data:
-            target_user.is_active = bool(data["is_active"])
+            new_active = bool(data["is_active"])
+            target_user.is_active = new_active
+            if not new_active:
+                # Deactivating an account immediately revokes all active session tokens
+                AuthTokenRecord.query.filter_by(user_id=target_user.id, revoked=False).update(
+                    {"revoked": True, "revoked_at": time.time()}
+                )
 
         # Password reset
         if "password" in data:

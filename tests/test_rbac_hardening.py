@@ -536,10 +536,15 @@ def test_analyst_and_viewer_cannot_manage_users(auth_test_context):
 def test_cli_resolve_multiple_admins(auth_test_context, monkeypatch):
     import sys
     from auth.models import User, db
+    from sqlalchemy import text
 
     app = auth_test_context["app"]
 
     with app.app_context():
+        # Drop constraint temporarily to simulate legacy database that predates uq_single_admin
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.commit()
+
         # Inject a second admin directly into the database (simulating legacy state)
         admin2 = User(username="legacy_admin2", role=Role.ADMIN, is_active=True)
         admin2.set_password("LegacyAdminPass123!")
@@ -568,4 +573,135 @@ def test_cli_resolve_multiple_admins(auth_test_context, monkeypatch):
         assert demoted is not None
         assert demoted.role == Role.ANALYST
         assert demoted.is_active is True
+
+
+def test_database_level_constraint_blocks_concurrent_second_admin(auth_test_context):
+    from auth.models import User, db
+    from sqlalchemy.exc import IntegrityError
+
+    app = auth_test_context["app"]
+
+    with app.app_context():
+        # Admin already exists; attempting raw DB insert of a second ADMIN must be rejected by SQLite
+        admin2 = User(username="rogue_admin", role=Role.ADMIN, is_active=True)
+        admin2.set_password("RoguePass123!")
+        db.session.add(admin2)
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_deactivating_analyst_revokes_active_tokens(auth_test_context):
+    from auth.models import AuthTokenRecord
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # 1. Create an analyst
+    r_create = client.post("/api/auth/users", headers=admin_headers, json={
+        "username": "active_analyst",
+        "password": "AnalystPassword123!",
+        "role": Role.ANALYST,
+    })
+    assert r_create.status_code == 201
+    analyst_id = r_create.get_json()["user"]["id"]
+
+    # 2. Analyst logs in to receive an active token
+    r_login = client.post("/api/auth/login", json={
+        "username": "active_analyst",
+        "password": "AnalystPassword123!",
+    })
+    assert r_login.status_code == 200
+    token = r_login.get_json()["token"]
+
+    # Verify session works
+    r_check = client.get("/api/incidents", headers={"Authorization": f"Bearer {token}"})
+    assert r_check.status_code == 200
+
+    # 3. Admin deactivates the analyst
+    r_deact = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "is_active": False,
+    })
+    assert r_deact.status_code == 200
+
+    # Verify the token is now explicitly marked revoked in database
+    app = auth_test_context["app"]
+    with app.app_context():
+        tokens = AuthTokenRecord.query.filter_by(user_id=analyst_id).all()
+        assert len(tokens) > 0
+        assert all(t.revoked for t in tokens)
+
+    # 4. Even if analyst is reactivated later, previous token MUST remain invalid
+    r_react = client.patch(f"/api/auth/users/{analyst_id}", headers=admin_headers, json={
+        "is_active": True,
+    })
+    assert r_react.status_code == 200
+
+    r_old_token = client.get("/api/incidents", headers={"Authorization": f"Bearer {token}"})
+    assert r_old_token.status_code == 401
+
+
+def test_changing_role_revokes_active_tokens(auth_test_context):
+    from auth.models import AuthTokenRecord
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # Create an analyst
+    r_create = client.post("/api/auth/users", headers=admin_headers, json={
+        "username": "demoted_user",
+        "password": "UserPassword123!",
+        "role": Role.ANALYST,
+    })
+    assert r_create.status_code == 201
+    user_id = r_create.get_json()["user"]["id"]
+
+    # Log in
+    r_login = client.post("/api/auth/login", json={
+        "username": "demoted_user",
+        "password": "UserPassword123!",
+    })
+    assert r_login.status_code == 200
+    token = r_login.get_json()["token"]
+
+    # Demote from ANALYST to VIEWER
+    r_patch = client.patch(f"/api/auth/users/{user_id}", headers=admin_headers, json={
+        "role": Role.VIEWER,
+    })
+    assert r_patch.status_code == 200
+
+    # Token must be revoked
+    app = auth_test_context["app"]
+    with app.app_context():
+        tokens = AuthTokenRecord.query.filter_by(user_id=user_id).all()
+        assert all(t.revoked for t in tokens)
+
+
+def test_diagnostics_reflects_account_policy_status(auth_test_context):
+    from auth.models import User, db
+    from sqlalchemy import text
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # 1. When single admin is compliant -> status is ok
+    res_ok = client.get("/api/system/status", headers=admin_headers)
+    assert res_ok.status_code == 200
+    data_ok = res_ok.get_json()
+    assert data_ok["account_policy"]["status"] == "OK"
+    assert data_ok["status"] == "ok"
+
+    # 2. When multiple admins exist (legacy violation) -> status is degraded
+    app = auth_test_context["app"]
+    with app.app_context():
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.commit()
+        extra_admin = User(username="extra_admin", role=Role.ADMIN, is_active=True)
+        extra_admin.set_password("ExtraPass123!")
+        db.session.add(extra_admin)
+        db.session.commit()
+
+    res_viol = client.get("/api/system/status", headers=admin_headers)
+    assert res_viol.status_code == 200
+    data_viol = res_viol.get_json()
+    assert data_viol["account_policy"]["status"] == "VIOLATION_MULTIPLE_ADMINS"
+    assert data_viol["status"] == "degraded"
+
 

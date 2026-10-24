@@ -712,8 +712,21 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     "status": "OK",
                     "admin_count": admin_count,
                 }
-        except Exception:
-            pass
+        except Exception as ex:
+            app.logger.warning("Failed to check account policy in system diagnostics: %s", ex)
+            diagnostics["account_policy"] = {
+                "status": "ERROR",
+                "error": "Failed to verify account policy integrity",
+            }
+
+        # Reflect database or account policy degradation in overall diagnostics status
+        overall_status = "ok"
+        if not db_health.get("healthy"):
+            overall_status = "degraded"
+        account_policy_status = diagnostics.get("account_policy", {}).get("status")
+        if account_policy_status in ("VIOLATION_MULTIPLE_ADMINS", "ERROR"):
+            overall_status = "degraded"
+        diagnostics["status"] = overall_status
 
         return jsonify(diagnostics), 200
 

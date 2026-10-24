@@ -72,10 +72,17 @@ def main(app=None):
                     a.role = Role.ANALYST
                     demoted.append(a.username)
 
-            db.session.commit()
-            print(f"[NetSentinel Success] Account policy resolved: '{keeper.username}' is the sole ADMIN.")
-            print(f"[NetSentinel Success] Demoted to ANALYST: {', '.join(demoted)}. No accounts or data were deleted.")
-            return
+            try:
+                db.session.commit()
+                print(f"[NetSentinel Success] Account policy resolved: '{keeper.username}' is the sole ADMIN.")
+                print(f"[NetSentinel Success] Demoted to ANALYST: {', '.join(demoted)}. No accounts or data were deleted.")
+                from database import ensure_single_admin_constraint
+                ensure_single_admin_constraint()
+                return
+            except Exception as ex:
+                db.session.rollback()
+                print(f"[NetSentinel Error] Failed to resolve multiple administrators: {ex}")
+                sys.exit(1)
 
         username = args.username or os.environ.get("NETSENTINEL_ADMIN_USERNAME", "admin").strip()
         norm_username = username.strip().lower()
@@ -110,11 +117,16 @@ def main(app=None):
             sys.exit(1)
 
         if existing:
-            existing.set_password(password)
-            existing.role = Role.ADMIN
-            existing.is_active = True
-            db.session.commit()
-            print(f"[NetSentinel] Password reset successfully for administrator '{norm_username}'.")
+            try:
+                existing.set_password(password)
+                existing.role = Role.ADMIN
+                existing.is_active = True
+                db.session.commit()
+                print(f"[NetSentinel] Password reset successfully for administrator '{norm_username}'.")
+            except Exception as ex:
+                db.session.rollback()
+                print(f"[NetSentinel Error] Failed to update administrator password: {ex}")
+                sys.exit(1)
         else:
             user, create_err = AuthService.create_user(
                 username=norm_username,

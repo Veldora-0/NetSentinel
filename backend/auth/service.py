@@ -113,6 +113,9 @@ class AuthService:
             except Exception as ex:
                 db.session.rollback()
                 logger.error("Failed to persist user '%s': %s", normalized_username, ex)
+                err_str = str(ex).lower()
+                if "uq_single_admin" in err_str or ("unique constraint" in err_str and normalized_role == Role.ADMIN):
+                    return None, "Cannot create additional administrator accounts. NetSentinel enforces a single administrator policy."
                 return None, "Database error creating user."
 
     @classmethod

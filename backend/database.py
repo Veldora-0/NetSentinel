@@ -1593,6 +1593,34 @@ def check_database_health() -> Dict[str, Any]:
         }
 
 
+def ensure_single_admin_constraint(app=None) -> bool:
+    """Ensure partial unique index uq_single_admin exists if database is compliant.
+
+    If the database contains multiple admins (legacy data), the constraint is skipped
+    to avoid schema initialization errors and allow safe manual resolution.
+    """
+    ctx = app.app_context() if app else None
+    if ctx:
+        ctx.push()
+    try:
+        from auth.models import User
+        from auth.roles import Role
+        from sqlalchemy import text
+        admin_count = User.query.filter_by(role=Role.ADMIN).count()
+        if admin_count <= 1:
+            db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_single_admin ON users(role) WHERE role = 'ADMIN'"))
+            db.session.commit()
+            return True
+        return False
+    except Exception as ex:
+        db.session.rollback()
+        logger.debug("Could not verify or create uq_single_admin index: %s", ex)
+        return False
+    finally:
+        if ctx:
+            ctx.pop()
+
+
 def init_db(app) -> None:
     """Initialize SQLAlchemy with the Flask application context and configure SQLite pragmas."""
     from sqlalchemy import event
@@ -1612,4 +1640,6 @@ def init_db(app) -> None:
     with app.app_context():
         from auth.models import User, AuthTokenRecord  # noqa: F401
         db.create_all()
+        ensure_single_admin_constraint()
+
 
