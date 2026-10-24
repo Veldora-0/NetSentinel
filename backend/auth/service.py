@@ -139,8 +139,10 @@ class AuthService:
         if user:
             try:
                 db.session.refresh(user)
-            except Exception:
-                pass
+            except Exception as ex:
+                db.session.rollback()
+                logger.error("Failed to refresh user credentials during authentication: %s", type(ex).__name__)
+                return None, None, None, "Authentication service unavailable."
 
         if not user or not user.check_password(str(password)):
             logger.warning("Failed authentication attempt for username '%s' from %s", normalized_username, client_ip)

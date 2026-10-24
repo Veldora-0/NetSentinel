@@ -910,4 +910,118 @@ def test_failed_user_update_rolls_back_atomic_state(auth_test_context, monkeypat
         assert t.revoked is False
 
 
+def test_auth_refresh_failure_fails_safely_without_stale_credentials(auth_test_context, monkeypatch):
+    """Verify authentication fails safely when user refresh fails and does not authenticate with stale data."""
+    from auth.service import AuthService
+    from auth.models import User, db
+    app = auth_test_context["app"]
+    client = auth_test_context["client"]
+    admin_name = auth_test_context["admin"]["user"].username
+
+    # 1. Simulate in-memory stale state
+    with app.app_context():
+        u = User.query.filter_by(username=admin_name).first()
+        # Change password in memory only without committing
+        u.set_password("StaleInMemoryPassword123!")
+
+        # Monkeypatch db.session.refresh to raise an exception
+        def broken_refresh(instance):
+            raise RuntimeError("Simulated database connection failure during credential refresh")
+
+        monkeypatch.setattr(db.session, "refresh", broken_refresh)
+
+        # Attempt to authenticate with the stale in-memory password
+        user, token, expires_at, err = AuthService.authenticate(admin_name, "StaleInMemoryPassword123!")
+        assert user is None
+        assert token is None
+        assert err == "Authentication service unavailable."
+
+        # Attempt to authenticate via HTTP API
+        r_api = client.post("/api/auth/login", json={
+            "username": admin_name,
+            "password": "StaleInMemoryPassword123!",
+        })
+        assert r_api.status_code == 401
+        data = r_api.get_json()
+        assert "Simulated database connection failure" not in str(data)
+        assert "StaleInMemoryPassword123!" not in str(data)
+
+    # 2. Restore refresh and verify session is safe for subsequent requests
+    monkeypatch.undo()
+    with app.app_context():
+        # Clean session
+        db.session.rollback()
+        # Normal login works with valid DB credentials
+        user, token, expires_at, err = AuthService.authenticate(admin_name, "AdminPassword123!")
+        assert user is not None
+        assert token is not None
+        assert err is None
+
+
+def test_constraint_status_detects_defective_index_definitions(auth_test_context):
+    """Verify check_single_admin_constraint_status identifies non-unique, wrong-column, and wrong-predicate indexes."""
+    from database import check_single_admin_constraint_status, ensure_single_admin_constraint, db
+    from sqlalchemy import text
+    app = auth_test_context["app"]
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    with app.app_context():
+        # Case 1: Non-unique index
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.execute(text("CREATE INDEX uq_single_admin ON users(role) WHERE role = 'ADMIN'"))
+        db.session.commit()
+
+        status_non_unique = check_single_admin_constraint_status()
+        assert status_non_unique["supported"] is True
+        assert status_non_unique["installed"] is False
+        assert "not declared UNIQUE" in status_non_unique["details"]
+
+        # Case 2: Wrong column (e.g. username instead of role)
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.execute(text("CREATE UNIQUE INDEX uq_single_admin ON users(username) WHERE role = 'ADMIN'"))
+        db.session.commit()
+
+        status_wrong_col = check_single_admin_constraint_status()
+        assert status_wrong_col["installed"] is False
+        assert "targets column 'username', expected 'role'" in status_wrong_col["details"]
+
+        # Case 3: Missing partial WHERE predicate
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.execute(text("CREATE UNIQUE INDEX uq_single_admin ON users(role)"))
+        db.session.commit()
+
+        status_no_where = check_single_admin_constraint_status()
+        assert status_no_where["installed"] is False
+        assert "lacks partial WHERE predicate" in status_no_where["details"]
+
+        # Case 4: Wrong predicate (e.g. role = 'ANALYST')
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.execute(text("CREATE UNIQUE INDEX uq_single_admin ON users(role) WHERE role = 'ANALYST'"))
+        db.session.commit()
+
+        status_wrong_pred = check_single_admin_constraint_status()
+        assert status_wrong_pred["installed"] is False
+        assert "does not restrict to role = 'ADMIN'" in status_wrong_pred["details"]
+
+        # Diagnostics marks system as degraded under defective constraint
+        r_diag = client.get("/api/system/status", headers=admin_headers)
+        assert r_diag.status_code == 200
+        diag_data = r_diag.get_json()
+        assert diag_data["account_policy"]["status"] == "UNVERIFIED_CONSTRAINT"
+        assert diag_data["status"] == "degraded"
+
+        # Auto-repair via ensure_single_admin_constraint drops defective index and establishes valid constraint
+        repaired = ensure_single_admin_constraint()
+        assert repaired is True
+        status_repaired = check_single_admin_constraint_status()
+        assert status_repaired["installed"] is True
+        assert "verified partial unique index" in status_repaired["details"]
+
+        # System diagnostics returns to healthy
+        r_diag_ok = client.get("/api/system/status", headers=admin_headers)
+        assert r_diag_ok.get_json()["account_policy"]["status"] == "OK"
+
+
+
 

@@ -7,8 +7,9 @@ and host system telemetry records.
 
 import json
 import logging
+import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
 from flask_sqlalchemy import SQLAlchemy
 
@@ -1593,13 +1594,57 @@ def check_database_health() -> Dict[str, Any]:
         }
 
 
+def verify_single_admin_index_def(sql: str) -> Tuple[bool, str]:
+    """Inspect and validate that an index definition strictly satisfies the single-Admin policy.
+
+    Requirements:
+        1. Unique index declaration (CREATE UNIQUE INDEX).
+        2. Targets table 'users' and column 'role'.
+        3. Constrained by partial WHERE predicate restricting strictly to role = 'ADMIN'.
+    """
+    if not sql or not isinstance(sql, str):
+        return False, "Index definition is empty or missing"
+
+    clean_sql = " ".join(sql.strip().split())
+
+    # 1. Must be UNIQUE index
+    if not re.search(r"\bcreate\s+unique\s+index\b", clean_sql, re.IGNORECASE):
+        return False, "Index is not declared UNIQUE"
+
+    # 2. Must target table users and column role
+    table_match = re.search(
+        r"\bon\s+(?:[\w\"]+\.)?[\"]?users[\"]?(?:\s+using\s+\w+)?\s*\(\s*[\"]?(\w+)[\"]?\s*\)",
+        clean_sql,
+        re.IGNORECASE,
+    )
+    if not table_match:
+        return False, "Index is not defined on table 'users' with target column"
+
+    col_name = table_match.group(1).lower()
+    if col_name != "role":
+        return False, f"Index targets column '{col_name}', expected 'role'"
+
+    # 3. Predicate must restrict to role = 'ADMIN'
+    where_match = re.search(r"\bwhere\s+(.+)$", clean_sql, re.IGNORECASE)
+    if not where_match:
+        return False, "Index lacks partial WHERE predicate"
+
+    where_clause = where_match.group(1).strip()
+    norm_where = re.sub(r"::[\w\s]+", "", where_clause)
+    norm_where = re.sub(r"[\(\)\s\"]+", " ", norm_where).strip()
+    if not re.search(r"\brole\s*=\s*['\"]ADMIN['\"]", norm_where, re.IGNORECASE):
+        return False, f"Index predicate does not restrict to role = 'ADMIN' (found: {where_clause})"
+
+    return True, "Verified single-admin partial unique index definition"
+
+
 def check_single_admin_constraint_status(app=None) -> Dict[str, Any]:
-    """Inspect whether the single-administrator database constraint is actively installed.
+    """Inspect whether the single-administrator database constraint is actively installed and verified.
 
     Returns:
         Dict with keys:
             - 'supported': bool (True for SQLite and PostgreSQL)
-            - 'installed': bool (True if the partial unique index exists)
+            - 'installed': bool (True if the partial unique index exists and its definition matches policy)
             - 'dialect': str (name of database dialect)
             - 'details': str (human-readable explanation)
     """
@@ -1612,32 +1657,48 @@ def check_single_admin_constraint_status(app=None) -> Dict[str, Any]:
         dialect_name = engine.dialect.name.lower()
         if dialect_name == "sqlite":
             row = db.session.execute(
-                text("SELECT name FROM sqlite_master WHERE type='index' AND name='uq_single_admin'")
+                text("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='uq_single_admin'")
             ).fetchone()
-            is_installed = bool(row)
+            if not row or not row[0]:
+                return {
+                    "supported": True,
+                    "installed": False,
+                    "dialect": dialect_name,
+                    "details": "Index uq_single_admin not found in sqlite_master",
+                }
+            sql = row[1] or ""
+            is_valid, validation_msg = verify_single_admin_index_def(sql)
             return {
                 "supported": True,
-                "installed": is_installed,
+                "installed": is_valid,
                 "dialect": dialect_name,
-                "details": "SQLite partial unique index uq_single_admin is active" if is_installed else "Index uq_single_admin not found in sqlite_master",
+                "details": f"SQLite verified partial unique index uq_single_admin is active: {sql}" if is_valid else f"SQLite index 'uq_single_admin' definition is invalid: {validation_msg}",
             }
         elif dialect_name in ("postgresql", "postgres"):
             row = db.session.execute(
-                text("SELECT indexname FROM pg_indexes WHERE indexname='uq_single_admin'")
+                text("SELECT indexname, indexdef FROM pg_indexes WHERE indexname='uq_single_admin'")
             ).fetchone()
-            is_installed = bool(row)
+            if not row or not row[0]:
+                return {
+                    "supported": True,
+                    "installed": False,
+                    "dialect": dialect_name,
+                    "details": "Index uq_single_admin not found in pg_indexes",
+                }
+            indexdef = row[1] or ""
+            is_valid, validation_msg = verify_single_admin_index_def(indexdef)
             return {
                 "supported": True,
-                "installed": is_installed,
+                "installed": is_valid,
                 "dialect": dialect_name,
-                "details": "PostgreSQL partial unique index uq_single_admin is active" if is_installed else "Index uq_single_admin not found in pg_indexes",
+                "details": f"PostgreSQL verified partial unique index uq_single_admin is active: {indexdef}" if is_valid else f"PostgreSQL index 'uq_single_admin' definition is invalid: {validation_msg}",
             }
         else:
             return {
                 "supported": False,
                 "installed": False,
                 "dialect": dialect_name,
-                "details": f"Database dialect '{dialect_name}' partial index not verified; relying on application-level enforcement",
+                "details": f"Database dialect '{dialect_name}' partial unique index verification is not implemented; single-admin policy enforced at application level only",
             }
     except Exception as ex:
         return {
@@ -1652,7 +1713,7 @@ def check_single_admin_constraint_status(app=None) -> Dict[str, Any]:
 
 
 def ensure_single_admin_constraint(app=None) -> bool:
-    """Ensure partial unique index uq_single_admin exists if database is compliant.
+    """Ensure partial unique index uq_single_admin exists and is verified if database is compliant.
 
     If the database contains multiple admins (legacy data), the constraint is skipped
     to avoid schema initialization errors and allow safe manual resolution.
@@ -1675,10 +1736,26 @@ def ensure_single_admin_constraint(app=None) -> bool:
 
         dialect_name = db.engine.dialect.name.lower()
         if dialect_name in ("sqlite", "postgresql", "postgres"):
+            status = check_single_admin_constraint_status()
+            if status.get("installed"):
+                return True
+
+            # If an index named uq_single_admin exists but has an invalid definition, drop it first
+            if "definition is invalid" in status.get("details", ""):
+                logger.warning("Dropping invalid index uq_single_admin before recreating: %s", status.get("details"))
+                db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+                db.session.commit()
+
             db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_single_admin ON users(role) WHERE role = 'ADMIN'"))
             db.session.commit()
-            logger.info("Database constraint uq_single_admin verified/created successfully (%s).", dialect_name)
-            return True
+
+            status_after = check_single_admin_constraint_status()
+            if status_after.get("installed"):
+                logger.info("Database constraint uq_single_admin verified/created successfully (%s).", dialect_name)
+                return True
+            else:
+                logger.warning("Database constraint uq_single_admin could not be verified after creation: %s", status_after.get("details"))
+                return False
         else:
             logger.warning("Single-admin database constraint not supported on dialect '%s'.", dialect_name)
             return False
