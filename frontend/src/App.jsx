@@ -14,6 +14,7 @@ import ThreatIntelligence from './pages/ThreatIntelligence';
 import Firewall from './pages/Firewall';
 import History from './pages/History';
 import System from './pages/System';
+import UsersManagement from './pages/UsersManagement';
 import NotFound from './pages/NotFound';
 import './App.css';
 
@@ -38,6 +39,7 @@ export function App() {
             <Route path="/firewall" element={<Firewall />} />
             <Route path="/history" element={<History />} />
             <Route path="/system" element={<System />} />
+            <Route path="/users" element={<ProtectedRoute requiredRole="ADMIN"><UsersManagement /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

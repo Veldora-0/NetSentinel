@@ -7,12 +7,25 @@ unsupervised machine learning anomaly detection settings.
 
 import os
 from typing import Optional
+from dotenv import load_dotenv
 import psutil
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 MODELS_DIR = os.path.join(DATA_DIR, "models")
+
+# Securely load project-root .env without overriding existing environment variables
+ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
+if os.path.isfile(ENV_PATH):
+    try:
+        load_dotenv(dotenv_path=ENV_PATH, override=False)
+        # Ensure owner-only permissions on POSIX systems if supported
+        current_mode = os.stat(ENV_PATH).st_mode & 0o777
+        if current_mode != 0o600:
+            os.chmod(ENV_PATH, 0o600)
+    except Exception:
+        pass
 
 
 def resolve_network_interface(configured_iface: Optional[str] = None) -> str:

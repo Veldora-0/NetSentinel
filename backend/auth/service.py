@@ -183,6 +183,8 @@ class AuthService:
                 return None
 
             user = db.session.get(User, token_rec.user_id)
+            if user:
+                db.session.refresh(user)
             if not user or not user.is_active:
                 return None
 

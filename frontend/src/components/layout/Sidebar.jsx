@@ -10,9 +10,11 @@ import {
   Shield,
   History,
   Server,
+  Users,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const NAV_ITEMS = [
   { path: '/overview', label: 'Overview', icon: Activity },
@@ -24,9 +26,12 @@ const NAV_ITEMS = [
   { path: '/firewall', label: 'Firewall', icon: Shield },
   { path: '/history', label: 'Security History', icon: History },
   { path: '/system', label: 'System Status', icon: Server },
+  { path: '/users', label: 'Users', icon: Users, role: 'ADMIN' },
 ];
 
 export function Sidebar({ collapsed, onToggleCollapse }) {
+  const { user, hasRole } = useAuth();
+
   return (
     <aside className={`app-sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-brand">
@@ -40,7 +45,7 @@ export function Sidebar({ collapsed, onToggleCollapse }) {
       </div>
 
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.role || hasRole(item.role)).map((item) => {
           const Icon = item.icon;
           return (
             <NavLink

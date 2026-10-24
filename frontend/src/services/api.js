@@ -698,3 +698,47 @@ export async function changePassword(currentPassword, newPassword) {
   });
   return await parseResponseOrError(response);
 }
+
+/**
+ * User & Role Management APIs (Admin Only)
+ */
+
+export async function fetchUsers() {
+  const response = await authFetch('/api/auth/users', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
+}
+
+export async function createUser(userData) {
+  const response = await authFetch('/api/auth/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(userData),
+  });
+  return await parseResponseOrError(response);
+}
+
+export async function updateUser(userId, updateData) {
+  const response = await authFetch(`/api/auth/users/${userId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(updateData),
+  });
+  return await parseResponseOrError(response);
+}
+
+export async function deleteUser(userId) {
+  const response = await authFetch(`/api/auth/users/${userId}`, {
+    method: 'DELETE',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
+}

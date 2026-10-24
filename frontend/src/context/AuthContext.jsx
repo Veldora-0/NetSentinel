@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginUser, logoutUser, fetchCurrentUser } from '../services/api';
+import { updateSocketAuth, socket } from '../services/socket';
 
 const AuthContext = createContext(null);
 
@@ -46,6 +47,9 @@ export function AuthProvider({ children }) {
     }
     setToken(null);
     setUser(null);
+    if (socket && socket.connected) {
+      socket.disconnect();
+    }
   }, []);
 
   const saveAuthStorage = useCallback((authToken, authUser) => {
@@ -61,6 +65,7 @@ export function AuthProvider({ children }) {
     }
     setToken(authToken);
     setUser(authUser);
+    updateSocketAuth(authToken);
   }, []);
 
   // Validate session on initial mount

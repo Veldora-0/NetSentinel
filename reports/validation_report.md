@@ -1,9 +1,9 @@
 # NetSentinel Phase 14: End-to-End Validation Report
 
-**Execution Timestamp:** 2026-10-10T03:18:47Z  
+**Execution Timestamp:** 2026-10-24T16:41:02Z  
 **Platform:** Linux 6.12.111+deb13-amd64 (CLI-only, Python 3.13.5)  
 **Total Scenarios:** 13 | **Passed:** 13 | **Failed:** 0 (100.0%)  
-**Total Execution Time:** 1881.16 ms
+**Total Execution Time:** 1858.07 ms
 
 ---
 
@@ -11,19 +11,19 @@
 
 | Scenario ID | Name | Category | Status | Duration (ms) | Persistence | Auth | ML | FW Disabled |
 |---|---|---|---|---|---|---|---|---|
-| `SCN-01-NORMAL-TRAFFIC` | Normal Traffic Baseline | Baseline / Normal | ✅ PASS | 135.69 | Yes | No | No | Yes |
-| `SCN-02-PORT-SCAN` | Port Scan Detection & Correlation | Network Rules | ✅ PASS | 117.5 | Yes | No | No | Yes |
-| `SCN-03-SYN-FLOOD` | SYN Flood Detection & Mitigation Safety | Network Rules | ✅ PASS | 95.22 | Yes | No | No | Yes |
-| `SCN-04-NULL-XMAS-SCAN` | NULL Scan and XMAS Scan Probes | Network Rules | ✅ PASS | 111.82 | Yes | No | No | Yes |
-| `SCN-05-ICMP-SWEEP` | ICMP Sweep & Below-Threshold Negative Control | Network Rules | ✅ PASS | 70.59 | Yes | No | No | Yes |
-| `SCN-06-ARP-DETECTION` | ARP Spoofing & Identity Conflict Detection | Network Rules | ✅ PASS | 91.13 | Yes | No | No | Yes |
-| `SCN-07-FIM-LIFECYCLE` | File Integrity Monitoring (FIM) Lifecycle | Host Security | ✅ PASS | 70.33 | Yes | No | No | Yes |
-| `SCN-08-CORRELATION` | Multi-Vector Incident Correlation | Correlation | ✅ PASS | 107.45 | Yes | No | No | Yes |
-| `SCN-09-ML-PIPELINE` | Unsupervised ML Anomaly Detection & Safety Limits | Machine Learning | ✅ PASS | 220.77 | N/A | No | Yes | Yes |
-| `SCN-10-RISK-ENGINE` | Composite Risk Engine Formula & Repeat Escalation | Risk Engine | ✅ PASS | 0.2 | N/A | No | Yes | Yes |
-| `SCN-11-PERSISTENCE` | Database Durability & Record Recovery | Persistence | ✅ PASS | 107.58 | Yes | No | No | Yes |
-| `SCN-12-API-RBAC` | API Authentication & Role-Based Authorization | Authentication & RBAC | ✅ PASS | 695.24 | Yes | Yes | No | Yes |
-| `SCN-13-FIREWALL-SAFETY` | Firewall Safety Invariant & Mitigation Containment | Firewall Safety | ✅ PASS | 54.89 | N/A | No | Yes | Yes |
+| `SCN-01-NORMAL-TRAFFIC` | Normal Traffic Baseline | Baseline / Normal | ✅ PASS | 78.09 | Yes | No | No | Yes |
+| `SCN-02-PORT-SCAN` | Port Scan Detection & Correlation | Network Rules | ✅ PASS | 71.95 | Yes | No | No | Yes |
+| `SCN-03-SYN-FLOOD` | SYN Flood Detection & Mitigation Safety | Network Rules | ✅ PASS | 68.92 | Yes | No | No | Yes |
+| `SCN-04-NULL-XMAS-SCAN` | NULL Scan and XMAS Scan Probes | Network Rules | ✅ PASS | 88.06 | Yes | No | No | Yes |
+| `SCN-05-ICMP-SWEEP` | ICMP Sweep & Below-Threshold Negative Control | Network Rules | ✅ PASS | 79.93 | Yes | No | No | Yes |
+| `SCN-06-ARP-DETECTION` | ARP Spoofing & Identity Conflict Detection | Network Rules | ✅ PASS | 79.33 | Yes | No | No | Yes |
+| `SCN-07-FIM-LIFECYCLE` | File Integrity Monitoring (FIM) Lifecycle | Host Security | ✅ PASS | 68.7 | Yes | No | No | Yes |
+| `SCN-08-CORRELATION` | Multi-Vector Incident Correlation | Correlation | ✅ PASS | 77.24 | Yes | No | No | Yes |
+| `SCN-09-ML-PIPELINE` | Unsupervised ML Anomaly Detection & Safety Limits | Machine Learning | ✅ PASS | 276.56 | N/A | No | Yes | Yes |
+| `SCN-10-RISK-ENGINE` | Composite Risk Engine Formula & Repeat Escalation | Risk Engine | ✅ PASS | 0.49 | N/A | No | Yes | Yes |
+| `SCN-11-PERSISTENCE` | Database Durability & Record Recovery | Persistence | ✅ PASS | 108.78 | Yes | No | No | Yes |
+| `SCN-12-API-RBAC` | API Authentication & Role-Based Authorization | Authentication & RBAC | ✅ PASS | 775.48 | Yes | Yes | No | Yes |
+| `SCN-13-FIREWALL-SAFETY` | Firewall Safety Invariant & Mitigation Containment | Firewall Safety | ✅ PASS | 82.66 | N/A | No | Yes | Yes |
 
 ---
 
@@ -40,36 +40,36 @@
 - **Category:** Network Rules
 - **Status:** PASS
 - **Expected Behavior:** Generate PORT_SCAN alert at threshold=15 distinct ports, create incident, attach evidence.
-- **Actual Behavior:** Generated 1 PORT_SCAN event(s). Persisted events: 1. Incident: inc-2b3a8a7880ef with risk 0.4.
-- **Observed Values:** `{"threshold_tested": 15, "ports_probed": 15, "rule_alerts": 1, "incident_id": "inc-2b3a8a7880ef", "incident_risk_score": 0.4, "persisted_events_count": 1}`
+- **Actual Behavior:** Generated 1 PORT_SCAN event(s). Persisted events: 1. Incident: inc-b5b9fd3c48ff with risk 0.4.
+- **Observed Values:** `{"threshold_tested": 15, "ports_probed": 15, "rule_alerts": 1, "incident_id": "inc-b5b9fd3c48ff", "incident_risk_score": 0.4, "persisted_events_count": 1}`
 
 ### SCN-03-SYN-FLOOD: SYN Flood Detection & Mitigation Safety
 - **Category:** Network Rules
 - **Status:** PASS
 - **Expected Behavior:** Trigger SYN_FLOOD alert at threshold=50 pkts/window, assess risk, persist incident.
-- **Actual Behavior:** Generated 1 SYN_FLOOD event(s) with HIGH severity. Incident: inc-6cefbeb0cc95, severity=HIGH.
-- **Observed Values:** `{"threshold_tested": 50, "packets_sent": 50, "event_severity": "HIGH", "incident_id": "inc-6cefbeb0cc95", "incident_risk_score": 0.7}`
+- **Actual Behavior:** Generated 1 SYN_FLOOD event(s) with HIGH severity. Incident: inc-45724c9c83c8, severity=HIGH.
+- **Observed Values:** `{"threshold_tested": 50, "packets_sent": 50, "event_severity": "HIGH", "incident_id": "inc-45724c9c83c8", "incident_risk_score": 0.7}`
 
 ### SCN-04-NULL-XMAS-SCAN: NULL Scan and XMAS Scan Probes
 - **Category:** Network Rules
 - **Status:** PASS
 - **Expected Behavior:** Detect stealth NULL and XMAS scans deterministically with HIGH severity and correlate incidents.
 - **Actual Behavior:** NULL scan: 1 alert (NULL_SCAN); XMAS scan: 1 alert (XMAS_SCAN). Both correlated into separate incidents.
-- **Observed Values:** `{"null_detected": true, "xmas_detected": true, "null_incident": "inc-a2a6d454d0ae", "xmas_incident": "inc-5268b0ee0870"}`
+- **Observed Values:** `{"null_detected": true, "xmas_detected": true, "null_incident": "inc-68b2289c56e5", "xmas_incident": "inc-4bce055c6209"}`
 
 ### SCN-05-ICMP-SWEEP: ICMP Sweep & Below-Threshold Negative Control
 - **Category:** Network Rules
 - **Status:** PASS
 - **Expected Behavior:** Do not alert below threshold; alert once reaching threshold=10 distinct targets.
 - **Actual Behavior:** Below-threshold (5 targets): 0 alerts. At-threshold (10 targets): 1 alert. Incident created: True.
-- **Observed Values:** `{"threshold": 10, "below_threshold_alerts": 0, "at_threshold_alerts": 1, "incident_id": "inc-2663902d93b2"}`
+- **Observed Values:** `{"threshold": 10, "below_threshold_alerts": 0, "at_threshold_alerts": 1, "incident_id": "inc-dc2b506cb1fe"}`
 
 ### SCN-06-ARP-DETECTION: ARP Spoofing & Identity Conflict Detection
 - **Category:** Network Rules
 - **Status:** PASS
 - **Expected Behavior:** Detect ARP MAC-IP binding conflict and multi-IP claiming without altering kernel tables.
 - **Actual Behavior:** Baseline: 0 alerts. Spoofing: 1 alert(s). Identity conflict: 1 alert(s). Incident created: 1.
-- **Observed Values:** `{"spoofing_detected": true, "conflict_detected": true, "incident_id": "inc-95c94fd2422e"}`
+- **Observed Values:** `{"spoofing_detected": true, "conflict_detected": true, "incident_id": "inc-6c881cf715d9"}`
 
 ### SCN-07-FIM-LIFECYCLE: File Integrity Monitoring (FIM) Lifecycle
 - **Category:** Host Security
@@ -82,8 +82,8 @@
 - **Category:** Correlation
 - **Status:** PASS
 - **Expected Behavior:** Merge network + host events into single incident, apply cross-domain and multi-vector boosts, maintain monotonic risk and timeline ordering.
-- **Actual Behavior:** Incident merged: True (ID inc-a00e0639a22a). Domains: {'network', 'host'}. Vectors: {'SYN_FLOOD', 'PORT_SCAN', 'SSH_AUTH_FAILURE'}. Risk progression: 0.40 -> 0.55 -> 0.85. Timeline events count: 4 (chronologically ordered: True).
-- **Observed Values:** `{"single_incident_merged": true, "final_risk_score": 0.85, "attack_domains": ["network", "host"], "detection_types": ["SYN_FLOOD", "PORT_SCAN", "SSH_AUTH_FAILURE"], "evidence_items_count": 3, "timeline_ordered": true}`
+- **Actual Behavior:** Incident merged: True (ID inc-66758191b2e0). Domains: {'host', 'network'}. Vectors: {'PORT_SCAN', 'SYN_FLOOD', 'SSH_AUTH_FAILURE'}. Risk progression: 0.40 -> 0.55 -> 0.85. Timeline events count: 4 (chronologically ordered: True).
+- **Observed Values:** `{"single_incident_merged": true, "final_risk_score": 0.85, "attack_domains": ["host", "network"], "detection_types": ["PORT_SCAN", "SYN_FLOOD", "SSH_AUTH_FAILURE"], "evidence_items_count": 3, "timeline_ordered": true}`
 
 ### SCN-09-ML-PIPELINE: Unsupervised ML Anomaly Detection & Safety Limits
 - **Category:** Machine Learning
@@ -104,7 +104,7 @@
 - **Status:** PASS
 - **Expected Behavior:** Persist security events, assessments, and incidents to SQLite and retrieve them without loss.
 - **Actual Behavior:** Persisted and retrieved: SecurityEvent=True, RiskAssessment=True, Incident=True.
-- **Observed Values:** `{"event_persisted": true, "risk_persisted": true, "incident_persisted": true, "recovered_incident_id": "inc-09afe91eba31"}`
+- **Observed Values:** `{"event_persisted": true, "risk_persisted": true, "incident_persisted": true, "recovered_incident_id": "inc-7e3155d9eb1c"}`
 
 ### SCN-12-API-RBAC: API Authentication & Role-Based Authorization
 - **Category:** Authentication & RBAC

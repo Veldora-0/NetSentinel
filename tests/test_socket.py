@@ -11,7 +11,15 @@ from app import create_app
 
 def test_socketio_connect():
     """Test Flask-SocketIO client connection and event handling."""
-    app, socketio = create_app()
+    app, socketio = create_app(
+        config_class={
+            "TESTING": True,
+            "AUTH_ALLOW_TEST_COMPATIBILITY": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        },
+        start_capture=False,
+    )
     socket_client = socketio.test_client(app)
 
     assert socket_client.is_connected()
