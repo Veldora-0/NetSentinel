@@ -697,20 +697,35 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         }
 
         # Account policy integrity check
+        # Account policy integrity and database constraint check
         try:
             from auth.models import User
             from auth.roles import Role
+            from database import check_single_admin_constraint_status
+
             admin_count = User.query.filter_by(role=Role.ADMIN).count()
+            constraint_info = check_single_admin_constraint_status()
+            constraint_installed = constraint_info.get("installed", False)
+
             if admin_count > 1:
                 diagnostics["account_policy"] = {
                     "status": "VIOLATION_MULTIPLE_ADMINS",
                     "admin_count": admin_count,
+                    "constraint_enforced": False,
                     "resolution": "NetSentinel requires exactly one administrator account. Run 'python backend/bootstrap.py --resolve-multiple-admins' to resolve.",
+                }
+            elif not constraint_installed:
+                diagnostics["account_policy"] = {
+                    "status": "UNVERIFIED_CONSTRAINT",
+                    "admin_count": admin_count,
+                    "constraint_enforced": False,
+                    "resolution": "Database constraint uq_single_admin is not installed. Run bootstrap or ensure database permissions to establish constraint.",
                 }
             else:
                 diagnostics["account_policy"] = {
                     "status": "OK",
                     "admin_count": admin_count,
+                    "constraint_enforced": True,
                 }
         except Exception as ex:
             app.logger.warning("Failed to check account policy in system diagnostics: %s", ex)
@@ -724,7 +739,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         if not db_health.get("healthy"):
             overall_status = "degraded"
         account_policy_status = diagnostics.get("account_policy", {}).get("status")
-        if account_policy_status in ("VIOLATION_MULTIPLE_ADMINS", "ERROR"):
+        if account_policy_status in ("VIOLATION_MULTIPLE_ADMINS", "UNVERIFIED_CONSTRAINT", "ERROR"):
             overall_status = "degraded"
         diagnostics["status"] = overall_status
 

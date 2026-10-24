@@ -1593,6 +1593,64 @@ def check_database_health() -> Dict[str, Any]:
         }
 
 
+def check_single_admin_constraint_status(app=None) -> Dict[str, Any]:
+    """Inspect whether the single-administrator database constraint is actively installed.
+
+    Returns:
+        Dict with keys:
+            - 'supported': bool (True for SQLite and PostgreSQL)
+            - 'installed': bool (True if the partial unique index exists)
+            - 'dialect': str (name of database dialect)
+            - 'details': str (human-readable explanation)
+    """
+    ctx = app.app_context() if app else None
+    if ctx:
+        ctx.push()
+    try:
+        from sqlalchemy import text
+        engine = db.engine
+        dialect_name = engine.dialect.name.lower()
+        if dialect_name == "sqlite":
+            row = db.session.execute(
+                text("SELECT name FROM sqlite_master WHERE type='index' AND name='uq_single_admin'")
+            ).fetchone()
+            is_installed = bool(row)
+            return {
+                "supported": True,
+                "installed": is_installed,
+                "dialect": dialect_name,
+                "details": "SQLite partial unique index uq_single_admin is active" if is_installed else "Index uq_single_admin not found in sqlite_master",
+            }
+        elif dialect_name in ("postgresql", "postgres"):
+            row = db.session.execute(
+                text("SELECT indexname FROM pg_indexes WHERE indexname='uq_single_admin'")
+            ).fetchone()
+            is_installed = bool(row)
+            return {
+                "supported": True,
+                "installed": is_installed,
+                "dialect": dialect_name,
+                "details": "PostgreSQL partial unique index uq_single_admin is active" if is_installed else "Index uq_single_admin not found in pg_indexes",
+            }
+        else:
+            return {
+                "supported": False,
+                "installed": False,
+                "dialect": dialect_name,
+                "details": f"Database dialect '{dialect_name}' partial index not verified; relying on application-level enforcement",
+            }
+    except Exception as ex:
+        return {
+            "supported": False,
+            "installed": False,
+            "dialect": "unknown",
+            "details": f"Error inspecting constraint status: {ex}",
+        }
+    finally:
+        if ctx:
+            ctx.pop()
+
+
 def ensure_single_admin_constraint(app=None) -> bool:
     """Ensure partial unique index uq_single_admin exists if database is compliant.
 
@@ -1607,14 +1665,26 @@ def ensure_single_admin_constraint(app=None) -> bool:
         from auth.roles import Role
         from sqlalchemy import text
         admin_count = User.query.filter_by(role=Role.ADMIN).count()
-        if admin_count <= 1:
+        if admin_count > 1:
+            logger.warning(
+                "Legacy database contains %d administrator accounts. "
+                "Skipping uq_single_admin index creation until multiple admins are resolved.",
+                admin_count,
+            )
+            return False
+
+        dialect_name = db.engine.dialect.name.lower()
+        if dialect_name in ("sqlite", "postgresql", "postgres"):
             db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_single_admin ON users(role) WHERE role = 'ADMIN'"))
             db.session.commit()
+            logger.info("Database constraint uq_single_admin verified/created successfully (%s).", dialect_name)
             return True
-        return False
+        else:
+            logger.warning("Single-admin database constraint not supported on dialect '%s'.", dialect_name)
+            return False
     except Exception as ex:
         db.session.rollback()
-        logger.debug("Could not verify or create uq_single_admin index: %s", ex)
+        logger.warning("Could not verify or create uq_single_admin index: %s", ex)
         return False
     finally:
         if ctx:

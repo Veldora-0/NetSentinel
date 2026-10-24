@@ -136,6 +136,11 @@ class AuthService:
 
         normalized_username = str(username).strip().lower()
         user = User.query.filter_by(username=normalized_username).first()
+        if user:
+            try:
+                db.session.refresh(user)
+            except Exception:
+                pass
 
         if not user or not user.check_password(str(password)):
             logger.warning("Failed authentication attempt for username '%s' from %s", normalized_username, client_ip)

@@ -704,4 +704,210 @@ def test_diagnostics_reflects_account_policy_status(auth_test_context):
     assert data_viol["account_policy"]["status"] == "VIOLATION_MULTIPLE_ADMINS"
     assert data_viol["status"] == "degraded"
 
+    # 3. When single admin exists but constraint is missing -> UNVERIFIED_CONSTRAINT and degraded
+    with app.app_context():
+        # Remove extra admin so admin_count == 1, but keep uq_single_admin dropped
+        u = User.query.filter_by(username="extra_admin").first()
+        if u:
+            db.session.delete(u)
+            db.session.commit()
+
+    res_missing = client.get("/api/system/status", headers=admin_headers)
+    assert res_missing.status_code == 200
+    data_missing = res_missing.get_json()
+    assert data_missing["account_policy"]["status"] == "UNVERIFIED_CONSTRAINT"
+    assert data_missing["account_policy"]["constraint_enforced"] is False
+    assert data_missing["status"] == "degraded"
+
+
+def test_constraint_status_inspection_helper(auth_test_context):
+    from database import check_single_admin_constraint_status, ensure_single_admin_constraint, db
+    from sqlalchemy import text
+    app = auth_test_context["app"]
+
+    with app.app_context():
+        # Ensure it is installed
+        ensure_single_admin_constraint()
+        status_info = check_single_admin_constraint_status()
+        assert status_info["supported"] is True
+        assert status_info["installed"] is True
+        assert status_info["dialect"] == "sqlite"
+
+        # Drop index and verify it reports installed == False
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.commit()
+        status_uninstalled = check_single_admin_constraint_status()
+        assert status_uninstalled["installed"] is False
+
+        # Re-ensure index
+        assert ensure_single_admin_constraint() is True
+
+
+def test_cli_recovery_cannot_target_nonexistent_user(auth_test_context, monkeypatch):
+    import sys
+    from bootstrap import main as bootstrap_main
+    app = auth_test_context["app"]
+
+    test_args = [
+        "bootstrap.py",
+        "--reset-password",
+        "--username", "nonexistent_operator",
+        "--password", "NewSecurePassword123!",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+
+    with pytest.raises(SystemExit) as exc:
+        bootstrap_main(app=app)
+    assert exc.value.code == 1
+
+
+def test_cli_recovery_cannot_promote_analyst_to_admin(auth_test_context, monkeypatch):
+    import sys
+    from auth.models import User
+    from bootstrap import main as bootstrap_main
+    app = auth_test_context["app"]
+
+    analyst_name = auth_test_context["analyst"]["user"].username
+
+    test_args = [
+        "bootstrap.py",
+        "--reset-password",
+        "--username", analyst_name,
+        "--password", "NewAnalystPassword123!",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+
+    with pytest.raises(SystemExit) as exc:
+        bootstrap_main(app=app)
+    assert exc.value.code == 1
+
+    # Verify analyst was NOT promoted
+    with app.app_context():
+        u = User.query.filter_by(username=analyst_name).first()
+        assert u.role == Role.ANALYST
+
+
+def test_cli_recovery_blocked_on_multi_admin_database(auth_test_context, monkeypatch):
+    import sys
+    from auth.models import User, db
+    from sqlalchemy import text
+    from bootstrap import main as bootstrap_main
+    app = auth_test_context["app"]
+
+    with app.app_context():
+        db.session.execute(text("DROP INDEX IF EXISTS uq_single_admin"))
+        db.session.commit()
+        admin2 = User(username="legacy_extra_admin", role=Role.ADMIN, is_active=True)
+        admin2.set_password("ExtraPass123!")
+        db.session.add(admin2)
+        db.session.commit()
+
+    test_args = [
+        "bootstrap.py",
+        "--reset-password",
+        "--username", auth_test_context["admin"]["user"].username,
+        "--password", "NewPass12345678!",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+
+    with pytest.raises(SystemExit) as exc:
+        bootstrap_main(app=app)
+    assert exc.value.code == 1
+
+    # Clean up extra admin and restore index
+    with app.app_context():
+        u = User.query.filter_by(username="legacy_extra_admin").first()
+        if u:
+            db.session.delete(u)
+            db.session.commit()
+        from database import ensure_single_admin_constraint
+        ensure_single_admin_constraint()
+
+
+def test_cli_recovery_revokes_active_admin_tokens(auth_test_context, monkeypatch):
+    import sys
+    from auth.models import AuthTokenRecord
+    from bootstrap import main as bootstrap_main
+    app = auth_test_context["app"]
+    client = auth_test_context["client"]
+    admin_name = auth_test_context["admin"]["user"].username
+    admin_id = auth_test_context["admin"]["user"].id
+    admin_token = auth_test_context["admin"]["token"]
+
+    # Current token works
+    r_check = client.get("/api/system/status", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r_check.status_code == 200
+
+    # Execute password recovery for the admin
+    test_args = [
+        "bootstrap.py",
+        "--reset-password",
+        "--username", admin_name,
+        "--password", "RecoveredAdminPassword123!",
+    ]
+    monkeypatch.setattr(sys, "argv", test_args)
+    bootstrap_main(app=app)
+
+    # Previous token is now revoked
+    r_old = client.get("/api/system/status", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r_old.status_code == 401
+
+    with app.app_context():
+        tokens = AuthTokenRecord.query.filter_by(user_id=admin_id).all()
+        assert all(t.revoked for t in tokens)
+
+    # Login with new password works
+    r_login = client.post("/api/auth/login", json={
+        "username": admin_name,
+        "password": "RecoveredAdminPassword123!",
+    })
+    assert r_login.status_code == 200
+
+
+def test_failed_user_update_rolls_back_atomic_state(auth_test_context, monkeypatch):
+    from auth.models import User, AuthTokenRecord, db
+    client = auth_test_context["client"]
+    admin_headers = {"Authorization": f"Bearer {auth_test_context['admin']['token']}"}
+
+    # Create an analyst and log them in
+    r_create = client.post("/api/auth/users", headers=admin_headers, json={
+        "username": "rollback_test_user",
+        "password": "ValidPassword123!",
+        "role": Role.ANALYST,
+    })
+    assert r_create.status_code == 201
+    user_id = r_create.get_json()["user"]["id"]
+
+    r_login = client.post("/api/auth/login", json={
+        "username": "rollback_test_user",
+        "password": "ValidPassword123!",
+    })
+    assert r_login.status_code == 200
+    token = r_login.get_json()["token"]
+
+    # Monkeypatch db.session.commit to raise an exception during update_user
+    original_commit = db.session.commit
+    def broken_commit():
+        raise RuntimeError("Simulated database failure during update")
+    monkeypatch.setattr(db.session, "commit", broken_commit)
+
+    # Attempt to deactivate user -> Should fail with 500 and rollback
+    r_fail = client.patch(f"/api/auth/users/{user_id}", headers=admin_headers, json={
+        "is_active": False,
+    })
+    assert r_fail.status_code == 500
+
+    # Restore commit
+    monkeypatch.setattr(db.session, "commit", original_commit)
+
+    # Verify atomic rollback: user is still active and token remains unrevoked
+    app = auth_test_context["app"]
+    with app.app_context():
+        u = db.session.get(User, user_id)
+        assert u.is_active is True
+        t = AuthTokenRecord.query.filter_by(user_id=user_id).first()
+        assert t is not None
+        assert t.revoked is False
+
+
 

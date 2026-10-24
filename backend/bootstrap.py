@@ -12,6 +12,7 @@ import argparse
 import getpass
 import os
 import sys
+import time
 
 # Ensure backend directory is in sys.path
 backend_dir = os.path.abspath(os.path.dirname(__file__))
@@ -74,6 +75,7 @@ def main(app=None):
 
             try:
                 db.session.commit()
+                db.session.expire_all()
                 print(f"[NetSentinel Success] Account policy resolved: '{keeper.username}' is the sole ADMIN.")
                 print(f"[NetSentinel Success] Demoted to ANALYST: {', '.join(demoted)}. No accounts or data were deleted.")
                 from database import ensure_single_admin_constraint
@@ -87,9 +89,37 @@ def main(app=None):
         username = args.username or os.environ.get("NETSENTINEL_ADMIN_USERNAME", "admin").strip()
         norm_username = username.strip().lower()
         existing = User.query.filter_by(username=norm_username).first()
-
         existing_admins = User.query.filter_by(role=Role.ADMIN).all()
-        if existing_admins and (not existing or existing.role != Role.ADMIN) and not args.reset_password:
+
+        # 1. Multi-admin protection: If database contains multiple admins, refuse password reset until resolved
+        if len(existing_admins) > 1:
+            admin_names = [a.username for a in existing_admins]
+            print(f"[NetSentinel Error] Detected multiple ({len(existing_admins)}) administrator accounts ({', '.join(admin_names)}).")
+            print("NetSentinel enforces a single administrator policy.")
+            print("You must resolve multiple administrator accounts before performing password recovery:")
+            print("    python backend/bootstrap.py --resolve-multiple-admins")
+            sys.exit(1)
+
+        # 2. Reset password mode validation
+        if args.reset_password:
+            if not existing_admins:
+                print("[NetSentinel Error] No administrator accounts exist in database.")
+                print("Run 'python backend/bootstrap.py' without --reset-password to initialize the first administrator.")
+                sys.exit(1)
+
+            if not existing:
+                print(f"[NetSentinel Error] User '{norm_username}' does not exist. Cannot reset password.")
+                print(f"Existing administrator account: '{existing_admins[0].username}'.")
+                sys.exit(1)
+
+            if existing.role != Role.ADMIN:
+                print(f"[NetSentinel Error] User '{norm_username}' has role '{existing.role}', not 'ADMIN'.")
+                print("Password recovery CLI only resets credentials for administrator accounts.")
+                print("To manage analyst passwords, log in as administrator and use the user management API or UI.")
+                sys.exit(1)
+
+        # 3. Normal initial bootstrap check: prevent creating second admin if one already exists
+        if existing_admins and not args.reset_password:
             admin_names = [a.username for a in existing_admins]
             print(f"[NetSentinel Error] An administrator account already exists ({', '.join(admin_names)}).")
             print("NetSentinel enforces a single administrator policy.")
@@ -119,10 +149,15 @@ def main(app=None):
         if existing:
             try:
                 existing.set_password(password)
-                existing.role = Role.ADMIN
                 existing.is_active = True
+                # Revoke all active session tokens for recovered administrator
+                from auth.models import AuthTokenRecord
+                AuthTokenRecord.query.filter_by(user_id=existing.id, revoked=False).update(
+                    {"revoked": True, "revoked_at": time.time()}
+                )
                 db.session.commit()
-                print(f"[NetSentinel] Password reset successfully for administrator '{norm_username}'.")
+                db.session.expire_all()
+                print(f"[NetSentinel] Password reset successfully for administrator '{norm_username}'. All previous sessions revoked.")
             except Exception as ex:
                 db.session.rollback()
                 print(f"[NetSentinel Error] Failed to update administrator password: {ex}")
@@ -137,6 +172,8 @@ def main(app=None):
             if create_err:
                 print(f"Error creating user: {create_err}")
                 sys.exit(1)
+            from database import ensure_single_admin_constraint
+            ensure_single_admin_constraint()
             print(f"[NetSentinel] Successfully created initial administrator '{norm_username}'.")
 
 
