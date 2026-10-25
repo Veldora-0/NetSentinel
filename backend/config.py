@@ -330,7 +330,7 @@ class Config:
     # CORS Origins (comma-separated string or list)
     _raw_cors = os.environ.get(
         "NETSENTINEL_CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,http://10.0.2.3:5173"
+        "http://localhost:5173,http://127.0.0.1:5173,http://10.0.2.3:5173,http://localhost:5000,http://127.0.0.1:5000"
     )
     CORS_ORIGINS = [x.strip() for x in _raw_cors.split(",") if x.strip()]
 

@@ -239,6 +239,69 @@ def test_socketio_rejects_inactive_user(auth_test_context):
     assert not client.is_connected()
 
 
+def test_socketio_reconnection_lifecycle_across_auth_states(auth_test_context):
+    """Verify Socket.IO connection, clean disconnect on logout, and successful reconnection after re-authentication."""
+    app = auth_test_context["app"]
+    socketio = auth_test_context["socketio"]
+    admin_user = auth_test_context["admin"]["user"]
+    admin_token = auth_test_context["admin"]["token"]
+
+    # 1. Connect with valid token
+    client1 = socketio.test_client(app, auth={"token": admin_token})
+    assert client1.is_connected()
+    client1.disconnect()
+    assert not client1.is_connected()
+
+    # 2. Simulate user logout / token revocation
+    with app.app_context():
+        AuthService.revoke_token(admin_token)
+
+    # Reconnection with revoked token is rejected
+    client_stale = socketio.test_client(app, auth={"token": admin_token})
+    assert not client_stale.is_connected()
+
+    # 3. User re-authenticates and obtains fresh token
+    with app.app_context():
+        _, fresh_token, _, err = AuthService.authenticate(admin_user.username, "AdminPassword123!")
+        assert err is None
+        assert fresh_token is not None
+
+    # Connection with fresh token succeeds immediately
+    client2 = socketio.test_client(app, auth={"token": fresh_token})
+    assert client2.is_connected()
+    client2.disconnect()
+
+
+def test_connection_dropped_errors_not_logged_as_unhandled_server_errors(auth_test_context, monkeypatch):
+    """Verify ConnectionError / client dropped connections bubble up cleanly to WSGI server without 500 error tracebacks."""
+    from security_middleware import SecurityMiddleware
+    import logging
+
+    app = auth_test_context["app"]
+    logger = logging.getLogger("netsentinel.security")
+
+    logged_exceptions = []
+    def fake_exception(msg, *args, **kwargs):
+        logged_exceptions.append(msg % args if args else msg)
+    monkeypatch.setattr(logger, "exception", fake_exception)
+
+    # Find the registered errorhandler for Exception
+    handler = None
+    for code, funcs in app.error_handler_spec.get(None, {}).items():
+        if Exception in funcs:
+            handler = funcs[Exception]
+            break
+
+    assert handler is not None, "Exception errorhandler must be registered"
+
+    # When ConnectionError is handled, it must re-raise so WSGI server (Werkzeug) handles it
+    with pytest.raises(ConnectionError):
+        handler(ConnectionError("Simulated client WebSocket dropped connection"))
+
+    # Crucially, logger.exception must NOT have been called with an unhandled exception traceback
+    assert not any("Unhandled application exception" in m for m in logged_exceptions)
+
+
 # ==============================================================================
 # 4. User Guardrails & Security Policies
 # ==============================================================================

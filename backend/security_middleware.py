@@ -254,5 +254,10 @@ class SecurityMiddleware:
         def unhandled_exception(e):
             if isinstance(e, HTTPException):
                 return _json_error(e.code, "http_error", e.description, e)
+            if isinstance(e, (ConnectionError, BrokenPipeError, ConnectionResetError)):
+                # Client disconnected or WebSocket connection closed by WSGI driver.
+                # Re-raise so the WSGI server (e.g. Werkzeug) handles connection termination cleanly
+                # without generating spurious 500 error responses or tracebacks on closed sockets.
+                raise e
             logger.exception("Unhandled application exception: %s", e)
             return _json_error(500, "internal_server_error", "An unexpected internal server error occurred.")

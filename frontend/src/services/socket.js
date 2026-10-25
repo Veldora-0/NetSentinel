@@ -19,11 +19,14 @@ const getToken = () => {
   }
 };
 
+const initialToken = getToken();
+
 // Connect using relative location (Vite proxies /socket.io to http://localhost:5000)
+// autoConnect is only enabled if an active token is already present in browser storage
 export const socket = io({
-  autoConnect: true,
+  autoConnect: Boolean(initialToken),
   reconnection: true,
-  reconnectionAttempts: Infinity,
+  reconnectionAttempts: 5,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 20000,
@@ -33,14 +36,36 @@ export const socket = io({
   },
 });
 
-// Helper to reconnect with updated credentials upon login
+// Immediately disconnect and halt reconnection if connection fails due to invalid/missing credentials
+socket.on('connect_error', (err) => {
+  const currentToken = getToken();
+  const errMsg = (err?.message || '').toLowerCase();
+  if (
+    !currentToken ||
+    errMsg.includes('unauthenticated') ||
+    errMsg.includes('unauthorized') ||
+    errMsg.includes('insufficient permissions') ||
+    errMsg.includes('refused')
+  ) {
+    socket.disconnect();
+  }
+});
+
+// Helper to reconnect with updated credentials upon login or disconnect on logout
 export const updateSocketAuth = (token) => {
   if (socket) {
-    socket.auth = { token: token || getToken() };
-    if (socket.connected) {
-      socket.disconnect().connect();
+    const activeToken = token || getToken();
+    socket.auth = { token: activeToken };
+    if (activeToken) {
+      if (socket.connected) {
+        socket.disconnect().connect();
+      } else {
+        socket.connect();
+      }
     } else {
-      socket.connect();
+      if (socket.connected) {
+        socket.disconnect();
+      }
     }
   }
 };

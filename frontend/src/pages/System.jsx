@@ -220,6 +220,11 @@ export default function System() {
                 <span>Capture Status:</span>
                 <span className="host-stat-val">{systemStatus?.packet_capture?.status ? systemStatus.packet_capture.status.toUpperCase() : 'UNKNOWN'}</span>
               </div>
+              {systemStatus?.packet_capture?.error && (
+                <div style={{ marginTop: '6px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '4px', fontSize: '11px', color: '#f87171', lineHeight: '1.4' }}>
+                  {systemStatus.packet_capture.error}
+                </div>
+              )}
               <div className="host-stat-row">
                 <span>Socket Protocol:</span>
                 <span className="host-stat-val">AF_PACKET / Raw Ethernet</span>

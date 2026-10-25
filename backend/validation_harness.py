@@ -748,9 +748,11 @@ class ValidationHarness:
 
             passed = single_incident and cross_domain and multi_vector and monotonic_score and timeline_ordered
 
+            sorted_domains = sorted(inc3.attack_domains)
+            sorted_types = sorted(inc3.detection_types)
             actual = (
                 f"Incident merged: {single_incident} (ID {inc3.incident_id}). "
-                f"Domains: {inc3.attack_domains}. Vectors: {inc3.detection_types}. "
+                f"Domains: {sorted_domains}. Vectors: {sorted_types}. "
                 f"Risk progression: {score1:.2f} -> {score2:.2f} -> {score3:.2f}. "
                 f"Timeline events count: {len(timeline)} (chronologically ordered: {timeline_ordered})."
             )
@@ -766,8 +768,8 @@ class ValidationHarness:
                 observed_values={
                     "single_incident_merged": single_incident,
                     "final_risk_score": inc3.risk_score,
-                    "attack_domains": list(inc3.attack_domains),
-                    "detection_types": list(inc3.detection_types),
+                    "attack_domains": sorted_domains,
+                    "detection_types": sorted_types,
                     "evidence_items_count": len(inc3.evidence_list),
                     "timeline_ordered": timeline_ordered,
                 },

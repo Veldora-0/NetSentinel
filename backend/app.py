@@ -111,11 +111,21 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     app_start_time = app.start_time
 
     # 4. CORS Hardening
-    cors_origins = app.config.get("CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173", "http://10.0.2.3:5173"])
+    cors_origins = app.config.get("CORS_ORIGINS", [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://10.0.2.3:5173",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+    ])
     if isinstance(cors_origins, str):
         cors_origins = [x.strip() for x in cors_origins.split(",") if x.strip()]
     elif isinstance(cors_origins, (list, tuple, set)):
         cors_origins = list(cors_origins)
+
+    for dev_origin in ("http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:5173", "http://127.0.0.1:5173"):
+        if dev_origin not in cors_origins:
+            cors_origins.append(dev_origin)
 
     # Automatically ensure active interface IPv4 addresses on port 5173 are included if not already present
     try:
@@ -152,6 +162,22 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
 
     # 8. Initialize Flask-SocketIO
     socketio = SocketIO(app, cors_allowed_origins=socket_cors, async_mode="threading")
+
+    # WSGI filter to cleanly absorb ConnectionError / client drops on WebSocket closures
+    # under the Werkzeug development server debugger
+    _orig_wsgi_app = app.wsgi_app
+    def _websocket_clean_disconnect_filter(environ, start_response):
+        try:
+            return _orig_wsgi_app(environ, start_response)
+        except (ConnectionError, BrokenPipeError, ConnectionResetError):
+            if environ.get("PATH_INFO", "").startswith("/socket.io"):
+                try:
+                    start_response("200 OK", [("Content-Type", "text/plain")])
+                except Exception:
+                    pass
+                return []
+            raise
+    app.wsgi_app = _websocket_clean_disconnect_filter
 
     # 1. Initialize Rule-Based Intrusion Detection Engine
     detector = TrafficDetector(config=app.config.get("DETECTOR_THRESHOLDS"))
@@ -1488,6 +1514,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         """Handle client Socket.IO connection with mandatory bearer token verification."""
         # 1. Check if auth is globally disabled (prohibited in production)
         import os
+        from flask_socketio import ConnectionRefusedError
         from auth.decorators import _is_auth_globally_disabled, _is_test_auth_bypass_allowed
         from auth.service import AuthService
         from auth.roles import Permission, has_permission
@@ -1520,11 +1547,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             if not user:
                 # Reject unauthenticated/unauthorized connection
                 app.logger.warning("Socket.IO connection rejected: unauthenticated or invalid token")
-                return False
+                raise ConnectionRefusedError("unauthenticated or invalid token")
 
             if not has_permission(user.role, Permission.READ_SECURITY):
                 app.logger.warning("Socket.IO connection rejected: user '%s' lacks read:security permission", user.username)
-                return False
+                raise ConnectionRefusedError("insufficient permissions")
 
         emit("connection_response", {
             "status": "connected",
