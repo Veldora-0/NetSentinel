@@ -1,0 +1,488 @@
+{
+  "phase": "Phase 1: Supervised ML Baseline",
+  "timestamp": 1794058307.2695074,
+  "timestamp_iso": "2026-11-07T13:31:47Z",
+  "selected_model": "RF-Default-Balanced",
+  "selected_config": {
+    "n_estimators": 100,
+    "max_depth": 15,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "max_features": "sqrt",
+    "class_weight": "balanced",
+    "random_state": 42,
+    "n_jobs": -1,
+    "name": "RF-Default-Balanced"
+  },
+  "model_file_size_bytes": 68569,
+  "model_file_size_kb": 66.96,
+  "feature_names": [
+    "packets_per_second",
+    "bytes_per_second",
+    "average_packet_size",
+    "tcp_ratio",
+    "udp_ratio",
+    "icmp_ratio",
+    "syn_ratio",
+    "ack_ratio",
+    "rst_ratio",
+    "fin_ratio",
+    "unique_destination_ports",
+    "unique_source_ips",
+    "unique_destination_ips"
+  ],
+  "partitions": {
+    "training": {
+      "name": "Synthetic-Train-Partition",
+      "samples": 100,
+      "benign": 40,
+      "malicious": 60,
+      "captures": [
+        "ctu-sim-train-benign-1",
+        "ctu-sim-train-portscan-1",
+        "ctu-sim-train-synflood-1"
+      ]
+    },
+    "validation": {
+      "name": "Synthetic-Val-Partition",
+      "samples": 50,
+      "benign": 25,
+      "malicious": 25,
+      "captures": [
+        "ctu-sim-val-benign-2",
+        "ctu-sim-val-flood-2"
+      ]
+    },
+    "testing": {
+      "name": "Synthetic-Test-Partition",
+      "samples": 50,
+      "benign": 25,
+      "malicious": 25,
+      "captures": [
+        "ctu-sim-test-benign-3",
+        "ctu-sim-test-stealthscan-3"
+      ]
+    }
+  },
+  "training_cross_validation_5fold": {
+    "n_splits": 5,
+    "accuracy_mean": 1.0,
+    "accuracy_std": 0.0,
+    "precision_mean": 1.0,
+    "precision_std": 0.0,
+    "recall_mean": 1.0,
+    "recall_std": 0.0,
+    "f1_mean": 1.0,
+    "f1_std": 0.0
+  },
+  "configuration_comparisons": [
+    {
+      "config_name": "RF-Default-Balanced",
+      "parameters": {
+        "name": "RF-Default-Balanced",
+        "n_estimators": 100,
+        "max_depth": 15,
+        "min_samples_split": 5,
+        "min_samples_leaf": 2,
+        "max_features": "sqrt",
+        "class_weight": "balanced",
+        "random_state": 42,
+        "n_jobs": -1
+      },
+      "training_duration_seconds": 0.2033,
+      "val_accuracy": 1.0,
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1_score": 1.0,
+      "val_false_positive_rate": 0.0,
+      "val_false_negative_rate": 0.0,
+      "validation_results": {
+        "partition_name": "Synthetic-Val-Partition",
+        "sample_count": 50,
+        "benign_samples": 25,
+        "malicious_samples": 25,
+        "overall_metrics": {
+          "total_samples": 50,
+          "true_positives": 25,
+          "true_negatives": 25,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0
+        },
+        "per_capture_metrics": {
+          "ctu-sim-val-benign-2": {
+            "total_samples": 25,
+            "true_positives": 0,
+            "true_negatives": 25,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1_score": 0.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          },
+          "ctu-sim-val-flood-2": {
+            "total_samples": 25,
+            "true_positives": 25,
+            "true_negatives": 0,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1_score": 1.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          }
+        },
+        "latency": {
+          "batch_total_seconds": 0.0352,
+          "throughput_windows_per_second": 1421.51,
+          "single_window_latency_ms": {
+            "mean": 22.8438,
+            "median": 16.5735,
+            "p95": 38.4112,
+            "min": 13.1977,
+            "max": 39.4108
+          }
+        }
+      }
+    },
+    {
+      "config_name": "RF-Shallow-Regularized",
+      "parameters": {
+        "name": "RF-Shallow-Regularized",
+        "n_estimators": 50,
+        "max_depth": 8,
+        "min_samples_split": 10,
+        "min_samples_leaf": 4,
+        "max_features": "sqrt",
+        "class_weight": "balanced_subsample",
+        "random_state": 42,
+        "n_jobs": -1
+      },
+      "training_duration_seconds": 0.1568,
+      "val_accuracy": 1.0,
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1_score": 1.0,
+      "val_false_positive_rate": 0.0,
+      "val_false_negative_rate": 0.0,
+      "validation_results": {
+        "partition_name": "Synthetic-Val-Partition",
+        "sample_count": 50,
+        "benign_samples": 25,
+        "malicious_samples": 25,
+        "overall_metrics": {
+          "total_samples": 50,
+          "true_positives": 25,
+          "true_negatives": 25,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0
+        },
+        "per_capture_metrics": {
+          "ctu-sim-val-benign-2": {
+            "total_samples": 25,
+            "true_positives": 0,
+            "true_negatives": 25,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1_score": 0.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          },
+          "ctu-sim-val-flood-2": {
+            "total_samples": 25,
+            "true_positives": 25,
+            "true_negatives": 0,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1_score": 1.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          }
+        },
+        "latency": {
+          "batch_total_seconds": 0.0284,
+          "throughput_windows_per_second": 1762.22,
+          "single_window_latency_ms": {
+            "mean": 21.2837,
+            "median": 16.1307,
+            "p95": 42.2214,
+            "min": 13.5095,
+            "max": 51.905
+          }
+        }
+      }
+    },
+    {
+      "config_name": "RF-Deep-Ensemble",
+      "parameters": {
+        "name": "RF-Deep-Ensemble",
+        "n_estimators": 150,
+        "max_depth": 20,
+        "min_samples_split": 2,
+        "min_samples_leaf": 1,
+        "max_features": "log2",
+        "class_weight": "balanced",
+        "random_state": 42,
+        "n_jobs": -1
+      },
+      "training_duration_seconds": 0.2103,
+      "val_accuracy": 1.0,
+      "val_precision": 1.0,
+      "val_recall": 1.0,
+      "val_f1_score": 1.0,
+      "val_false_positive_rate": 0.0,
+      "val_false_negative_rate": 0.0,
+      "validation_results": {
+        "partition_name": "Synthetic-Val-Partition",
+        "sample_count": 50,
+        "benign_samples": 25,
+        "malicious_samples": 25,
+        "overall_metrics": {
+          "total_samples": 50,
+          "true_positives": 25,
+          "true_negatives": 25,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0
+        },
+        "per_capture_metrics": {
+          "ctu-sim-val-benign-2": {
+            "total_samples": 25,
+            "true_positives": 0,
+            "true_negatives": 25,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1_score": 0.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          },
+          "ctu-sim-val-flood-2": {
+            "total_samples": 25,
+            "true_positives": 25,
+            "true_negatives": 0,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1_score": 1.0,
+            "false_positive_rate": 0.0,
+            "false_negative_rate": 0.0
+          }
+        },
+        "latency": {
+          "batch_total_seconds": 0.0422,
+          "throughput_windows_per_second": 1184.97,
+          "single_window_latency_ms": {
+            "mean": 27.5291,
+            "median": 25.9134,
+            "p95": 46.4163,
+            "min": 13.2527,
+            "max": 56.0345
+          }
+        }
+      }
+    }
+  ],
+  "training_summary": {
+    "training_samples": 100,
+    "benign_samples": 40,
+    "malicious_samples": 60,
+    "training_duration_seconds": 0.2033,
+    "feature_importances": {
+      "packets_per_second": 0.2831,
+      "syn_ratio": 0.2622,
+      "bytes_per_second": 0.2319,
+      "ack_ratio": 0.1756,
+      "unique_destination_ports": 0.0471,
+      "average_packet_size": 0.0,
+      "tcp_ratio": 0.0,
+      "udp_ratio": 0.0,
+      "icmp_ratio": 0.0,
+      "rst_ratio": 0.0,
+      "fin_ratio": 0.0,
+      "unique_source_ips": 0.0,
+      "unique_destination_ips": 0.0
+    },
+    "training_metrics": {
+      "total_samples": 100,
+      "true_positives": 60,
+      "true_negatives": 40,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.0
+    },
+    "diagnostics": {
+      "partition_name": "Synthetic-Train-Partition",
+      "sample_count": 100,
+      "feature_dim": 13,
+      "benign_samples": 40,
+      "malicious_samples": 60,
+      "nan_count": 0,
+      "inf_count": 0,
+      "duplicate_count": 97,
+      "unique_captures": [
+        "ctu-sim-train-benign-1",
+        "ctu-sim-train-portscan-1",
+        "ctu-sim-train-synflood-1"
+      ]
+    }
+  },
+  "validation_evaluation": {
+    "partition_name": "Synthetic-Val-Partition",
+    "sample_count": 50,
+    "benign_samples": 25,
+    "malicious_samples": 25,
+    "overall_metrics": {
+      "total_samples": 50,
+      "true_positives": 25,
+      "true_negatives": 25,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.0
+    },
+    "per_capture_metrics": {
+      "ctu-sim-val-benign-2": {
+        "total_samples": 25,
+        "true_positives": 0,
+        "true_negatives": 25,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "accuracy": 1.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0
+      },
+      "ctu-sim-val-flood-2": {
+        "total_samples": 25,
+        "true_positives": 25,
+        "true_negatives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0
+      }
+    },
+    "latency": {
+      "batch_total_seconds": 0.1367,
+      "throughput_windows_per_second": 365.63,
+      "single_window_latency_ms": {
+        "mean": 23.6422,
+        "median": 19.4716,
+        "p95": 41.9966,
+        "min": 12.9825,
+        "max": 48.6903
+      }
+    }
+  },
+  "test_evaluation": {
+    "partition_name": "Synthetic-Test-Partition",
+    "sample_count": 50,
+    "benign_samples": 25,
+    "malicious_samples": 25,
+    "overall_metrics": {
+      "total_samples": 50,
+      "true_positives": 25,
+      "true_negatives": 25,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.0
+    },
+    "per_capture_metrics": {
+      "ctu-sim-test-benign-3": {
+        "total_samples": 25,
+        "true_positives": 0,
+        "true_negatives": 25,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "accuracy": 1.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0
+      },
+      "ctu-sim-test-stealthscan-3": {
+        "total_samples": 25,
+        "true_positives": 25,
+        "true_negatives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0
+      }
+    },
+    "latency": {
+      "batch_total_seconds": 0.0287,
+      "throughput_windows_per_second": 1744.49,
+      "single_window_latency_ms": {
+        "mean": 24.0411,
+        "median": 20.7304,
+        "p95": 43.54,
+        "min": 13.0383,
+        "max": 56.187
+      }
+    }
+  },
+  "safety_invariants": {
+    "production_model_overwritten": false,
+    "firewall_enabled": false,
+    "auto_block": false,
+    "data_leakage_prevented": true
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "phase": "Phase 2: Real-World Evaluation Audit & Feasibility",
+  "timestamp": 1791554400.0,
+  "timestamp_iso": "2026-11-07T13:40:00Z",
+  "status": "AWAITING_DATASET_MOUNT",
+  "dataset_availability": {
+    "is_available_locally": false,
+    "scanned_paths": [
+      "/home/debian",
+      "/tmp",
+      "/var",
+      "/mnt",
+      "/media"
+    ],
+    "required_dataset": "CTU-IDSEVAL-6 (Stratosphere IPS Laboratory)",
+    "storage_footprint_estimate": "5 to 15 GB uncompressed PCAP & Zeek logs"
+  },
+  "required_specifications": {
+    "directory_structure": {
+      "<dataset-root>/pcap/": [
+        "ctu-idseval-6-benign-user-traffic-1.pcap (or .pcap.gz)",
+        "ctu-idseval-6-malicious-portscan-1.pcap (or .pcap.gz)",
+        "ctu-idseval-6-malicious-portscan-2.pcap (or .pcap.gz)",
+        "ctu-idseval-6-malicious-portscan-3.pcap (or .pcap.gz)",
+        "ctu-idseval-6-malicious-malware-1.pcap (or .pcap.gz)",
+        "ctu-idseval-6-malicious-malware-2.pcap (or .pcap.gz)"
+      ],
+      "<dataset-root>/zeek/": [
+        "ctu-idseval-6-benign-user-traffic-1.conn-labeled.log",
+        "ctu-idseval-6-malicious-portscan-1.conn-labeled.log",
+        "ctu-idseval-6-malicious-portscan-2.conn-labeled.log",
+        "ctu-idseval-6-malicious-portscan-3.conn-labeled.log",
+        "ctu-idseval-6-malicious-malware-1.conn-labeled.log",
+        "ctu-idseval-6-malicious-malware-2.conn-labeled.log"
+      ]
+    },
+    "feature_schema": 13,
+    "window_duration_seconds": 5.0
+  },
+  "ground_truth_methodology": {
+    "rule_A": "If at least one overlapping Zeek flow is 'Malicious' -> MALICIOUS",
+    "rule_B": "Else if at least one overlapping Zeek flow is 'Benign' -> BENIGN",
+    "rule_C": "Else if all overlapping flows are 'Background' -> BACKGROUND_ONLY (Excluded from binary metrics)",
+    "rule_D": "If no flow overlaps -> UNLABELED (Excluded from binary metrics)",
+    "mixed_window_handling": "Windows overlapping both Benign and Malicious flows are flagged is_mixed=True. In supervised training, mixed windows must be isolated from pure benign/malicious partitions to prevent label noise."
+  },
+  "canonical_historical_baseline_isolation_forest": {
+    "overall": {
+      "eligible_windows": 59320,
+      "true_positives": 34355,
+      "true_negatives": 19319,
+      "false_positives": 3808,
+      "false_negatives": 1838,
+      "accuracy": 0.9048,
+      "precision": 0.9002,
+      "recall": 0.9492,
+      "f1_score": 0.9241,
+      "false_positive_rate": 0.1647,
+      "false_negative_rate": 0.0508
+    },
+    "malware_1_breakdown": {
+      "eligible_windows": 26094,
+      "true_positives": 8993,
+      "true_negatives": 12750,
+      "false_positives": 3749,
+      "false_negatives": 602,
+      "accuracy": 0.8333,
+      "precision": 0.7058,
+      "recall": 0.9373,
+      "f1_score": 0.8052,
+      "false_positive_rate": 0.2272,
+      "false_negative_rate": 0.0627
+    }
+  },
+  "safety_invariants": {
+    "production_isolation_forest_preserved": true,
+    "firewall_enabled": false,
+    "auto_block": false,
+    "data_fabricated": false
+  }
+}
