@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from parser import ParsedPacket
 
-# Canonical feature ordering used across training and live inference
-FEATURE_NAMES: List[str] = [
+# Canonical feature ordering used across training and live inference (v1: 13 features)
+FEATURE_NAMES_V1: List[str] = [
     "packets_per_second",
     "bytes_per_second",
     "average_packet_size",
@@ -27,9 +27,33 @@ FEATURE_NAMES: List[str] = [
     "unique_destination_ips",
 ]
 
+# Candidate extended feature ordering (v2: 17 features)
+FEATURE_NAMES_V2: List[str] = FEATURE_NAMES_V1 + [
+    "syn_to_ack_ratio",
+    "rst_to_ack_ratio",
+    "inter_arrival_variance",
+    "payload_mtu_ratio",
+]
+
+# Canonical default feature list (retains 13 features for backward compatibility)
+FEATURE_NAMES: List[str] = FEATURE_NAMES_V1
+
+FEATURE_SCHEMAS: Dict[str, List[str]] = {
+    "v1": FEATURE_NAMES_V1,
+    "v2": FEATURE_NAMES_V2,
+}
+
+
+def get_feature_names(schema_version: str = "v1") -> List[str]:
+    """Retrieve ordered feature names for a given schema version ('v1' or 'v2')."""
+    version_key = (schema_version or "v1").lower()
+    return list(FEATURE_SCHEMAS.get(version_key, FEATURE_NAMES_V1))
+
 
 def extract_features_from_window(
-    packets: List[ParsedPacket], window_duration: float
+    packets: List[ParsedPacket],
+    window_duration: float,
+    schema_version: str = "v1",
 ) -> Tuple[List[float], Dict[str, float]]:
     """Extract a numerical feature vector from a list of packets observed in a time window.
 
@@ -38,17 +62,19 @@ def extract_features_from_window(
     Args:
         packets: List of ParsedPacket objects observed in the window.
         window_duration: Effective window duration in seconds (must be > 0).
+        schema_version: Feature schema version to extract ('v1' for 13 features, 'v2' for 17 features).
 
     Returns:
-        Tuple of (feature_list in FEATURE_NAMES order, feature_dict mapping names to floats).
+        Tuple of (feature_list in schema order, feature_dict mapping names to floats).
     """
     duration = max(0.1, float(window_duration))
     total_packets = len(packets)
+    target_names = get_feature_names(schema_version)
 
     if total_packets == 0:
         # Graceful empty window handling
-        empty_dict = {name: 0.0 for name in FEATURE_NAMES}
-        return [0.0] * len(FEATURE_NAMES), empty_dict
+        empty_dict = {name: 0.0 for name in target_names}
+        return [0.0] * len(target_names), empty_dict
 
     total_bytes = 0
     tcp_count = 0
@@ -106,15 +132,35 @@ def extract_features_from_window(
         "unique_destination_ips": float(len(unique_dst_ips)),
     }
 
-    feature_vector = [feature_dict[name] for name in FEATURE_NAMES]
+    # Extended v2 behavioral features
+    if "syn_to_ack_ratio" in target_names:
+        feature_dict["syn_to_ack_ratio"] = round(float(syn_count) / (float(ack_count) + 1e-4), 4)
+    if "rst_to_ack_ratio" in target_names:
+        feature_dict["rst_to_ack_ratio"] = round(float(rst_count) / (float(ack_count) + 1e-4), 4)
+    if "inter_arrival_variance" in target_names:
+        ts_list = [p.timestamp for p in packets if getattr(p, "timestamp", None) is not None]
+        if len(ts_list) >= 2:
+            ts_list.sort()
+            diffs = [ts_list[i + 1] - ts_list[i] for i in range(len(ts_list) - 1)]
+            mean_d = sum(diffs) / len(diffs)
+            var_d = sum((d - mean_d) ** 2 for d in diffs) / len(diffs)
+            feature_dict["inter_arrival_variance"] = round(float(var_d), 6)
+        else:
+            feature_dict["inter_arrival_variance"] = 0.0
+    if "payload_mtu_ratio" in target_names:
+        avg_sz = total_bytes / total_packets
+        feature_dict["payload_mtu_ratio"] = round(float(min(1.0, avg_sz / 1500.0)), 4)
+
+    feature_vector = [feature_dict[name] for name in target_names]
     return feature_vector, feature_dict
 
 
 class TrafficWindow:
     """Thread-safe packet window buffer that aggregates packets over discrete time slices."""
 
-    def __init__(self, window_seconds: float = 5.0):
+    def __init__(self, window_seconds: float = 5.0, schema_version: str = "v1"):
         self.window_seconds = float(window_seconds)
+        self.schema_version = str(schema_version or "v1")
         self._lock = threading.Lock()
         self._packets: List[ParsedPacket] = []
         self._window_start = time.time()
@@ -135,12 +181,15 @@ class TrafficWindow:
             return len(self._packets)
 
     def consume_window(
-        self, custom_duration: Optional[float] = None
+        self,
+        custom_duration: Optional[float] = None,
+        schema_version: Optional[str] = None,
     ) -> Tuple[List[float], Dict[str, float], int]:
         """Atomically consume accumulated packets, reset buffer, and compute features.
 
         Args:
             custom_duration: Optional override for window duration (defaults to elapsed or configured).
+            schema_version: Optional override for feature schema version ('v1' or 'v2').
 
         Returns:
             Tuple of (feature_vector, feature_dict, packet_count_in_window).
@@ -170,7 +219,8 @@ class TrafficWindow:
         self.last_primary_destination_ip = top_dst
 
         duration = custom_duration if custom_duration is not None else max(self.window_seconds, elapsed)
-        vec, f_dict = extract_features_from_window(pkts, duration)
+        version = schema_version or self.schema_version
+        vec, f_dict = extract_features_from_window(pkts, duration, schema_version=version)
         return vec, f_dict, len(pkts)
 
     def reset(self) -> None:
