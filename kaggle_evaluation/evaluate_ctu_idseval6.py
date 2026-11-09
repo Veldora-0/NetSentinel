@@ -62,35 +62,135 @@ DEFAULT_TEST_PATTERNS = [
 ]
 
 
-def discover_ctu_captures(dataset_root: str, pcap_dir: Optional[str] = None, zeek_dir: Optional[str] = None) -> Dict[str, Dict[str, str]]:
-    """Locate matching PCAP and Zeek files in the provided dataset directory structure."""
-    p_dir = pcap_dir or os.path.join(dataset_root, "pcap")
-    z_dir = zeek_dir or os.path.join(dataset_root, "zeek")
+_PCAP_EXTENSIONS = (".pcap.gz", ".pcap")
+_ZEEK_EXTENSIONS = (
+    ".conn-labeled.log.gz",
+    ".conn-labeled.log",
+    ".conn.log.gz",
+    ".conn.log",
+)
 
-    if not os.path.exists(p_dir):
-        # Check if files reside directly in dataset_root
-        if any(f.endswith(".pcap") or f.endswith(".pcap.gz") for f in os.listdir(dataset_root)):
-            p_dir = dataset_root
-            z_dir = dataset_root
-        else:
-            raise FileNotFoundError(f"PCAP directory not found at {p_dir} or {dataset_root}")
 
-    pcap_files = [f for f in os.listdir(p_dir) if f.endswith(".pcap") or f.endswith(".pcap.gz")]
-    zeek_files = [f for f in os.listdir(z_dir) if ".conn-labeled.log" in f or "conn.log" in f]
+def _extract_capture_id(filename: str) -> Optional[str]:
+    """Extract normalized capture identifier from PCAP or Zeek filename.
+
+    Returns None if filename does not match supported capture naming.
+    """
+    if filename.startswith("."):
+        return None
+
+    # Check Zeek extensions first (more specific than .log)
+    for ext in _ZEEK_EXTENSIONS:
+        if filename.endswith(ext):
+            base = filename[:-len(ext)].strip()
+            return base if base else None
+
+    # Check PCAP extensions
+    for ext in _PCAP_EXTENSIONS:
+        if filename.endswith(ext):
+            base = filename[:-len(ext)].strip()
+            return base if base else None
+
+    return None
+
+
+def discover_ctu_captures(
+    dataset_root: str,
+    pcap_dir: Optional[str] = None,
+    zeek_dir: Optional[str] = None,
+) -> Dict[str, Dict[str, str]]:
+    """Locate matching PCAP and Zeek files in the provided dataset directory structure.
+
+    Recursively discovers .pcap/.pcap.gz files and corresponding Zeek connection logs
+    (.conn-labeled.log, .conn.log, and .gz variants), pairing them by normalized capture ID.
+    Supports nested directories (e.g. pcap/pcap/ and zeek/zeek/ in Kaggle datasets).
+
+    Args:
+        dataset_root: Root directory of the dataset.
+        pcap_dir: Optional explicit override directory for PCAPs.
+        zeek_dir: Optional explicit override directory for Zeek logs.
+
+    Returns:
+        Dict mapping capture ID to {"pcap": <pcap_path>, "zeek": <zeek_path>}.
+
+    Raises:
+        FileNotFoundError: If dataset root does not exist, or no captures are discovered.
+        ValueError: If captures have missing counterparts or duplicate ambiguous files.
+    """
+    if not os.path.exists(dataset_root):
+        raise FileNotFoundError(f"Dataset root directory does not exist: {dataset_root}")
+    if not os.path.isdir(dataset_root):
+        raise NotADirectoryError(f"Dataset root is not a directory: {dataset_root}")
+
+    search_pcap_root = pcap_dir if (pcap_dir and os.path.exists(pcap_dir)) else dataset_root
+    search_zeek_root = zeek_dir if (zeek_dir and os.path.exists(zeek_dir)) else dataset_root
+
+    pcaps_by_id: Dict[str, List[str]] = {}
+    zeeks_by_id: Dict[str, List[str]] = {}
+
+    def _scan_dir(scan_root: str, collect_pcap: bool, collect_zeek: bool) -> None:
+        for root, _, files in os.walk(scan_root, followlinks=True):
+            for f in sorted(files):
+                if f.startswith("."):
+                    continue
+                full_path = os.path.abspath(os.path.join(root, f))
+                if not os.path.isfile(full_path):
+                    continue
+                if collect_pcap and any(f.endswith(ext) for ext in _PCAP_EXTENSIONS):
+                    cid = _extract_capture_id(f)
+                    if cid:
+                        pcaps_by_id.setdefault(cid, []).append(full_path)
+                elif collect_zeek and any(f.endswith(ext) for ext in _ZEEK_EXTENSIONS):
+                    cid = _extract_capture_id(f)
+                    if cid:
+                        zeeks_by_id.setdefault(cid, []).append(full_path)
+
+    if search_pcap_root == search_zeek_root:
+        _scan_dir(search_pcap_root, collect_pcap=True, collect_zeek=True)
+    else:
+        _scan_dir(search_pcap_root, collect_pcap=True, collect_zeek=False)
+        _scan_dir(search_zeek_root, collect_pcap=False, collect_zeek=True)
+
+    if not pcaps_by_id and not zeeks_by_id:
+        raise FileNotFoundError(
+            f"No valid PCAP or Zeek captures discovered under '{dataset_root}'. "
+            f"Expected .pcap/.pcap.gz and .conn-labeled.log files."
+        )
+
+    # Validate duplicate ambiguous files
+    duplicate_errors: List[str] = []
+    for cid, paths in sorted(pcaps_by_id.items()):
+        if len(paths) > 1:
+            duplicate_errors.append(f"Multiple PCAP files map to capture ID '{cid}': {paths}")
+    for cid, paths in sorted(zeeks_by_id.items()):
+        if len(paths) > 1:
+            duplicate_errors.append(f"Multiple Zeek log files map to capture ID '{cid}': {paths}")
+    if duplicate_errors:
+        raise ValueError("Ambiguous dataset matches found: " + "; ".join(duplicate_errors))
+
+    # Validate matching counterparts
+    pcap_ids = set(pcaps_by_id.keys())
+    zeek_ids = set(zeeks_by_id.keys())
+
+    missing_zeek = sorted(pcap_ids - zeek_ids)
+    missing_pcap = sorted(zeek_ids - pcap_ids)
+    mismatches: List[str] = []
+    if missing_zeek:
+        mismatches.append(f"PCAP capture(s) without matching Zeek log: {missing_zeek}")
+    if missing_pcap:
+        mismatches.append(f"Zeek log(s) without matching PCAP capture: {missing_pcap}")
+    if mismatches:
+        raise ValueError(
+            "Incomplete dataset captures: " + "; ".join(mismatches) + ". "
+            "Every PCAP capture must have a corresponding Zeek connection log."
+        )
 
     captures: Dict[str, Dict[str, str]] = {}
-    for pfile in pcap_files:
-        base = pfile.replace(".pcap.gz", "").replace(".pcap", "")
-        matched_zeek = None
-        for zfile in zeek_files:
-            if base in zfile:
-                matched_zeek = os.path.join(z_dir, zfile)
-                break
-        if matched_zeek:
-            captures[base] = {
-                "pcap": os.path.join(p_dir, pfile),
-                "zeek": matched_zeek,
-            }
+    for cid in sorted(pcap_ids):
+        captures[cid] = {
+            "pcap": pcaps_by_id[cid][0],
+            "zeek": zeeks_by_id[cid][0],
+        }
 
     return captures
 
@@ -479,12 +579,17 @@ def run_kaggle_evaluation(
 
 
 def main():
+    default_root = (
+        "/kaggle/input/datasets/veldora0/ctu-idseval-6"
+        if os.path.exists("/kaggle/input/datasets/veldora0/ctu-idseval-6")
+        else "/kaggle/input/ctu-idseval-6"
+    )
     parser = argparse.ArgumentParser(description="NetSentinel CTU-IDSEVAL-6 Kaggle Evaluation Runner")
     parser.add_argument(
         "--dataset-root",
         type=str,
-        default="/kaggle/input/ctu-idseval-6",
-        help="Path to CTU-IDSEVAL-6 dataset (default: /kaggle/input/ctu-idseval-6)",
+        default=default_root,
+        help="Path to CTU-IDSEVAL-6 dataset (default: auto-detected)",
     )
     parser.add_argument(
         "--output-dir",
