@@ -1,0 +1,200 @@
+{
+  "experiment_timestamp": 1794223613.9761455,
+  "experiment_timestamp_iso": "2026-11-09T11:26:53Z",
+  "execution_time_seconds": 60.48,
+  "seed": 42,
+  "feature_analysis": {
+    "canonical_v1_count": 13,
+    "candidate_v2_count": 17,
+    "v2_separation_scores": {
+      "inter_arrival_variance": 1.5716,
+      "syn_ratio": 1.1061,
+      "packets_per_second": 0.692,
+      "unique_source_ips": 0.3539,
+      "rst_ratio": 0.3508,
+      "icmp_ratio": 0.3323,
+      "ack_ratio": 0.2809,
+      "unique_destination_ports": 0.2025,
+      "average_packet_size": 0.1782,
+      "payload_mtu_ratio": 0.1782,
+      "bytes_per_second": 0.1724,
+      "rst_to_ack_ratio": 0.1299,
+      "tcp_ratio": 0.0791,
+      "syn_to_ack_ratio": 0.0772,
+      "fin_ratio": 0.0672,
+      "unique_destination_ips": 0.0578,
+      "udp_ratio": 0.0231
+    },
+    "v2_redundant_pairs": [
+      {
+        "feature_1": "average_packet_size",
+        "feature_2": "payload_mtu_ratio",
+        "correlation": 1.0
+      },
+      {
+        "feature_1": "rst_ratio",
+        "feature_2": "rst_to_ack_ratio",
+        "correlation": 0.9956
+      },
+      {
+        "feature_1": "packets_per_second",
+        "feature_2": "bytes_per_second",
+        "correlation": 0.9905
+      },
+      {
+        "feature_1": "tcp_ratio",
+        "feature_2": "ack_ratio",
+        "correlation": 0.9469
+      },
+      {
+        "feature_1": "tcp_ratio",
+        "feature_2": "udp_ratio",
+        "correlation": 0.9422
+      }
+    ]
+  },
+  "hyperparameter_search": {
+    "total_trials_v1": 96,
+    "best_v1_trial": {
+      "trial_id": 87,
+      "n_estimators": 250,
+      "max_samples": 512,
+      "contamination": 0.05,
+      "max_features": 0.85,
+      "bootstrap": false,
+      "random_state": 42,
+      "threshold": 0.5,
+      "training_time_ms": 437.01,
+      "inference_time_ms": 41.06,
+      "true_positives": 262,
+      "true_negatives": 282,
+      "false_positives": 18,
+      "false_negatives": 38,
+      "accuracy": 0.9067,
+      "precision": 0.9357,
+      "recall": 0.8733,
+      "f1_score": 0.9034,
+      "false_positive_rate": 0.06,
+      "false_negative_rate": 0.1267,
+      "roc_auc": 0.9725,
+      "pr_auc": 0.972,
+      "benign_mean_score": 0.4168,
+      "malicious_mean_score": 0.556,
+      "score_separation_margin": 0.1392
+    },
+    "total_trials_v2": 96,
+    "best_v2_trial": {
+      "trial_id": 40,
+      "n_estimators": 150,
+      "max_samples": 512,
+      "contamination": 0.05,
+      "max_features": 1.0,
+      "bootstrap": false,
+      "random_state": 42,
+      "threshold": 0.5,
+      "training_time_ms": 170.22,
+      "inference_time_ms": 13.57,
+      "true_positives": 292,
+      "true_negatives": 283,
+      "false_positives": 17,
+      "false_negatives": 8,
+      "accuracy": 0.9583,
+      "precision": 0.945,
+      "recall": 0.9733,
+      "f1_score": 0.9589,
+      "false_positive_rate": 0.0567,
+      "false_negative_rate": 0.0267,
+      "roc_auc": 0.9913,
+      "pr_auc": 0.991,
+      "benign_mean_score": 0.4179,
+      "malicious_mean_score": 0.5831,
+      "score_separation_margin": 0.1652
+    }
+  },
+  "threshold_calibration": {
+    "best_f1_threshold": {
+      "threshold": 0.49,
+      "true_positives": 275,
+      "true_negatives": 273,
+      "false_positives": 27,
+      "false_negatives": 25,
+      "accuracy": 0.9133,
+      "precision": 0.9106,
+      "recall": 0.9167,
+      "f1_score": 0.9136,
+      "false_positive_rate": 0.09,
+      "false_negative_rate": 0.0833,
+      "youden_j": 0.8267
+    },
+    "best_low_fpr_threshold": {
+      "threshold": 0.52,
+      "true_positives": 206,
+      "true_negatives": 294,
+      "false_positives": 6,
+      "false_negatives": 94,
+      "accuracy": 0.8333,
+      "precision": 0.9717,
+      "recall": 0.6867,
+      "f1_score": 0.8047,
+      "false_positive_rate": 0.02,
+      "false_negative_rate": 0.3133,
+      "youden_j": 0.6667
+    },
+    "best_balanced_threshold": {
+      "threshold": 0.49,
+      "true_positives": 275,
+      "true_negatives": 273,
+      "false_positives": 27,
+      "false_negatives": 25,
+      "accuracy": 0.9133,
+      "precision": 0.9106,
+      "recall": 0.9167,
+      "f1_score": 0.9136,
+      "false_positive_rate": 0.09,
+      "false_negative_rate": 0.0833,
+      "youden_j": 0.8267
+    }
+  },
+  "baseline_sizing": [
+    {
+      "baseline_samples": 20,
+      "accuracy": 0.7267,
+      "precision": 0.8063,
+      "recall": 0.5967,
+      "f1_score": 0.6858,
+      "false_positive_rate": 0.1433
+    },
+    {
+      "baseline_samples": 50,
+      "accuracy": 0.7417,
+      "precision": 0.8372,
+      "recall": 0.6,
+      "f1_score": 0.699,
+      "false_positive_rate": 0.1167
+    },
+    {
+      "baseline_samples": 100,
+      "accuracy": 0.77,
+      "precision": 0.8522,
+      "recall": 0.6533,
+      "f1_score": 0.7396,
+      "false_positive_rate": 0.1133
+    },
+    {
+      "baseline_samples": 250,
+      "accuracy": 0.8083,
+      "precision": 0.8776,
+      "recall": 0.7167,
+      "f1_score": 0.789,
+      "false_positive_rate": 0.1
+    },
+    {
+      "baseline_samples": 500,
+      "accuracy": 0.8133,
+      "precision": 0.9052,
+      "recall": 0.7,
+      "f1_score": 0.7895,
+      "false_positive_rate": 0.0733
+    }
+  ]
+}
