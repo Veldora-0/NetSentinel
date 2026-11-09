@@ -45,6 +45,61 @@ class MLAnomalyEvent:
         return asdict(self)
 
 
+def filter_baseline_outliers(
+    samples: List[List[float]], min_samples: int = 5
+) -> List[List[float]]:
+    """Filter extreme outlier windows from baseline samples before model fitting.
+
+    Protects baseline training against adversarial pollution or flood traffic occurring
+    during the initial baseline collection period using a 3.0x IQR boundary on key volumetric features.
+    """
+    if len(samples) < 8:
+        return list(samples)
+
+    try:
+        arr = np.asarray(samples, dtype=np.float64)
+        # Inspect key volumetric and attack features:
+        # 0: packets_per_second, 1: bytes_per_second, 6: syn_ratio, 10: unique_destination_ports
+        check_indices = [0, 1, 6, 10]
+        outlier_set = set()
+
+        for idx in check_indices:
+            if idx >= arr.shape[1]:
+                continue
+            col = arr[:, idx]
+            q25 = float(np.percentile(col, 25))
+            q75 = float(np.percentile(col, 75))
+            iqr = q75 - q25
+            med = float(np.median(col))
+            std = float(np.std(col))
+
+            if iqr > 1e-4:
+                upper_bound = q75 + (3.0 * iqr)
+            elif std > 1e-4:
+                upper_bound = med + (3.0 * std)
+            else:
+                upper_bound = max(1.0, med * 3.0)
+
+            outliers = np.where(col > upper_bound)[0]
+            for out_idx in outliers:
+                outlier_set.add(int(out_idx))
+
+        if outlier_set:
+            clean_indices = [i for i in range(len(samples)) if i not in outlier_set]
+            if len(clean_indices) >= min_samples:
+                logger.warning(
+                    "Baseline contamination defense: filtered %d outlier windows from baseline (retained %d clean windows).",
+                    len(outlier_set),
+                    len(clean_indices),
+                )
+                return [samples[i] for i in clean_indices]
+
+        return list(samples)
+    except Exception as ex:
+        logger.debug("Baseline outlier filtering skipped due to error: %s", ex)
+        return list(samples)
+
+
 class MLAnomalyDetector:
     """Traffic windowing and Isolation Forest anomaly detection coordinator."""
 
@@ -109,56 +164,8 @@ class MLAnomalyDetector:
         self._anomaly_callbacks.append(callback)
 
     def _filter_baseline_outliers(self, samples: List[List[float]]) -> List[List[float]]:
-        """Filter extreme outlier windows from baseline samples before model fitting.
-
-        Protects baseline training against adversarial pollution or flood traffic occurring
-        during the initial baseline collection period.
-        """
-        if len(samples) < 8:
-            return list(samples)
-
-        try:
-            arr = np.asarray(samples, dtype=np.float64)
-            # Inspect key volumetric and attack features:
-            # 0: packets_per_second, 1: bytes_per_second, 6: syn_ratio, 10: unique_destination_ports
-            check_indices = [0, 1, 6, 10]
-            outlier_set = set()
-
-            for idx in check_indices:
-                if idx >= arr.shape[1]:
-                    continue
-                col = arr[:, idx]
-                q25 = float(np.percentile(col, 25))
-                q75 = float(np.percentile(col, 75))
-                iqr = q75 - q25
-                med = float(np.median(col))
-                std = float(np.std(col))
-
-                if iqr > 1e-4:
-                    upper_bound = q75 + (3.0 * iqr)
-                elif std > 1e-4:
-                    upper_bound = med + (3.0 * std)
-                else:
-                    upper_bound = max(1.0, med * 3.0)
-
-                outliers = np.where(col > upper_bound)[0]
-                for out_idx in outliers:
-                    outlier_set.add(int(out_idx))
-
-            if outlier_set:
-                clean_indices = [i for i in range(len(samples)) if i not in outlier_set]
-                if len(clean_indices) >= self.model.min_samples:
-                    logger.warning(
-                        "Baseline contamination defense: filtered %d outlier windows from baseline (retained %d clean windows).",
-                        len(outlier_set),
-                        len(clean_indices),
-                    )
-                    return [samples[i] for i in clean_indices]
-
-            return list(samples)
-        except Exception as ex:
-            logger.debug("Baseline outlier filtering skipped due to error: %s", ex)
-            return list(samples)
+        """Filter extreme outlier windows from baseline samples before model fitting."""
+        return filter_baseline_outliers(samples, min_samples=self.model.min_samples)
 
     def process_packet(self, packet: ParsedPacket) -> None:
         """Callback invoked by PacketCapture for each captured frame."""

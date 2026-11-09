@@ -137,8 +137,8 @@ class Config:
         "enabled": os.environ.get("ML_ENABLED", "True").lower() in ("true", "1", "t"),
         # Duration of each traffic aggregation window in seconds
         "window_seconds": float(os.environ.get("ML_WINDOW_SECONDS", "5.0")),
-        # Target number of normal traffic windows required to fit the baseline model
-        "baseline_windows": int(os.environ.get("ML_BASELINE_WINDOWS", "10")),
+        # Target number of normal traffic windows required to fit the baseline model (30 windows * 5s = 150s)
+        "baseline_windows": int(os.environ.get("ML_BASELINE_WINDOWS", "30")),
         # Isolation Forest hyperparameters
         "n_estimators": int(os.environ.get("ML_N_ESTIMATORS", "100")),
         "contamination": os.environ.get("ML_CONTAMINATION", "auto"),

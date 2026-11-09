@@ -134,6 +134,7 @@ class RealDatasetEvaluator:
         anomaly_threshold: float = 0.50,
         n_estimators: int = 100,
         contamination: Any = "auto",
+        baseline_windows: int = 30,
     ):
         self.dataset_root = dataset_root or ""
         self.output_dir = output_dir or os.path.join(PROJECT_ROOT, "reports")
@@ -144,6 +145,7 @@ class RealDatasetEvaluator:
         self.anomaly_threshold = float(anomaly_threshold)
         self.n_estimators = int(n_estimators)
         self.contamination = contamination
+        self.baseline_windows = int(baseline_windows)
 
         os.makedirs(self.output_dir, exist_ok=True)
         self.window_builder = TrafficWindowBuilder(
@@ -273,17 +275,20 @@ class RealDatasetEvaluator:
                 f"in training capture '{training_tag}'! Baseline training aborted."
             )
 
-        # Filter strictly BENIGN windows for baseline training
+        # Filter strictly BENIGN windows for baseline training up to baseline_windows
         clean_train_windows = [w for w in train_windows if w.ground_truth == WindowGroundTruth.BENIGN]
-        if len(clean_train_windows) < 5:
+        selected_train_windows = clean_train_windows[:self.baseline_windows]
+        if len(selected_train_windows) < 5:
             raise ValueError(
                 f"Insufficient clean BENIGN training windows in {training_tag} "
-                f"(found {len(clean_train_windows)}, required >= 5 for Isolation Forest)."
+                f"(found {len(selected_train_windows)}, required >= 5 for Isolation Forest)."
             )
 
-        X_train = [w.feature_vector for w in clean_train_windows]
+        raw_X_train = [w.feature_vector for w in selected_train_windows]
+        from ml.detector import filter_baseline_outliers
+        X_train = filter_baseline_outliers(raw_X_train, min_samples=min(5, len(raw_X_train) // 2))
         print(f"  - Parsed records: {train_summary.parsed_successfully}/{train_summary.total_capture_records}")
-        print(f"  - Generated windows: {len(train_windows)} total ({len(clean_train_windows)} clean BENIGN used for training)")
+        print(f"  - Generated windows: {len(train_windows)} total ({len(clean_train_windows)} clean BENIGN, {len(X_train)} used after outlier defense)")
 
         # 4. Fit Isolation Forest with specified parameters
         print("\n[2/3] Fitting Unsupervised Isolation Forest Model...")
@@ -790,6 +795,12 @@ def main():
         help="Contamination parameter ('auto' or float, default: 'auto')",
     )
     parser.add_argument(
+        "--baseline-windows",
+        type=int,
+        default=30,
+        help="Number of normal traffic windows used for baseline training (default: 30, matching production)",
+    )
+    parser.add_argument(
         "--smoke-test",
         action="store_true",
         help="Run self-contained synthetic fixture smoke test without requiring external dataset",
@@ -824,6 +835,7 @@ def main():
         anomaly_threshold=args.threshold,
         n_estimators=args.n_estimators,
         contamination=contam_val,
+        baseline_windows=args.baseline_windows,
     )
 
     evaluator.run_evaluation(

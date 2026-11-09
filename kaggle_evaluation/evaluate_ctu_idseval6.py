@@ -34,6 +34,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 try:
     from ml.feature_extractor import FEATURE_NAMES
     from ml.model import IsolationForestModel, ModelStatus
+    from ml.detector import filter_baseline_outliers
     from evaluation.pcap_reader import PcapReader
     from evaluation.zeek_parser import ZeekLogParser
     from evaluation.window_builder import (
@@ -228,6 +229,7 @@ def run_kaggle_evaluation(
     n_estimators: int = 100,
     contamination: Any = "auto",
     max_samples: Any = "auto",
+    baseline_windows: int = 30,
     max_windows: Optional[int] = None,
     captures_filter: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
@@ -241,6 +243,7 @@ def run_kaggle_evaluation(
     print(f"Dataset Root       : {dataset_root}")
     print(f"Output Directory   : {output_dir}")
     print(f"Feature Schema     : Canonical 13 Features ({len(FEATURE_NAMES)} features)")
+    print(f"Baseline Size      : {baseline_windows} windows ({baseline_windows * 5.0:.1f}s collection)")
     print(f"Hyperparameters    : n_estimators={n_estimators}, max_samples={max_samples}, contamination={contamination}")
     print(f"Anomaly Threshold  : {threshold:.2f}")
     print("=" * 80)
@@ -251,14 +254,42 @@ def run_kaggle_evaluation(
     if not training_tag:
         raise ValueError(f"Training capture matching '{TRAINING_CAPTURE_PATTERN}' not found in {dataset_root}.")
 
-    test_tags = [tag for tag in captures if tag != training_tag]
-    if captures_filter:
-        test_tags = [tag for tag in test_tags if any(f in tag for f in captures_filter)]
+    # 2. Explicit Held-Out Test Capture Selection & Validation
+    target_patterns = captures_filter if captures_filter else DEFAULT_TEST_PATTERNS
+    test_tags: List[str] = []
+    missing_patterns: List[str] = []
+
+    for pattern in target_patterns:
+        matched = [tag for tag in captures if pattern in tag and tag != training_tag]
+        if matched:
+            test_tags.extend(matched)
+        else:
+            missing_patterns.append(pattern)
+
+    # De-duplicate while preserving discovery order
+    seen: set = set()
+    test_tags = [t for t in test_tags if not (t in seen or seen.add(t))]
+
+    # Exclude unexpected captures discovered in dataset directory
+    unexpected_tags = [
+        tag for tag in captures
+        if tag != training_tag and not any(pat in tag for pat in target_patterns)
+    ]
+    if unexpected_tags:
+        print(f"[Notice] Excluding unexpected/non-target capture(s) from evaluation: {', '.join(unexpected_tags)}")
+
+    if missing_patterns:
+        print(f"[Warning] Expected test capture pattern(s) not found in dataset directory: {', '.join(missing_patterns)}")
+
+    if not test_tags:
+        raise ValueError(
+            f"No valid held-out test captures found matching patterns {target_patterns} in {dataset_root}."
+        )
 
     print(f"Training Baseline Capture : {training_tag}")
     print(f"Held-Out Test Captures    : {', '.join(test_tags)}")
 
-    # 2. Extract 5-second windows for Training Baseline
+    # 3. Extract 5-second windows for Training Baseline (Production Consistency)
     print(f"\n[1/3] Processing Baseline Training Capture: {training_tag}...")
     builder = TrafficWindowBuilder(window_duration=5.0)
     train_pkts = PcapReader(captures[training_tag]["pcap"]).iter_packets()
@@ -271,10 +302,21 @@ def run_kaggle_evaluation(
     )
 
     clean_train_windows = [w for w in train_windows if w.ground_truth == WindowGroundTruth.BENIGN]
-    print(f"  - Clean BENIGN baseline windows: {len(clean_train_windows)}")
-    X_train = [w.feature_vector for w in clean_train_windows]
+    if not clean_train_windows:
+        raise ValueError(f"No clean BENIGN windows found in training capture '{training_tag}'.")
 
-    # 3. Fit Single Isolation Forest Model
+    # Sample exactly matching the production baseline collection procedure
+    selected_train_windows = clean_train_windows[:baseline_windows]
+    print(f"  - Available clean BENIGN windows : {len(clean_train_windows)}")
+    print(f"  - Production baseline sample size : {len(selected_train_windows)} windows (target: {baseline_windows})")
+
+    raw_X_train = [w.feature_vector for w in selected_train_windows]
+
+    # Apply production 3.0x IQR outlier defense
+    X_train = filter_baseline_outliers(raw_X_train, min_samples=min(5, len(raw_X_train) // 2))
+    print(f"  - Clean baseline samples for IF  : {len(X_train)} windows (after IQR outlier filtering)")
+
+    # 4. Fit Single Isolation Forest Model
     print(f"\n[2/3] Fitting Unsupervised Isolation Forest Model ({n_estimators} trees)...")
     t_train_start = time.perf_counter()
     model = IsolationForestModel(
@@ -291,7 +333,7 @@ def run_kaggle_evaluation(
         raise RuntimeError(f"Isolation Forest model training failed: {model.last_error}")
     print(f"  - Isolation Forest READY on {len(X_train)} baseline windows (train time: {training_time_sec:.3f}s).")
 
-    # 4. Process Held-Out Test Captures and Run Inference
+    # 5. Process Held-Out Test Captures and Run Inference
     print("\n[3/3] Evaluating Held-Out Test Captures...")
     all_test_windows: List[WindowEvaluationRecord] = []
     per_capture_results: Dict[str, Dict[str, Any]] = {}
@@ -323,6 +365,7 @@ def run_kaggle_evaluation(
     print("=" * 80)
     print(f"Model Architecture         : Single Isolation Forest (Unsupervised)")
     print(f"Feature Count              : 13 Canonical Features")
+    print(f"Baseline Training Windows  : {len(X_train)} (target: {baseline_windows})")
     print(f"Training Time              : {training_time_sec:.3f} seconds")
     print(f"Prediction Latency         : {overall_results['inference_time_ms_per_window']:.4f} ms / window")
     print(f"Threshold                  : {threshold:.2f}")
@@ -359,10 +402,13 @@ def run_kaggle_evaluation(
             "max_samples": max_samples,
             "contamination": contamination,
             "threshold": threshold,
+            "baseline_windows_target": baseline_windows,
+            "baseline_windows_used": len(X_train),
         },
         "training_time_seconds": training_time_sec,
         "training_baseline_capture": training_tag,
         "test_captures": test_tags,
+        "missing_expected_captures": missing_patterns,
         "overall_metrics": overall_results,
         "per_capture_metrics": per_capture_results,
     }
@@ -469,6 +515,12 @@ def main():
         help="Optional limit on windows per capture for fast evaluation",
     )
     parser.add_argument(
+        "--baseline-windows",
+        type=int,
+        default=30,
+        help="Number of normal traffic windows used for baseline training (default: 30, matching production)",
+    )
+    parser.add_argument(
         "--captures",
         type=str,
         default=None,
@@ -499,6 +551,7 @@ def main():
         n_estimators=args.n_estimators,
         contamination=contam_val,
         max_samples=max_samp_val,
+        baseline_windows=args.baseline_windows,
         max_windows=args.max_windows,
         captures_filter=caps,
     )

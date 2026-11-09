@@ -8,7 +8,7 @@ and real-time anomaly detection independent of rule-based detectors.
 
 from ml.feature_extractor import FEATURE_NAMES, extract_features_from_window, TrafficWindow
 from ml.model import IsolationForestModel, ModelStatus
-from ml.detector import MLAnomalyDetector, MLAnomalyEvent
+from ml.detector import MLAnomalyDetector, MLAnomalyEvent, filter_baseline_outliers
 
 __all__ = [
     "FEATURE_NAMES",
@@ -18,4 +18,5 @@ __all__ = [
     "ModelStatus",
     "MLAnomalyDetector",
     "MLAnomalyEvent",
+    "filter_baseline_outliers",
 ]

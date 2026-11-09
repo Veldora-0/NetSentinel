@@ -14,13 +14,15 @@ The evaluation runs NetSentinel's single unsupervised Isolation Forest model on 
 | **Estimators (`n_estimators`)** | `100` (configurable via `--n-estimators`) |
 | **Subsampling (`max_samples`)** | `"auto"` (`256`) (configurable via `--max-samples`) |
 | **Contamination** | `"auto"` (configurable via `--contamination`) |
+| **Baseline Windows** | `30` windows (150.0s collection, matching production default; configurable via `--baseline-windows`) |
+| **Baseline Outlier Defense** | 3.0× IQR filtering on key volumetric features (matching production) |
 | **Features** | Canonical 13 Features in strict order |
-| **Decision Threshold** | `0.50` (configurable via `--threshold`) |
+| **Decision Threshold** | `0.50` (natural Isolation Forest offset boundary, configurable via `--threshold`) |
 | **Window Duration** | `5.0` seconds |
 
-### Strict Data Leakage Safeguards
-- **Training Baseline**: Fitted strictly on clean `BENIGN` windows from `benign-user-traffic-1`.
-- **Test Set**: Held-out malware captures (`malware-1`, `malware-2`) and portscan captures (`portscan-1`, `portscan-2`, `portscan-3`).
+### Strict Data Leakage Safeguards & Explicit Capture Selection
+- **Training Baseline**: Sampled sequentially from clean `BENIGN` windows of `benign-user-traffic-1` up to the configured baseline size, filtered through 3.0× IQR outlier defense.
+- **Held-Out Test Set**: Explicitly matches target test captures (`malware-1`, `malware-2`, `portscan-1`, `portscan-2`, `portscan-3`). Missing expected captures are explicitly warned, and unexpected files are automatically excluded.
 - **Exclusion Rules**: Windows containing background-only or unlabeled traffic are excluded from binary classification metrics to prevent ground-truth contamination.
 
 ---
@@ -63,6 +65,7 @@ In the third cell, execute the evaluation script pointing to your Kaggle dataset
 !python kaggle_evaluation/evaluate_ctu_idseval6.py \
     --dataset-root /kaggle/input/ctu-idseval-6 \
     --output-dir /kaggle/working/kaggle_output \
+    --baseline-windows 30 \
     --threshold 0.50
 ```
 
@@ -72,6 +75,7 @@ If you want to perform a fast preliminary sanity check before processing the ful
 !python kaggle_evaluation/evaluate_ctu_idseval6.py \
     --dataset-root /kaggle/input/ctu-idseval-6 \
     --output-dir /kaggle/working/kaggle_output \
+    --baseline-windows 30 \
     --max-windows 500 \
     --threshold 0.50
 ```

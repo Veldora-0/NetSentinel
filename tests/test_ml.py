@@ -448,3 +448,22 @@ def test_atomic_model_saving():
         assert len(tmp_files) == 0
 
 
+def test_production_baseline_defaults_and_filtering():
+    """Verify production baseline defaults and reusable outlier filtering function."""
+    from config import Config
+    from ml.detector import filter_baseline_outliers
+
+    assert Config.ML_BASELINE_WINDOWS == 30
+
+    detector = MLAnomalyDetector()
+    assert detector.baseline_windows == 30
+    assert detector.anomaly_threshold == 0.50
+
+    # 10 windows: 9 normal, 1 extreme volumetric outlier
+    normal = [[20.0, 15000.0, 750.0, 0.9, 0.1, 0.0, 0.05, 0.85, 0.01, 0.02, 5.0, 2.0, 4.0] for _ in range(9)]
+    outlier = [10000.0, 9999999.0, 1500.0, 1.0, 0.0, 0.0, 0.99, 0.0, 0.0, 0.0, 500.0, 200.0, 5.0]
+    filtered = filter_baseline_outliers(normal + [outlier], min_samples=5)
+    assert len(filtered) == 9
+    assert outlier not in filtered
+
+
