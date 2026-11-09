@@ -27,7 +27,13 @@ from config import Config
 from config_validator import ConfigValidator, ConfigurationError
 from ml.detector import MLAnomalyDetector
 from ml.feature_extractor import FEATURE_NAMES
-from ml.model import IsolationForestModel, ModelStatus
+from ml.model import (
+    IsolationForestModel,
+    ModelStatus,
+    _is_valid_sha256,
+    _is_valid_generation_id,
+    _is_safe_filename,
+)
 
 
 def _create_valid_window(offset: int = 0) -> List[float]:
@@ -225,6 +231,39 @@ def test_manifest_missing_rejected():
         assert "Missing required model manifest" in loader_model.last_error
 
 
+def test_partial_artifacts_fail_closed_with_error():
+    """Verify that incomplete artifacts (one file present, others missing) fail closed with ERROR state."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+
+        # 1. Neither file exists: ordinary no-artifact case -> MODEL_NOT_READY
+        m0 = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert m0.load(model_path, meta_path) is False
+        assert m0.status == ModelStatus.MODEL_NOT_READY
+        assert m0.model is None
+        assert m0.last_error is None
+
+        # 2. Only model_path exists -> ERROR
+        with open(model_path, "wb") as fh:
+            fh.write(b"dummy model content")
+        m1 = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert m1.load(model_path, meta_path) is False
+        assert m1.status == ModelStatus.ERROR
+        assert m1.model is None
+        assert "metadata" in m1.last_error.lower()
+
+        # 3. Only meta_path exists -> ERROR
+        os.remove(model_path)
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            fh.write("{}")
+        m2 = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert m2.load(model_path, meta_path) is False
+        assert m2.status == ModelStatus.ERROR
+        assert m2.model is None
+        assert "binary" in m2.last_error.lower() or "artifact" in m2.last_error.lower()
+
+
 @pytest.mark.parametrize("corrupt_content", [
     "not-json-content{[[",
     "[]",  # not a dict
@@ -390,15 +429,90 @@ def test_manifest_path_traversal_rejected(traversal_str):
         assert ("traversal" in loader.last_error.lower() or "mismatch" in loader.last_error.lower() or "resolves outside" in loader.last_error.lower())
 
 
+def test_strict_sha256_validation_unit_spec():
+    """Verify _is_valid_sha256 strictly enforces format without normalization."""
+    valid_sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    assert _is_valid_sha256(valid_sha) is True
+    assert _is_valid_sha256("0" * 64) is True
+    assert _is_valid_sha256("f" * 64) is True
+
+    # Uppercase SHA-256 rejection
+    assert _is_valid_sha256(valid_sha.upper()) is False
+    assert _is_valid_sha256("A" * 64) is False
+    assert _is_valid_sha256("a" * 63 + "F") is False
+
+    # Leading whitespace rejection
+    assert _is_valid_sha256(" " + valid_sha) is False
+    assert _is_valid_sha256(" " + "a" * 63) is False
+    assert _is_valid_sha256("\t" + "a" * 63) is False
+
+    # Trailing whitespace rejection
+    assert _is_valid_sha256(valid_sha + " ") is False
+    assert _is_valid_sha256("a" * 63 + " ") is False
+    assert _is_valid_sha256("a" * 63 + "\n") is False
+
+    # Embedded whitespace rejection
+    assert _is_valid_sha256("a" * 32 + " " + "a" * 31) is False
+
+    # Incorrect length
+    assert _is_valid_sha256("") is False
+    assert _is_valid_sha256("a" * 63) is False
+    assert _is_valid_sha256("a" * 65) is False
+
+    # Non-hexadecimal characters
+    assert _is_valid_sha256("g" * 64) is False
+    assert _is_valid_sha256("z" * 64) is False
+    assert _is_valid_sha256("!" * 64) is False
+
+    # Non-string values
+    assert _is_valid_sha256(None) is False
+    assert _is_valid_sha256(1234567890123456) is False
+    assert _is_valid_sha256(["a" * 64]) is False
+    assert _is_valid_sha256({"sha": "a" * 64}) is False
+    assert _is_valid_sha256(valid_sha.encode("utf-8")) is False
+
+
+def test_strict_generation_id_validation_unit_spec():
+    """Verify _is_valid_generation_id enforces valid non-empty generation ID format."""
+    assert _is_valid_generation_id("5fabc02d9a5b4961") is True
+    assert _is_valid_generation_id("gen_2026_test-01") is True
+
+    # Whitespace rejected
+    assert _is_valid_generation_id(" 5fabc02d9a5b4961") is False
+    assert _is_valid_generation_id("5fabc02d9a5b4961 ") is False
+    assert _is_valid_generation_id("5fabc02d 9a5b496") is False
+
+    # Length bounds (<8 or >64)
+    assert _is_valid_generation_id("short") is False
+    assert _is_valid_generation_id("a" * 65) is False
+    assert _is_valid_generation_id("") is False
+
+    # Non-string
+    assert _is_valid_generation_id(12345678) is False
+    assert _is_valid_generation_id(None) is False
+
+    # Invalid symbols
+    assert _is_valid_generation_id("gen;rm -rf /") is False
+    assert _is_valid_generation_id("gen/../escape") is False
+
+
 @pytest.mark.parametrize("invalid_checksum", [
-    "tooshort12345",
-    "toolong" + "a" * 64,
-    "g" * 64, # non-hex character 'g'
-    "z" * 64, # non-hex character 'z'
-    "   ",
+    "tooshort12345",                                                   # Incorrect length
+    "toolong" + "a" * 64,                                              # Incorrect length
+    "A" * 64,                                                          # Uppercase SHA-256 rejection
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85F",# Mixed uppercase
+    " " + "a" * 63,                                                    # Leading whitespace rejection
+    " " + "a" * 64,                                                    # Leading whitespace with 64 hex
+    "a" * 63 + " ",                                                    # Trailing whitespace rejection
+    "a" * 64 + " ",                                                    # Trailing whitespace with 64 hex
+    "a" * 32 + " " + "a" * 31,                                         # Embedded whitespace rejection
+    "g" * 64,                                                          # Non-hexadecimal 'g'
+    "z" * 64,                                                          # Non-hexadecimal 'z'
+    "   ",                                                             # Blank whitespace
+    1234567890123456789012345678901234567890123456789012345678901234,  # Non-string integer
 ])
 def test_manifest_invalid_checksum_formats_rejected(invalid_checksum):
-    """Verify malformed checksum values (invalid length or non-hex characters) are rejected."""
+    """Verify malformed checksum values are strictly rejected without normalization."""
     with tempfile.TemporaryDirectory() as tmpdir:
         model_path = os.path.join(tmpdir, "isolation_forest.joblib")
         meta_path = os.path.join(tmpdir, "model_metadata.json")
@@ -421,6 +535,8 @@ def test_manifest_invalid_checksum_formats_rejected(invalid_checksum):
         assert loader.load(model_path, meta_path) is False
         assert loader.status == ModelStatus.ERROR
         assert loader.model is None
+        with pytest.raises(RuntimeError):
+            loader.predict([1.0] * 13)
 
         # 2. Invalid metadata_sha256 in manifest
         manifest["model_sha256"] = orig_model_sha
@@ -432,6 +548,229 @@ def test_manifest_invalid_checksum_formats_rejected(invalid_checksum):
         assert loader2.load(model_path, meta_path) is False
         assert loader2.status == ModelStatus.ERROR
         assert loader2.model is None
+        with pytest.raises(RuntimeError):
+            loader2.predict([1.0] * 13)
+
+
+@pytest.mark.parametrize("invalid_checksum", [
+    "A" * 64,                                                          # Uppercase SHA-256 rejection
+    " " + "a" * 63,                                                    # Leading whitespace
+    "a" * 63 + " ",                                                    # Trailing whitespace
+    "a" * 32 + " " + "a" * 31,                                         # Embedded whitespace
+    "g" * 64,                                                          # Non-hexadecimal
+    "short123",                                                        # Short length
+    1234567890123456,                                                  # Non-string
+])
+def test_metadata_invalid_checksum_formats_rejected(invalid_checksum):
+    """Verify malformed checksum in metadata is strictly rejected without normalization."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        meta["model_sha256"] = invalid_checksum
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2)
+
+        # Update manifest's metadata_sha256 so metadata hash passes, isolating meta checksum validation
+        with open(meta_path, "rb") as fh:
+            new_meta_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["metadata_sha256"] = new_meta_hash
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        with pytest.raises(RuntimeError):
+            loader.predict([1.0] * 13)
+
+
+def test_failed_load_state_cleanup_and_ready_invalidation():
+    """Verify failed load clears existing model from memory and invalidates READY state."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+
+        # 1. Start with an instance that is trained and in READY state
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        assert model.train(samples) is True
+        assert model.status == ModelStatus.READY
+        assert model.model is not None
+        # Prediction works initially
+        is_anom, _, _ = model.predict([1.0] * 13)
+        assert isinstance(is_anom, bool)
+
+        # 2. Call load on nonexistent files (ordinary no-artifact case)
+        nonexistent_model = os.path.join(tmpdir, "missing.joblib")
+        nonexistent_meta = os.path.join(tmpdir, "missing.json")
+        loaded = model.load(nonexistent_model, nonexistent_meta)
+        assert loaded is False
+        assert model.status == ModelStatus.MODEL_NOT_READY
+        assert model.model is None
+        # Model is cleared: predict must raise RuntimeError
+        with pytest.raises(RuntimeError, match="Cannot perform prediction"):
+            model.predict([1.0] * 13)
+
+        # 3. Train back to READY state
+        assert model.train(samples) is True
+        assert model.status == ModelStatus.READY
+        assert model.model is not None
+
+        # 4. Save and corrupt artifact, then call load on the corrupted artifact
+        assert model.save(model_path, meta_path) is True
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            fh.write("corrupted json {")
+
+        loaded_corrupt = model.load(model_path, meta_path)
+        assert loaded_corrupt is False
+        assert model.status == ModelStatus.ERROR
+        assert model.model is None
+        # Predict must raise RuntimeError
+        with pytest.raises(RuntimeError, match="Cannot perform prediction"):
+            model.predict([1.0] * 13)
+
+
+def test_actual_deserialized_estimator_parameter_mismatch_rejected():
+    """Verify loading fails closed when deserialized estimator parameters differ from metadata claims."""
+    import joblib
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Deserialized estimator parameter tampering: change n_estimators to 50 on estimator
+        loaded_est = joblib.load(model_path)
+        loaded_est.n_estimators = 50
+        joblib.dump(loaded_est, model_path)
+
+        # Re-hash binary and update manifest/meta so file hashes match, isolating parameter check
+        with open(model_path, "rb") as fh:
+            new_bin_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        meta["model_sha256"] = new_bin_hash
+        # metadata claims 100, while estimator has 50
+        meta["n_estimators"] = 100
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2)
+
+        with open(meta_path, "rb") as fh:
+            new_meta_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["model_sha256"] = new_bin_hash
+        manifest["metadata_sha256"] = new_meta_hash
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        with pytest.raises(RuntimeError):
+            loader.predict([1.0] * 13)
+
+
+def test_actual_fitted_trees_count_mismatch_rejected():
+    """Verify loading fails closed when ensemble estimators_ tree count does not match n_estimators."""
+    import joblib
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Truncate fitted tree ensemble to 50 trees
+        loaded_est = joblib.load(model_path)
+        loaded_est.estimators_ = loaded_est.estimators_[:50]
+        joblib.dump(loaded_est, model_path)
+
+        # Recompute checksums to isolate tree count check
+        with open(model_path, "rb") as fh:
+            new_bin_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        meta["model_sha256"] = new_bin_hash
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2)
+
+        with open(meta_path, "rb") as fh:
+            new_meta_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["model_sha256"] = new_bin_hash
+        manifest["metadata_sha256"] = new_meta_hash
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        with pytest.raises(RuntimeError):
+            loader.predict([1.0] * 13)
+
+
+def test_successful_save_load_round_trip():
+    """Verify successful atomic save and load round trip leaves model in READY state with identical predictions."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        # 1. Train and save production model
+        orig_model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        assert orig_model.train(samples) is True
+        assert orig_model.save(model_path, meta_path) is True
+
+        # Verify artifacts and lack of leftover temp files
+        assert os.path.exists(model_path)
+        assert os.path.exists(meta_path)
+        assert os.path.exists(manifest_path)
+        temp_files = [f for f in os.listdir(tmpdir) if ".tmp." in f]
+        assert len(temp_files) == 0
+
+        # 2. Reload with fresh model instance enforcing approved production parameters
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path, enforce_approved_params=True) is True
+        assert loader.status == ModelStatus.READY
+        assert loader.model is not None
+        assert loader.training_sample_count == 512
+        assert loader.n_estimators == 100
+        assert loader.max_samples == "auto"
+        assert loader.contamination == "auto"
+        assert loader.max_features == 1.0
+        assert loader.random_state == 42
+        assert loader.feature_names == FEATURE_NAMES
+
+        # 3. Verify identical anomaly scores and predictions
+        for test_idx in range(10):
+            test_vec = _create_valid_window(test_idx + 1000)
+            orig_pred = orig_model.predict(test_vec)
+            loader_pred = loader.predict(test_vec)
+            assert orig_pred == loader_pred
 
 
 def test_mixed_generation_artifacts_rejected():

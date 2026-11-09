@@ -229,7 +229,8 @@ def run_kaggle_evaluation(
     n_estimators: int = 100,
     contamination: Any = "auto",
     max_samples: Any = "auto",
-    baseline_windows: int = 30,
+    baseline_windows: int = 512,
+    baseline_filter: str = "none",
     max_windows: Optional[int] = None,
     captures_filter: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
@@ -244,6 +245,7 @@ def run_kaggle_evaluation(
     print(f"Output Directory   : {output_dir}")
     print(f"Feature Schema     : Canonical 13 Features ({len(FEATURE_NAMES)} features)")
     print(f"Baseline Size      : {baseline_windows} windows ({baseline_windows * 5.0:.1f}s collection)")
+    print(f"Baseline Filter    : {baseline_filter}")
     print(f"Hyperparameters    : n_estimators={n_estimators}, max_samples={max_samples}, contamination={contamination}")
     print(f"Anomaly Threshold  : {threshold:.2f}")
     print("=" * 80)
@@ -312,9 +314,13 @@ def run_kaggle_evaluation(
 
     raw_X_train = [w.feature_vector for w in selected_train_windows]
 
-    # Apply production 3.0x IQR outlier defense
-    X_train = filter_baseline_outliers(raw_X_train, min_samples=min(5, len(raw_X_train) // 2))
-    print(f"  - Clean baseline samples for IF  : {len(X_train)} windows (after IQR outlier filtering)")
+    # Apply baseline filtering strategy ('none' by default matching approved production configuration)
+    if baseline_filter == "iqr":
+        X_train = filter_baseline_outliers(raw_X_train, min_samples=min(5, len(raw_X_train) // 2))
+        print(f"  - Clean baseline samples for IF  : {len(X_train)} windows (after IQR outlier filtering)")
+    else:
+        X_train = raw_X_train
+        print(f"  - Clean baseline samples for IF  : {len(X_train)} windows (no outlier filtering, production default)")
 
     # 4. Fit Single Isolation Forest Model
     print(f"\n[2/3] Fitting Unsupervised Isolation Forest Model ({n_estimators} trees)...")
@@ -324,7 +330,7 @@ def run_kaggle_evaluation(
         max_samples=max_samples,
         contamination=contamination,
         random_state=42,
-        min_samples=min(10, len(X_train)),
+        min_samples=min(512, len(X_train)),
     )
     model.train(X_train)
     t_train_end = time.perf_counter()
@@ -405,6 +411,7 @@ def run_kaggle_evaluation(
             "threshold": threshold,
             "baseline_windows_target": baseline_windows,
             "baseline_windows_used": len(X_train),
+            "baseline_filter": baseline_filter,
         },
         "training_time_seconds": training_time_sec,
         "training_baseline_capture": training_tag,
@@ -482,8 +489,8 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="./kaggle_output",
-        help="Directory to save evaluation reports (default: ./kaggle_output)",
+        default="./kaggle_output_production_512",
+        help="Directory to save evaluation reports (default: ./kaggle_output_production_512)",
     )
     parser.add_argument(
         "--threshold",
@@ -518,8 +525,15 @@ def main():
     parser.add_argument(
         "--baseline-windows",
         type=int,
-        default=30,
-        help="Number of normal traffic windows used for baseline training (default: 30, matching production)",
+        default=512,
+        help="Number of normal traffic windows used for baseline training (default: 512, matching approved production configuration)",
+    )
+    parser.add_argument(
+        "--baseline-filter",
+        type=str,
+        default="none",
+        choices=["none", "iqr"],
+        help="Baseline outlier filter (default: 'none', matching approved production configuration)",
     )
     parser.add_argument(
         "--captures",
@@ -553,6 +567,7 @@ def main():
         contamination=contam_val,
         max_samples=max_samp_val,
         baseline_windows=args.baseline_windows,
+        baseline_filter=args.baseline_filter,
         max_windows=args.max_windows,
         captures_filter=caps,
     )
