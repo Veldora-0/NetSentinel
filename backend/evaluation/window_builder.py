@@ -124,9 +124,11 @@ class TrafficWindowBuilder:
         self,
         window_duration: float = 5.0,
         include_empty_windows: bool = False,
+        schema_version: str = "v1",
     ):
         self.window_duration = float(window_duration)
         self.include_empty_windows = bool(include_empty_windows)
+        self.schema_version = str(schema_version or "v1")
 
     def process_capture(
         self,
@@ -183,9 +185,9 @@ class TrafficWindowBuilder:
                     overlapping.append(flow)
                 scan_idx += 1
 
-            # Extract 13 features using production extractor
+            # Extract features using versioned feature extractor
             feature_vec, feature_dict = extract_features_from_window(
-                pkts, window_duration=self.window_duration
+                pkts, window_duration=self.window_duration, schema_version=self.schema_version
             )
 
             # Determine ground truth

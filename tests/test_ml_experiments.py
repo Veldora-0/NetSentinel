@@ -164,3 +164,11 @@ def test_ml_optimization_runner_execution():
             assert data["hyperparameter_search"]["total_trials_v1"] > 0
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_kaggle_evaluation_package_smoke():
+    """Verify kaggle evaluation smoke test runs and produces valid comparison artifacts."""
+    from kaggle_evaluation.smoke_test_kaggle_package import run_kaggle_smoke_test
+    # Should execute and pass without throwing any exception
+    run_kaggle_smoke_test()
+

@@ -222,11 +222,11 @@ class ConfigValidator:
                     errors.append(f"ML_SETTINGS.contamination invalid value '{ml['contamination']}'")
             if "anomaly_threshold" in ml:
                 try:
-                    th = cls.validate_positive_number(ml["anomaly_threshold"], "ML_SETTINGS.anomaly_threshold", allow_zero=True)
-                    if th > 1.0:
-                        errors.append(f"ML_SETTINGS.anomaly_threshold must be in range [0.0, 1.0], got {th}")
-                except ConfigurationError as e:
-                    errors.append(str(e))
+                    th = float(ml["anomaly_threshold"])
+                    if th < -1.0 or th > 1.0:
+                        errors.append(f"ML_SETTINGS.anomaly_threshold must be in range [-1.0, 1.0], got {th}")
+                except (ValueError, TypeError):
+                    errors.append(f"ML_SETTINGS.anomaly_threshold invalid numeric value '{ml['anomaly_threshold']}'")
 
         # 4. Composite Risk Engine Settings
         risk = get_val("RISK_SETTINGS", {})

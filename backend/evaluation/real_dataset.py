@@ -27,7 +27,7 @@ if PROJECT_ROOT not in sys.path:
 
 import numpy as np
 
-from ml.feature_extractor import FEATURE_NAMES
+from ml.feature_extractor import FEATURE_NAMES, get_feature_names
 from ml.model import IsolationForestModel, ModelStatus
 
 try:
@@ -131,6 +131,10 @@ class RealDatasetEvaluator:
         zeek_dir: Optional[str] = None,
         window_duration: float = 5.0,
         include_empty_windows: bool = False,
+        schema_version: str = "v1",
+        anomaly_threshold: float = 0.50,
+        n_estimators: int = 100,
+        contamination: Any = "auto",
     ):
         self.dataset_root = dataset_root or ""
         self.output_dir = output_dir or os.path.join(PROJECT_ROOT, "reports")
@@ -138,11 +142,16 @@ class RealDatasetEvaluator:
         self.zeek_dir = zeek_dir or (os.path.join(self.dataset_root, "zeek") if self.dataset_root else "")
         self.window_duration = float(window_duration)
         self.include_empty_windows = bool(include_empty_windows)
+        self.schema_version = str(schema_version or "v1")
+        self.anomaly_threshold = float(anomaly_threshold)
+        self.n_estimators = int(n_estimators)
+        self.contamination = contamination
 
         os.makedirs(self.output_dir, exist_ok=True)
         self.window_builder = TrafficWindowBuilder(
             window_duration=self.window_duration,
             include_empty_windows=self.include_empty_windows,
+            schema_version=self.schema_version,
         )
 
     def discover_captures(self) -> Dict[str, Dict[str, str]]:
@@ -240,8 +249,9 @@ class RealDatasetEvaluator:
         print(f"Training Baseline Capture : {training_tag}")
         print(f"Held-Out Test Captures    : {', '.join(test_tags)}")
         print(f"Window Duration           : {self.window_duration}s")
-        print(f"Production Threshold      : 0.50 (normalized score)")
-        print(f"Feature Vector Order      : {len(FEATURE_NAMES)} canonical features")
+        print(f"Decision Threshold        : {self.anomaly_threshold:.2f} (normalized score)")
+        print(f"Feature Schema Version    : {self.schema_version} ({len(get_feature_names(self.schema_version))} features)")
+        print(f"Estimators / Contam       : {self.n_estimators} / {self.contamination}")
         print("=" * 70)
 
         # 3. Process Training Capture
@@ -278,13 +288,14 @@ class RealDatasetEvaluator:
         print(f"  - Parsed records: {train_summary.parsed_successfully}/{train_summary.total_capture_records}")
         print(f"  - Generated windows: {len(train_windows)} total ({len(clean_train_windows)} clean BENIGN used for training)")
 
-        # 4. Fit Isolation Forest with exact production parameters
+        # 4. Fit Isolation Forest with specified parameters
         print("\n[2/3] Fitting Unsupervised Isolation Forest Model...")
         model = IsolationForestModel(
-            n_estimators=100,
-            contamination="auto",
+            n_estimators=self.n_estimators,
+            contamination=self.contamination,
             random_state=42,
             min_samples=max(5, len(X_train) // 2),
+            schema_version=self.schema_version,
         )
         trained_ok = model.train(X_train)
         if not trained_ok or model.status != ModelStatus.READY:
@@ -314,7 +325,7 @@ class RealDatasetEvaluator:
             cap_preds: List[WindowPredictionRecord] = []
             for w in t_windows:
                 is_anom, raw_s, norm_s = model.predict(w.feature_vector)
-                pred_binary = 1 if norm_s > 0.50 else 0
+                pred_binary = 1 if norm_s > self.anomaly_threshold else 0
 
                 is_correct: Optional[bool] = None
                 if w.is_eligible_for_metrics:
@@ -765,6 +776,30 @@ def main():
         help="Generate empty windows for silent 5-second intervals (default: False)",
     )
     parser.add_argument(
+        "--schema-version",
+        type=str,
+        default="v1",
+        help="Feature schema version ('v1' for 13 features, 'v2' for 17 features, default: v1)",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.50,
+        help="Decision threshold on normalized anomaly score (default: 0.50)",
+    )
+    parser.add_argument(
+        "--n-estimators",
+        type=int,
+        default=100,
+        help="Number of Isolation Forest trees (default: 100)",
+    )
+    parser.add_argument(
+        "--contamination",
+        type=str,
+        default="auto",
+        help="Contamination parameter ('auto' or float, default: 'auto')",
+    )
+    parser.add_argument(
         "--smoke-test",
         action="store_true",
         help="Run self-contained synthetic fixture smoke test without requiring external dataset",
@@ -783,6 +818,12 @@ def main():
             sys.exit(1)
 
     selected = [c.strip() for c in args.captures.split(",")] if args.captures else None
+    contam_val: Any = "auto"
+    if args.contamination != "auto":
+        try:
+            contam_val = float(args.contamination)
+        except ValueError:
+            contam_val = "auto"
 
     evaluator = RealDatasetEvaluator(
         dataset_root=args.dataset_root,
@@ -790,6 +831,10 @@ def main():
         pcap_dir=args.pcap_dir,
         zeek_dir=args.zeek_dir,
         include_empty_windows=args.include_empty_windows,
+        schema_version=args.schema_version,
+        anomaly_threshold=args.threshold,
+        n_estimators=args.n_estimators,
+        contamination=contam_val,
     )
 
     evaluator.run_evaluation(
