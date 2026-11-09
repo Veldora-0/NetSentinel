@@ -201,6 +201,283 @@ def test_crash_interruption_manifest_mismatch_rejected():
         assert "Generation manifest mismatch" in loader_model.last_error
 
 
+def test_manifest_missing_rejected():
+    """Verify loading fails closed when model_manifest.json is missing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        assert model.train(samples) is True
+        assert model.save(model_path, meta_path) is True
+        assert os.path.exists(manifest_path)
+
+        # Remove manifest
+        os.remove(manifest_path)
+
+        loader_model = IsolationForestModel(n_estimators=100, min_samples=512)
+        loaded = loader_model.load(model_path, meta_path)
+        assert loaded is False
+        assert loader_model.status == ModelStatus.ERROR
+        assert loader_model.model is None
+        assert "Missing required model manifest" in loader_model.last_error
+
+
+@pytest.mark.parametrize("corrupt_content", [
+    "not-json-content{[[",
+    "[]",  # not a dict
+    '{"generation_id": "123"}',  # missing required fields
+    '{"generation_id": "", "model_file": "isolation_forest.joblib", "model_sha256": "abc", "metadata_file": "model_metadata.json", "metadata_sha256": "def", "committed_at": 12345}', # empty generation_id
+])
+def test_manifest_malformed_rejected(corrupt_content):
+    """Verify loading fails closed when model_manifest.json is malformed or missing required fields."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Write corrupt manifest
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            fh.write(corrupt_content)
+
+        loader_model = IsolationForestModel(n_estimators=100, min_samples=512)
+        loaded = loader_model.load(model_path, meta_path)
+        assert loaded is False
+        assert loader_model.status == ModelStatus.ERROR
+        assert loader_model.model is None
+        assert "manifest" in loader_model.last_error.lower()
+
+
+def test_metadata_tampering_rejected():
+    """Verify loading fails closed when metadata file bytes are tampered."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Tamper metadata content (e.g. change trained_at timestamp)
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        meta["trained_at"] = 123456789.0
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2)
+
+        loader_model = IsolationForestModel(n_estimators=100, min_samples=512)
+        loaded = loader_model.load(model_path, meta_path)
+        assert loaded is False
+        assert loader_model.status == ModelStatus.ERROR
+        assert loader_model.model is None
+        assert "Metadata SHA-256 mismatch" in loader_model.last_error
+
+
+def test_metadata_generation_id_mismatch_rejected():
+    """Verify loading fails closed when metadata generation ID differs from manifest."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Update metadata generation ID and recompute metadata_sha256 in manifest
+        # to test purely generation ID mismatch detection
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        meta["generation_id"] = "different_metadata_gen"
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2)
+
+        # Re-hash metadata into manifest so metadata hash passes, isolating generation mismatch
+        with open(meta_path, "rb") as fh:
+            new_meta_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["metadata_sha256"] = new_meta_hash
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader_model = IsolationForestModel(n_estimators=100, min_samples=512)
+        loaded = loader_model.load(model_path, meta_path)
+        assert loaded is False
+        assert loader_model.status == ModelStatus.ERROR
+        assert loader_model.model is None
+        assert "Generation manifest mismatch" in loader_model.last_error
+
+
+def test_manifest_filename_mismatches_rejected():
+    """Verify manifest model_file and metadata_file mismatches are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # 1. Model file mismatch in manifest
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        orig_model_file = manifest["model_file"]
+        manifest["model_file"] = "mismatched_model.joblib"
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        assert "model filename mismatch" in loader.last_error.lower()
+
+        # 2. Metadata file mismatch in manifest
+        manifest["model_file"] = orig_model_file
+        manifest["metadata_file"] = "mismatched_metadata.json"
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader2 = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader2.load(model_path, meta_path) is False
+        assert loader2.status == ModelStatus.ERROR
+        assert loader2.model is None
+        assert "metadata filename mismatch" in loader2.last_error.lower()
+
+
+@pytest.mark.parametrize("traversal_str", [
+    "../escaped_model.joblib",
+    "/tmp/escaped_model.joblib",
+    "subdir/model.joblib",
+    "..\\windows_traversal.joblib",
+    "model.joblib\x00extra",
+])
+def test_manifest_path_traversal_rejected(traversal_str):
+    """Verify paths containing traversal or references outside expected directory are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # Inject path traversal in model_file
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["model_file"] = traversal_str
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        assert ("traversal" in loader.last_error.lower() or "mismatch" in loader.last_error.lower() or "resolves outside" in loader.last_error.lower())
+
+
+@pytest.mark.parametrize("invalid_checksum", [
+    "tooshort12345",
+    "toolong" + "a" * 64,
+    "g" * 64, # non-hex character 'g'
+    "z" * 64, # non-hex character 'z'
+    "   ",
+])
+def test_manifest_invalid_checksum_formats_rejected(invalid_checksum):
+    """Verify malformed checksum values (invalid length or non-hex characters) are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = os.path.join(tmpdir, "isolation_forest.joblib")
+        meta_path = os.path.join(tmpdir, "model_metadata.json")
+        manifest_path = os.path.join(tmpdir, "model_manifest.json")
+
+        model = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples = [_create_valid_window(i) for i in range(512)]
+        model.train(samples)
+        model.save(model_path, meta_path)
+
+        # 1. Invalid model_sha256 in manifest
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        orig_model_sha = manifest["model_sha256"]
+        manifest["model_sha256"] = invalid_checksum
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(model_path, meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+
+        # 2. Invalid metadata_sha256 in manifest
+        manifest["model_sha256"] = orig_model_sha
+        manifest["metadata_sha256"] = invalid_checksum
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+
+        loader2 = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader2.load(model_path, meta_path) is False
+        assert loader2.status == ModelStatus.ERROR
+        assert loader2.model is None
+
+
+def test_mixed_generation_artifacts_rejected():
+    """Verify incomplete or mixed-generation artifacts (binary from gen1, metadata/manifest from gen2) fail closed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir1 = os.path.join(tmpdir, "gen1")
+        dir2 = os.path.join(tmpdir, "gen2")
+        os.makedirs(dir1, exist_ok=True)
+        os.makedirs(dir2, exist_ok=True)
+
+        m1_path = os.path.join(dir1, "isolation_forest.joblib")
+        meta1_path = os.path.join(dir1, "model_metadata.json")
+
+        m2_path = os.path.join(dir2, "isolation_forest.joblib")
+        meta2_path = os.path.join(dir2, "model_metadata.json")
+
+        # Train and save Gen 1
+        model1 = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples1 = [_create_valid_window(i) for i in range(512)]
+        model1.train(samples1)
+        model1.save(m1_path, meta1_path)
+
+        # Train and save Gen 2 (different samples to ensure distinct binary and checksum)
+        model2 = IsolationForestModel(n_estimators=100, min_samples=512)
+        samples2 = [_create_valid_window(i + 100) for i in range(512)]
+        model2.train(samples2)
+        model2.save(m2_path, meta2_path)
+
+        # Create mixed generation directory: binary from gen1, metadata & manifest from gen2
+        mixed_dir = os.path.join(tmpdir, "mixed")
+        os.makedirs(mixed_dir, exist_ok=True)
+        import shutil
+        shutil.copy2(m1_path, os.path.join(mixed_dir, "isolation_forest.joblib"))
+        shutil.copy2(meta2_path, os.path.join(mixed_dir, "model_metadata.json"))
+        shutil.copy2(os.path.join(dir2, "model_manifest.json"), os.path.join(mixed_dir, "model_manifest.json"))
+
+        mixed_model_path = os.path.join(mixed_dir, "isolation_forest.joblib")
+        mixed_meta_path = os.path.join(mixed_dir, "model_metadata.json")
+
+        loader = IsolationForestModel(n_estimators=100, min_samples=512)
+        assert loader.load(mixed_model_path, mixed_meta_path) is False
+        assert loader.status == ModelStatus.ERROR
+        assert loader.model is None
+        assert ("SHA-256 mismatch" in loader.last_error or "mismatch" in loader.last_error.lower())
+
+
 # ===========================================================================
 # 4. Strict Approved Hyperparameter Verification on Model Loading
 # ===========================================================================

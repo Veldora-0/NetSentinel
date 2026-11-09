@@ -23,6 +23,28 @@ from ml.feature_extractor import FEATURE_NAMES
 logger = logging.getLogger("netsentinel.ml.model")
 
 
+def _is_valid_sha256(val: Any) -> bool:
+    """Validate that val is a 64-character hexadecimal SHA-256 string."""
+    if not isinstance(val, str) or len(val) != 64:
+        return False
+    try:
+        int(val, 16)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_safe_filename(fname: Any, expected_name: str) -> bool:
+    """Validate filename is safe, matches expected basename, and contains no path traversal."""
+    if not isinstance(fname, str) or not fname.strip():
+        return False
+    if "/" in fname or "\\" in fname or ".." in fname or "\x00" in fname:
+        return False
+    if os.path.basename(fname) != fname:
+        return False
+    return fname == expected_name
+
+
 class ModelStatus(str, Enum):
     """Lifecycle state of the Isolation Forest model."""
     MODEL_NOT_READY = "MODEL_NOT_READY"
@@ -194,11 +216,11 @@ class IsolationForestModel:
             # 1. Dump model binary to temporary file
             joblib.dump(self.model, tmp_model)
 
-            # 2. Compute binary SHA-256 and generation ID
+            # 2. Compute binary SHA-256 and fresh generation ID
             with open(tmp_model, "rb") as fh:
-                model_sha256 = hashlib.sha256(fh.read()).hexdigest()
+                model_sha256 = hashlib.sha256(fh.read()).hexdigest().lower()
 
-            generation_id = getattr(self, "generation_id", None) or uuid.uuid4().hex[:16]
+            generation_id = uuid.uuid4().hex[:16]
             self.generation_id = generation_id
             self.model_sha256 = model_sha256
 
@@ -221,7 +243,7 @@ class IsolationForestModel:
                 json.dump(meta, fh, indent=2)
 
             with open(tmp_meta, "rb") as fh:
-                meta_sha256 = hashlib.sha256(fh.read()).hexdigest()
+                meta_sha256 = hashlib.sha256(fh.read()).hexdigest().lower()
 
             # 4. Create generation manifest
             manifest = {
@@ -260,6 +282,9 @@ class IsolationForestModel:
     ) -> bool:
         """Load trained model artifact and verify generation integrity and parameters.
 
+        Requires model binary, metadata JSON, and model_manifest.json to exist
+        and belong to the same verified generation. Fails closed on any inconsistency.
+
         Args:
             model_path: Filepath for the joblib model artifact.
             metadata_path: Filepath for the JSON metadata file.
@@ -278,11 +303,88 @@ class IsolationForestModel:
         if enforce_approved_params is None:
             enforce_approved_params = (self.min_samples >= 512 and self.n_estimators == 100)
 
-        try:
-            with open(metadata_path, "r", encoding="utf-8") as fh:
-                meta = json.load(fh)
+        model_dir = os.path.dirname(os.path.abspath(model_path))
+        manifest_path = os.path.join(model_dir, "model_manifest.json")
 
-            # 1. Feature schema & ordering verification
+        try:
+            # 1. Require model_manifest.json and reject missing manifest
+            if not os.path.exists(manifest_path):
+                raise ValueError(f"Missing required model manifest at {manifest_path}")
+
+            # 2. Read and validate manifest structure
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as mfh:
+                    manifest = json.load(mfh)
+            except Exception as m_err:
+                raise ValueError(f"Malformed generation manifest JSON at {manifest_path}: {m_err}")
+
+            if not isinstance(manifest, dict):
+                raise ValueError(f"Malformed generation manifest at {manifest_path}: root must be a JSON object")
+
+            # Validate required manifest fields
+            required_manifest_fields = {
+                "generation_id": str,
+                "model_file": str,
+                "model_sha256": str,
+                "metadata_file": str,
+                "metadata_sha256": str,
+                "committed_at": (int, float),
+            }
+            for field, expected_type in required_manifest_fields.items():
+                if field not in manifest or manifest[field] is None:
+                    raise ValueError(f"Manifest missing required field: '{field}'")
+                val = manifest[field]
+                if not isinstance(val, expected_type):
+                    raise ValueError(f"Manifest field '{field}' has invalid type: expected {expected_type}, got {type(val)}")
+                if isinstance(val, str) and not val.strip():
+                    raise ValueError(f"Manifest field '{field}' cannot be empty")
+
+            # 3. Validate manifest checksum formats (length 64, hex characters)
+            manifest_model_sha256 = str(manifest["model_sha256"]).strip().lower()
+            if not _is_valid_sha256(manifest_model_sha256):
+                raise ValueError(f"Invalid manifest model_sha256 checksum format: '{manifest.get('model_sha256')}'")
+
+            manifest_meta_sha256 = str(manifest["metadata_sha256"]).strip().lower()
+            if not _is_valid_sha256(manifest_meta_sha256):
+                raise ValueError(f"Invalid manifest metadata_sha256 checksum format: '{manifest.get('metadata_sha256')}'")
+
+            # 4. Validate filenames and reject path traversal or references outside expected model directory
+            expected_model_file = os.path.basename(model_path)
+            expected_meta_file = os.path.basename(metadata_path)
+
+            manifest_model_file = str(manifest["model_file"]).strip()
+            manifest_meta_file = str(manifest["metadata_file"]).strip()
+
+            if not _is_safe_filename(manifest_model_file, expected_model_file):
+                if "/" in manifest_model_file or "\\" in manifest_model_file or ".." in manifest_model_file or "\x00" in manifest_model_file:
+                    raise ValueError(f"Path traversal or invalid characters in manifest model_file: '{manifest_model_file}'")
+                raise ValueError(f"Manifest model filename mismatch: expected '{expected_model_file}', got '{manifest_model_file}'")
+
+            if not _is_safe_filename(manifest_meta_file, expected_meta_file):
+                if "/" in manifest_meta_file or "\\" in manifest_meta_file or ".." in manifest_meta_file or "\x00" in manifest_meta_file:
+                    raise ValueError(f"Path traversal or invalid characters in manifest metadata_file: '{manifest_meta_file}'")
+                raise ValueError(f"Manifest metadata filename mismatch: expected '{expected_meta_file}', got '{manifest_meta_file}'")
+
+            resolved_model_path = os.path.abspath(os.path.join(model_dir, manifest_model_file))
+            resolved_meta_path = os.path.abspath(os.path.join(model_dir, manifest_meta_file))
+            if os.path.dirname(resolved_model_path) != model_dir or resolved_model_path != os.path.abspath(model_path):
+                raise ValueError(f"Manifest model file resolves outside expected model directory: '{resolved_model_path}'")
+            if os.path.dirname(resolved_meta_path) != model_dir or resolved_meta_path != os.path.abspath(metadata_path):
+                raise ValueError(f"Manifest metadata file resolves outside expected model directory: '{resolved_meta_path}'")
+
+            # 5. Read metadata file bytes, parse JSON, and verify feature schema
+            with open(metadata_path, "rb") as fh:
+                raw_meta_bytes = fh.read()
+            actual_meta_sha256 = hashlib.sha256(raw_meta_bytes).hexdigest().lower()
+
+            try:
+                meta = json.loads(raw_meta_bytes.decode("utf-8"))
+            except Exception as j_err:
+                raise ValueError(f"Corrupted metadata JSON file at {metadata_path}: {j_err}")
+            if not isinstance(meta, dict):
+                raise ValueError(f"Metadata root must be a JSON object: {metadata_path}")
+
+            # Feature schema & ordering verification
             saved_features = meta.get("feature_names", [])
             if saved_features != self.feature_names:
                 raise ValueError(
@@ -295,7 +397,47 @@ class IsolationForestModel:
                     f"Feature count mismatch: expected {len(self.feature_names)}, got {feature_count}."
                 )
 
-            # 2. Check minimum sample count
+            # 6. Verify actual metadata file SHA-256 matches manifest metadata_sha256
+            if actual_meta_sha256 != manifest_meta_sha256:
+                raise ValueError(
+                    f"Metadata SHA-256 mismatch: manifest expected {manifest_meta_sha256}, "
+                    f"actual metadata file is {actual_meta_sha256}."
+                )
+
+            # 7. Verify generation IDs match across manifest and metadata
+            manifest_generation_id = str(manifest["generation_id"]).strip()
+            meta_generation_id = str(meta.get("generation_id", "")).strip()
+            if not meta_generation_id or manifest_generation_id != meta_generation_id:
+                raise ValueError(
+                    f"Generation manifest mismatch: manifest generation {manifest_generation_id} "
+                    f"differs from metadata generation {meta_generation_id}."
+                )
+
+            # 8. Validate metadata model_sha256 format
+            expected_model_sha256 = meta.get("model_sha256")
+            if not expected_model_sha256:
+                raise ValueError("Model metadata lacks required model_sha256 checksum.")
+            expected_model_sha256 = str(expected_model_sha256).strip().lower()
+            if not _is_valid_sha256(expected_model_sha256):
+                raise ValueError(f"Invalid metadata model_sha256 checksum format: '{meta.get('model_sha256')}'")
+
+            # 9. Read actual model binary bytes and compute SHA-256
+            with open(model_path, "rb") as fh:
+                actual_model_sha256 = hashlib.sha256(fh.read()).hexdigest().lower()
+
+            if actual_model_sha256 != manifest_model_sha256:
+                raise ValueError(
+                    f"Manifest model SHA-256 mismatch: manifest {manifest_model_sha256}, "
+                    f"actual {actual_model_sha256}."
+                )
+
+            if actual_model_sha256 != expected_model_sha256:
+                raise ValueError(
+                    f"Model binary SHA-256 mismatch (crash-inconsistent generation): "
+                    f"metadata expected {expected_model_sha256}, actual binary is {actual_model_sha256}."
+                )
+
+            # 10. Check minimum sample count
             training_sample_count = int(meta.get("training_sample_count", 0))
             if training_sample_count < self.min_samples:
                 raise ValueError(
@@ -303,38 +445,7 @@ class IsolationForestModel:
                     f"minimum required is {self.min_samples}."
                 )
 
-            # 3. Model binary SHA-256 checksum and crash-consistency check
-            with open(model_path, "rb") as fh:
-                actual_model_sha256 = hashlib.sha256(fh.read()).hexdigest()
-
-            expected_sha256 = meta.get("model_sha256")
-            if expected_sha256 is not None and actual_model_sha256 != expected_sha256:
-                raise ValueError(
-                    f"Model binary SHA-256 mismatch (crash-inconsistent generation): "
-                    f"metadata expected {expected_sha256}, actual binary is {actual_model_sha256}."
-                )
-
-            # 4. Generation manifest validation (if manifest exists)
-            manifest_path = os.path.join(os.path.dirname(os.path.abspath(model_path)), "model_manifest.json")
-            if os.path.exists(manifest_path):
-                try:
-                    with open(manifest_path, "r", encoding="utf-8") as mfh:
-                        manifest = json.load(mfh)
-                    if manifest.get("generation_id") and meta.get("generation_id"):
-                        if manifest["generation_id"] != meta["generation_id"]:
-                            raise ValueError(
-                                f"Generation manifest mismatch: manifest generation {manifest.get('generation_id')} "
-                                f"differs from metadata generation {meta.get('generation_id')}."
-                            )
-                    if manifest.get("model_sha256") and manifest["model_sha256"] != actual_model_sha256:
-                        raise ValueError(
-                            f"Manifest model SHA-256 mismatch: manifest {manifest.get('model_sha256')}, "
-                            f"actual {actual_model_sha256}."
-                        )
-                except json.JSONDecodeError:
-                    raise ValueError(f"Corrupted generation manifest file at {manifest_path}")
-
-            # 5. Load model binary
+            # 11. Load model binary
             loaded_model = joblib.load(model_path)
             if not isinstance(loaded_model, IsolationForest):
                 raise TypeError(f"Loaded artifact is not an IsolationForest instance: {type(loaded_model)}")
@@ -352,10 +463,8 @@ class IsolationForestModel:
                     f"differs from metadata ({saved_n_estimators})."
                 )
 
-            # 6. Strict approved production parameters check
+            # 12. Strict approved production parameters check
             if enforce_approved_params:
-                if expected_sha256 is None:
-                    raise ValueError("Model metadata lacks required model_sha256 checksum for production model.")
                 if saved_n_estimators != 100 or getattr(loaded_model, "n_estimators", None) != 100:
                     raise ValueError(f"Invalid n_estimators for production Isolation Forest: expected 100, got {saved_n_estimators}")
                 if meta.get("max_samples") != "auto" or getattr(loaded_model, "max_samples", None) != "auto":
@@ -372,7 +481,7 @@ class IsolationForestModel:
             self.model = loaded_model
             self.trained_at = meta.get("trained_at")
             self.training_sample_count = training_sample_count
-            self.generation_id = meta.get("generation_id")
+            self.generation_id = manifest_generation_id
             self.model_sha256 = actual_model_sha256
             self.n_estimators = saved_n_estimators or self.n_estimators
             self.max_samples = meta.get("max_samples", getattr(self, "max_samples", "auto"))
