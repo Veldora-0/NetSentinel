@@ -1,0 +1,119 @@
+{
+  "n_initial_clean": 512,
+  "two_stage_trim_5pct": {
+    "n_retained": 486,
+    "n_removed": 26,
+    "feature_comparison": {
+      "packets_per_second": {
+        "retained_mean": 3.355,
+        "removed_mean": 18.977
+      },
+      "bytes_per_second": {
+        "retained_mean": 685.724,
+        "removed_mean": 8044.946
+      },
+      "average_packet_size": {
+        "retained_mean": 140.186,
+        "removed_mean": 414.47
+      },
+      "tcp_ratio": {
+        "retained_mean": 0.159,
+        "removed_mean": 0.727
+      },
+      "udp_ratio": {
+        "retained_mean": 0.189,
+        "removed_mean": 0.089
+      },
+      "icmp_ratio": {
+        "retained_mean": 0.022,
+        "removed_mean": 0.057
+      },
+      "syn_ratio": {
+        "retained_mean": 0.004,
+        "removed_mean": 0.076
+      },
+      "ack_ratio": {
+        "retained_mean": 0.157,
+        "removed_mean": 0.674
+      },
+      "rst_ratio": {
+        "retained_mean": 0.027,
+        "removed_mean": 0.096
+      },
+      "fin_ratio": {
+        "retained_mean": 0.0,
+        "removed_mean": 0.004
+      },
+      "unique_destination_ports": {
+        "retained_mean": 1.42,
+        "removed_mean": 10.231
+      },
+      "unique_source_ips": {
+        "retained_mean": 6.763,
+        "removed_mean": 9.769
+      },
+      "unique_destination_ips": {
+        "retained_mean": 9.885,
+        "removed_mean": 13.308
+      }
+    }
+  },
+  "iqr_filter": {
+    "n_retained": 430,
+    "n_removed": 82,
+    "feature_comparison": {
+      "packets_per_second": {
+        "retained_mean": 2.539,
+        "removed_mean": 12.588
+      },
+      "bytes_per_second": {
+        "retained_mean": 257.967,
+        "removed_mean": 5262.254
+      },
+      "average_packet_size": {
+        "retained_mean": 101.811,
+        "removed_mean": 428.391
+      },
+      "tcp_ratio": {
+        "retained_mean": 0.059,
+        "removed_mean": 0.863
+      },
+      "udp_ratio": {
+        "retained_mean": 0.205,
+        "removed_mean": 0.07
+      },
+      "icmp_ratio": {
+        "retained_mean": 0.027,
+        "removed_mean": 0.008
+      },
+      "syn_ratio": {
+        "retained_mean": 0.0,
+        "removed_mean": 0.047
+      },
+      "ack_ratio": {
+        "retained_mean": 0.059,
+        "removed_mean": 0.835
+      },
+      "rst_ratio": {
+        "retained_mean": 0.035,
+        "removed_mean": 0.005
+      },
+      "fin_ratio": {
+        "retained_mean": 0.0,
+        "removed_mean": 0.001
+      },
+      "unique_destination_ports": {
+        "retained_mean": 0.802,
+        "removed_mean": 7.451
+      },
+      "unique_source_ips": {
+        "retained_mean": 6.937,
+        "removed_mean": 6.805
+      },
+      "unique_destination_ips": {
+        "retained_mean": 10.465,
+        "removed_mean": 7.927
+      }
+    }
+  }
+}

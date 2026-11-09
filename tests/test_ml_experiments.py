@@ -200,3 +200,38 @@ def test_independent_feature_shift_structure():
     assert rec.feature_name in FEATURE_NAMES
 
 
+def test_two_stage_trim_audit_percentages():
+    """Verify execute_two_stage_trim scales trimming count accurately across percentiles."""
+    from ml_experiments.two_stage_trim_audit import execute_two_stage_trim
+    from ml_experiments.data_loader import SyntheticTrafficGenerator
+
+    gen = SyntheticTrafficGenerator(seed=100)
+    samples = [(gen.generate_normal_window(), 0) for _ in range(100)]
+
+    ret_2, rem_2, _ = execute_two_stage_trim(samples, trim_percentage=2.0)
+    ret_5, rem_5, _ = execute_two_stage_trim(samples, trim_percentage=5.0)
+    ret_10, rem_10, _ = execute_two_stage_trim(samples, trim_percentage=10.0)
+
+    assert len(rem_2) <= len(rem_5) <= len(rem_10)
+    assert len(ret_10) + len(rem_10) == 100
+    assert len(rem_5) >= 2
+
+
+def test_baseline_suspicion_safety_detector():
+    """Verify statistical safety checks detect highly contaminated or suspicious baseline buffers."""
+    from ml_experiments.data_loader import SyntheticTrafficGenerator
+
+    gen = SyntheticTrafficGenerator(seed=200)
+    clean_baseline = [gen.generate_normal_window() for _ in range(100)]
+    # In a clean baseline, mean syn_ratio is low (< 0.10)
+    syn_ratios_clean = [w[6] for w in clean_baseline]
+    assert np.mean(syn_ratios_clean) < 0.15
+
+    # In an attack-infiltrated baseline (SYN flood / portscan), syn_ratio spikes
+    attack_samples = [gen.generate_attack_window(attack_type="syn_flood") for _ in range(30)]
+    contaminated_baseline = clean_baseline[:70] + attack_samples
+    syn_ratios_contam = [w[6] for w in contaminated_baseline]
+    assert np.mean(syn_ratios_contam) > 0.20
+
+
+
