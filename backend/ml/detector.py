@@ -63,7 +63,9 @@ class MLAnomalyDetector:
         contamination_val = cfg.get("contamination", "auto")
         self.model = IsolationForestModel(
             n_estimators=int(cfg.get("n_estimators", 100)),
+            max_samples=cfg.get("max_samples", "auto"),
             contamination=contamination_val,
+            max_features=float(cfg.get("max_features", 1.0)),
             random_state=int(cfg.get("random_state", 42)),
             min_samples=max(5, self.baseline_windows // 2),
         )
@@ -183,7 +185,7 @@ class MLAnomalyDetector:
             f_dict = custom_dict or {name: val for name, val in zip(self.model.feature_names, vec)}
             pkt_count = int(vec[0] * self.window_seconds)
         else:
-            vec, f_dict, pkt_count = self.window.consume_window(schema_version=self.model.schema_version)
+            vec, f_dict, pkt_count = self.window.consume_window()
 
         with self._lock:
             # 1. Baseline Collection Mode

@@ -9,23 +9,16 @@ import numpy as np
 
 from ml.feature_extractor import FEATURE_NAMES
 
-# Canonical v1 features (13)
-CANONICAL_V1_FEATURES: List[str] = list(FEATURE_NAMES)
-
-# Candidate extended v2 features (+4 = 17)
-CANDIDATE_V2_FEATURES: List[str] = CANONICAL_V1_FEATURES + [
-    "syn_to_ack_ratio",           # SYN / (ACK + 1e-4) -> captures asymmetric handshakes (portscan, synflood)
-    "rst_to_ack_ratio",           # RST / (ACK + 1e-4) -> captures connection resets and rejected probes
-    "inter_arrival_variance",     # Variance of packet inter-arrival times -> captures robotic beaconing
-    "payload_mtu_ratio",          # avg_packet_size / 1500.0 -> captures payload exhaustion vs tiny packet probes
-]
+# Canonical 13 features
+CANONICAL_FEATURES: List[str] = list(FEATURE_NAMES)
+CANONICAL_V1_FEATURES: List[str] = CANONICAL_FEATURES  # Backward-compatible alias
 
 
 class FeatureAnalyzer:
     """Evaluates discriminative power, variance, and collinearity of feature sets."""
 
     def __init__(self, feature_names: Optional[List[str]] = None):
-        self.feature_names = feature_names or CANONICAL_V1_FEATURES
+        self.feature_names = feature_names or CANONICAL_FEATURES
 
     def compute_feature_statistics(self, X: np.ndarray) -> Dict[str, Dict[str, float]]:
         """Compute basic statistical summary for each feature."""

@@ -30,7 +30,7 @@ class SyntheticTrafficGenerator:
         self.seed = seed
         self.rng = np.random.RandomState(seed)
 
-    def generate_normal_window(self, mode: str = "web", schema_version: str = "v1") -> List[float]:
+    def generate_normal_window(self, mode: str = "web") -> List[float]:
         """Generate a realistic normal traffic feature vector.
 
         Modes:
@@ -112,7 +112,7 @@ class SyntheticTrafficGenerator:
             src_ips = float(r.randint(1, 2))
             dst_ips = float(r.randint(1, 2))
 
-        v1 = [
+        return [
             round(pps, 4),
             round(bps, 4),
             round(avg_size, 4),
@@ -128,17 +128,7 @@ class SyntheticTrafficGenerator:
             dst_ips,
         ]
 
-        if schema_version == "v2":
-            # Extended behavioral features
-            syn_to_ack = round(syn_r / (ack_r + 1e-4), 4)
-            rst_to_ack = round(rst_r / (ack_r + 1e-4), 4)
-            time_variance = round(float(r.uniform(0.01, 0.15)), 4)
-            payload_ratio = round(min(1.0, avg_size / 1500.0), 4)
-            return v1 + [syn_to_ack, rst_to_ack, time_variance, payload_ratio]
-
-        return v1
-
-    def generate_attack_window(self, attack_type: str = "syn_flood", schema_version: str = "v1") -> List[float]:
+    def generate_attack_window(self, attack_type: str = "syn_flood") -> List[float]:
         """Generate a realistic attack traffic feature vector.
 
         Attack types:
@@ -220,7 +210,7 @@ class SyntheticTrafficGenerator:
             src_ips = 1.0
             dst_ips = 1.0
 
-        v1 = [
+        return [
             round(pps, 4),
             round(bps, 4),
             round(avg_size, 4),
@@ -236,21 +226,11 @@ class SyntheticTrafficGenerator:
             dst_ips,
         ]
 
-        if schema_version == "v2":
-            syn_to_ack = round(syn_r / (ack_r + 1e-4), 4)
-            rst_to_ack = round(rst_r / (ack_r + 1e-4), 4)
-            time_variance = round(float(r.uniform(0.0001, 0.005)) if attack_type == "c2_beacon" else float(r.uniform(0.20, 0.80)), 4)
-            payload_ratio = round(min(1.0, avg_size / 1500.0), 4)
-            return v1 + [syn_to_ack, rst_to_ack, time_variance, payload_ratio]
-
-        return v1
-
     def build_benchmark_dataset(
         self,
         train_samples: int = 500,
         val_normal_samples: int = 250,
         val_attack_samples: int = 250,
-        schema_version: str = "v1",
         feature_names: Optional[List[str]] = None,
     ) -> ValidationDataset:
         """Create a complete partitioned benchmark dataset for model training and evaluation."""
@@ -261,7 +241,7 @@ class SyntheticTrafficGenerator:
         X_train_list = []
         for i in range(train_samples):
             mode = normal_modes[i % len(normal_modes)]
-            X_train_list.append(self.generate_normal_window(mode=mode, schema_version=schema_version))
+            X_train_list.append(self.generate_normal_window(mode=mode))
 
         # 2. Validation Normal Traffic
         X_val_list = []
@@ -270,14 +250,14 @@ class SyntheticTrafficGenerator:
 
         for i in range(val_normal_samples):
             mode = normal_modes[i % len(normal_modes)]
-            X_val_list.append(self.generate_normal_window(mode=mode, schema_version=schema_version))
+            X_val_list.append(self.generate_normal_window(mode=mode))
             y_val_list.append(0)
             val_labels.append(f"Normal_{mode.capitalize()}")
 
         # 3. Validation Attack Traffic
         for i in range(val_attack_samples):
             atype = attack_types[i % len(attack_types)]
-            X_val_list.append(self.generate_attack_window(attack_type=atype, schema_version=schema_version))
+            X_val_list.append(self.generate_attack_window(attack_type=atype))
             y_val_list.append(1)
             val_labels.append(f"Attack_{atype.capitalize()}")
 

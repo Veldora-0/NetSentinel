@@ -302,88 +302,90 @@ def test_api_ml_endpoints():
         assert "recent_anomalies" in data_metrics
 
 
-def test_feature_schema_v2_extraction():
-    """Verify v2 schema extracts all 17 features including behavioral interaction ratios."""
-    from ml.feature_extractor import FEATURE_NAMES_V1, FEATURE_NAMES_V2, get_feature_names
-
-    assert len(get_feature_names("v1")) == 13
-    assert len(get_feature_names("v2")) == 17
+def test_canonical_13_feature_schema():
+    """Verify that the feature extractor enforces strictly the 13 canonical features in order."""
+    expected_order = [
+        "packets_per_second",
+        "bytes_per_second",
+        "average_packet_size",
+        "tcp_ratio",
+        "udp_ratio",
+        "icmp_ratio",
+        "syn_ratio",
+        "ack_ratio",
+        "rst_ratio",
+        "fin_ratio",
+        "unique_destination_ports",
+        "unique_source_ips",
+        "unique_destination_ips",
+    ]
+    assert list(FEATURE_NAMES) == expected_order
+    assert len(FEATURE_NAMES) == 13
 
     pkts = [
         make_packet(proto=6, proto_name="TCP", raw_len=100, tcp_flags={"SYN": True}),
         make_packet(proto=6, proto_name="TCP", raw_len=200, tcp_flags={"ACK": True}),
         make_packet(proto=6, proto_name="TCP", raw_len=300, tcp_flags={"RST": True}),
     ]
-    # Set sequential timestamps
-    now = time.time()
-    pkts[0].timestamp = now
-    pkts[1].timestamp = now + 0.1
-    pkts[2].timestamp = now + 0.3
-
-    vec_v1, dict_v1 = extract_features_from_window(pkts, window_duration=5.0, schema_version="v1")
-    assert len(vec_v1) == 13
-    assert "syn_to_ack_ratio" not in dict_v1
-
-    vec_v2, dict_v2 = extract_features_from_window(pkts, window_duration=5.0, schema_version="v2")
-    assert len(vec_v2) == 17
-    assert "syn_to_ack_ratio" in dict_v2
-    assert "rst_to_ack_ratio" in dict_v2
-    assert "inter_arrival_variance" in dict_v2
-    assert "payload_mtu_ratio" in dict_v2
-    assert dict_v2["syn_to_ack_ratio"] > 0
-    assert dict_v2["inter_arrival_variance"] > 0
-    assert 0.0 <= dict_v2["payload_mtu_ratio"] <= 1.0
+    vec, f_dict = extract_features_from_window(pkts, window_duration=5.0)
+    assert len(vec) == 13
+    assert len(f_dict) == 13
+    assert list(f_dict.keys()) == expected_order
 
 
-def test_traffic_window_v2():
-    """Verify TrafficWindow supports v2 schema consumption."""
-    win = TrafficWindow(window_seconds=5.0, schema_version="v2")
+def test_traffic_window_canonical():
+    """Verify TrafficWindow consumes strictly 13 canonical features."""
+    win = TrafficWindow(window_seconds=5.0)
     win.add_packet(make_packet(proto=6, proto_name="TCP", raw_len=500, tcp_flags={"SYN": True}))
     vec, f_dict, count = win.consume_window()
     assert count == 1
-    assert len(vec) == 17
-    assert "syn_to_ack_ratio" in f_dict
+    assert len(vec) == 13
+    assert len(f_dict) == 13
 
 
-def test_model_v2_lifecycle_and_dimension_checks():
-    """Verify IsolationForestModel operates with v2 schema and enforces dimension checks."""
-    m_v2 = IsolationForestModel(n_estimators=20, min_samples=5, schema_version="v2")
-    assert len(m_v2.feature_names) == 17
-    assert m_v2.schema_version == "v2"
+def test_model_lifecycle_and_dimension_checks():
+    """Verify IsolationForestModel enforces strict 13-feature dimension checks."""
+    model = IsolationForestModel(n_estimators=20, min_samples=5)
+    assert len(model.feature_names) == 13
 
-    # Train with 17-feature vectors
-    X_train = [[1.0] * 17 for _ in range(10)]
-    assert m_v2.train(X_train) is True
-    assert m_v2.status == ModelStatus.READY
+    # Train with 13-feature vectors
+    X_train = [[1.0] * 13 for _ in range(10)]
+    assert model.train(X_train) is True
+    assert model.status == ModelStatus.READY
 
-    # Predict with 17 features -> succeeds
-    is_anom, raw_s, norm_s = m_v2.predict([1.0] * 17)
+    # Predict with 13 features -> succeeds
+    is_anom, raw_s, norm_s = model.predict([1.0] * 13)
     assert isinstance(is_anom, bool)
     assert 0.0 <= norm_s <= 1.0
 
-    # Predict with 13 features -> raises ValueError
+    # Predict with 12 or 17 features -> raises ValueError
     with pytest.raises(ValueError, match="Feature vector dimension mismatch"):
-        m_v2.predict([1.0] * 13)
+        model.predict([1.0] * 12)
+
+    with pytest.raises(ValueError, match="Feature vector dimension mismatch"):
+        model.predict([1.0] * 17)
 
 
-def test_model_cross_schema_loading():
-    """Verify model persistence and cross-schema backward-compatible loading."""
+def test_model_persistence_and_loading():
+    """Verify model persistence and reloading with 13-feature schema."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        mod_file = os.path.join(tmp_dir, "test_v2.joblib")
-        meta_file = os.path.join(tmp_dir, "test_v2.json")
+        mod_file = os.path.join(tmp_dir, "test_13.joblib")
+        meta_file = os.path.join(tmp_dir, "test_13.json")
 
-        # 1. Train and save a v2 model
-        m1 = IsolationForestModel(n_estimators=10, min_samples=5, schema_version="v2")
-        m1.train([[2.0] * 17 for _ in range(8)])
+        m1 = IsolationForestModel(n_estimators=10, min_samples=5)
+        m1.train([[2.0] * 13 for _ in range(8)])
         assert m1.save(mod_file, meta_file) is True
 
-        # 2. Load into a newly instantiated model (defaults to v1)
-        m2 = IsolationForestModel(schema_version="v1")
+        m2 = IsolationForestModel()
         assert m2.load(mod_file, meta_file) is True
-        # m2 should automatically adopt v2 features and schema
-        assert m2.schema_version == "v2"
-        assert len(m2.feature_names) == 17
+        assert len(m2.feature_names) == 13
         assert m2.status == ModelStatus.READY
+
+        # Verify predictions match
+        test_vec = [2.0] * 13
+        p1 = m1.predict(test_vec)
+        p2 = m2.predict(test_vec)
+        assert p1 == p2
 
 
 def test_baseline_outlier_filtering():

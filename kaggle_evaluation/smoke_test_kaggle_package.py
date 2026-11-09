@@ -1,7 +1,7 @@
 """Self-contained verification test for the Kaggle Evaluation Package.
 
 Simulates a local CTU-IDSEVAL-6 structure, runs evaluate_ctu_idseval6.py,
-and verifies comparative artifact generation.
+and verifies single-model artifact generation.
 """
 
 import json
@@ -22,11 +22,11 @@ if PROJECT_ROOT not in sys.path:
 from evaluation.pcap_reader import write_synthetic_pcap
 from evaluation.zeek_parser import write_synthetic_zeek_log
 from evaluation.data_generator import generate_synthetic_raw_frame
-from kaggle_evaluation.evaluate_ctu_idseval6 import run_kaggle_comparative_evaluation
+from kaggle_evaluation.evaluate_ctu_idseval6 import run_kaggle_evaluation
 
 
 def run_kaggle_smoke_test():
-    """Create synthetic CTU fixture, execute Kaggle comparative evaluation, and check outputs."""
+    """Create synthetic CTU fixture, execute Kaggle evaluation, and check outputs."""
     temp_dir = tempfile.mkdtemp(prefix="test_kaggle_pkg_")
     out_dir = os.path.join(temp_dir, "output")
 
@@ -75,26 +75,29 @@ def run_kaggle_smoke_test():
         write_synthetic_pcap(mal1_pcap, mal1_pkts)
         write_synthetic_zeek_log(mal1_zeek, mal1_flows)
 
-        # Run Kaggle comparative evaluation
-        report = run_kaggle_comparative_evaluation(
+        # Run Kaggle single-model evaluation
+        report = run_kaggle_evaluation(
             dataset_root=temp_dir,
             output_dir=out_dir,
-            improved_threshold=0.52,
+            threshold=0.50,
+            n_estimators=100,
+            contamination="auto",
         )
 
-        assert "comparison" in report
-        assert "overall_baseline" in report["comparison"]
-        assert "overall_optimized" in report["comparison"]
+        assert "overall_metrics" in report
+        assert "per_capture_metrics" in report
+        assert report["overall_metrics"]["eligible_windows"] > 0
+        assert report["feature_count"] == 13
 
-        json_out = os.path.join(out_dir, "kaggle_isolation_forest_comparison.json")
-        csv_out = os.path.join(out_dir, "kaggle_isolation_forest_comparison.csv")
+        json_out = os.path.join(out_dir, "kaggle_isolation_forest_evaluation.json")
+        csv_out = os.path.join(out_dir, "kaggle_isolation_forest_evaluation.csv")
         assert os.path.exists(json_out), f"Missing JSON report at {json_out}"
         assert os.path.exists(csv_out), f"Missing CSV report at {csv_out}"
 
         with open(json_out, "r", encoding="utf-8") as f:
             data = json.load(f)
-            assert data["comparison"]["overall_baseline"]["eligible_windows"] > 0
-            assert data["comparison"]["overall_optimized"]["eligible_windows"] > 0
+            assert data["overall_metrics"]["eligible_windows"] == 8
+            assert "C2Beacon" in data["overall_metrics"]["attack_categories"]
 
         print("\n[SUCCESS] Kaggle evaluation package smoke test passed completely.")
     finally:

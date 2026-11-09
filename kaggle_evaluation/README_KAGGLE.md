@@ -1,22 +1,22 @@
-# NetSentinel Kaggle Evaluation Guide: CTU-IDSEVAL-6 Isolation Forest Comparison
+# NetSentinel Kaggle Evaluation Guide: CTU-IDSEVAL-6 Isolation Forest Evaluation
 
-This standalone package allows you to evaluate and compare NetSentinel's **Original Production Isolation Forest** against the **Optimized Isolation Forest** on the real-world **CTU-IDSEVAL-6** benchmark dataset inside Kaggle.
+This standalone package allows you to evaluate NetSentinel's **single final production Isolation Forest model using the canonical 13 network traffic features** on the real-world **CTU-IDSEVAL-6** benchmark dataset inside Kaggle.
 
 ---
 
-## 1. Evaluation Architecture & Configurations Compared
+## 1. Evaluation Architecture
 
-The evaluation runs both models side-by-side on the **exact same 5-second traffic windows** extracted from the official CTU-IDSEVAL-6 capture partitions:
+The evaluation runs NetSentinel's single unsupervised Isolation Forest model on **5-second traffic windows** extracted from the official CTU-IDSEVAL-6 capture partitions using the canonical 13 features:
 
-| Parameter | Original Baseline Model | Optimized Model |
-| :--- | :--- | :--- |
-| **Algorithm** | Unsupervised Isolation Forest | Unsupervised Isolation Forest |
-| **Estimators (`n_estimators`)** | `100` | `150` |
-| **Subsampling (`max_samples`)** | `"auto"` (`256`) | `512` (captures multi-modal baseline) |
-| **Contamination** | `"auto"` | `0.05` |
-| **Feature Dimension** | 13 Canonical Features | 13 Canonical Features (or 17 v2) |
-| **Decision Threshold** | `0.50` (raw 0.0 offset) | `0.52` (calibrated decision boundary) |
-| **Outlier Baseline Filter** | Disabled | Enabled (3.0x IQR outlier defense) |
+| Parameter | Specification |
+| :--- | :--- |
+| **Algorithm** | Unsupervised Isolation Forest (Scikit-Learn) |
+| **Estimators (`n_estimators`)** | `100` (configurable via `--n-estimators`) |
+| **Subsampling (`max_samples`)** | `"auto"` (`256`) (configurable via `--max-samples`) |
+| **Contamination** | `"auto"` (configurable via `--contamination`) |
+| **Features** | Canonical 13 Features in strict order |
+| **Decision Threshold** | `0.50` (configurable via `--threshold`) |
+| **Window Duration** | `5.0` seconds |
 
 ### Strict Data Leakage Safeguards
 - **Training Baseline**: Fitted strictly on clean `BENIGN` windows from `benign-user-traffic-1`.
@@ -52,50 +52,55 @@ In the second cell, run the self-contained smoke test to confirm that packet par
 ```bash
 !python kaggle_evaluation/smoke_test_kaggle_package.py
 ```
-*(Should output: `[SUCCESS] Kaggle evaluation package smoke test passed completely.`)*
+*(Expected output: `[SUCCESS] Kaggle evaluation package smoke test passed completely.`)*
 
 ---
 
-### Step 4: Run the Comparative CTU-IDSEVAL-6 Evaluation
-In the third cell, execute the comparative evaluation script pointing to your Kaggle dataset path:
+### Step 4: Run the CTU-IDSEVAL-6 Evaluation
+In the third cell, execute the evaluation script pointing to your Kaggle dataset path:
 
 ```bash
 !python kaggle_evaluation/evaluate_ctu_idseval6.py \
     --dataset-root /kaggle/input/ctu-idseval-6 \
     --output-dir /kaggle/working/kaggle_output \
-    --threshold 0.52
+    --threshold 0.50
 ```
 
 #### Optional: Quick Subset Run
-If you want to perform a fast preliminary sanity check before processing the full 260,000+ windows:
+If you want to perform a fast preliminary sanity check before processing the full dataset:
 ```bash
 !python kaggle_evaluation/evaluate_ctu_idseval6.py \
     --dataset-root /kaggle/input/ctu-idseval-6 \
     --output-dir /kaggle/working/kaggle_output \
     --max-windows 500 \
-    --threshold 0.52
+    --threshold 0.50
 ```
 
 ---
 
 ## 3. Generated Evaluation Artifacts
 
-Upon completion, the script outputs a comparative terminal table and exports two permanent artifacts:
+Upon completion, the script displays summary metrics in the console and exports two structured artifacts to the output directory:
 
-1. **`kaggle_isolation_forest_comparison.json`**:
+1. **`kaggle_isolation_forest_evaluation.json`**:
    - Machine-readable summary of aggregate and per-capture metrics.
-   - Contains score separation margins (`Malicious Mean Score - Benign Mean Score`).
-   - Detailed window-level counts.
+   - Training time (seconds) and per-window prediction latency (ms).
+   - PR-AUC (Average Precision) and ROC-AUC.
+   - Score separation margin (`Malicious Mean Score - Benign Mean Score`).
+   - Per-attack-category detection rates and mean anomaly scores.
 
-2. **`kaggle_isolation_forest_comparison.csv`**:
-   - Tabular comparison table containing:
+2. **`kaggle_isolation_forest_evaluation.csv`**:
+   - Tabular evaluation table containing:
      - Accuracy
      - Precision
      - Recall
      - F1-Score
      - False Positive Rate (FPR)
      - False Negative Rate (FNR)
+     - PR-AUC and ROC-AUC
+     - Score Separation Margin
      - Full Confusion Matrix (`TP`, `TN`, `FP`, `FN`) for each capture and overall aggregate.
+     - Inference Latency per window (ms).
 
 ---
 
@@ -103,18 +108,25 @@ Upon completion, the script outputs a comparative terminal table and exports two
 
 ```text
 ================================================================================
-FINAL COMPARATIVE EVALUATION RESULTS (CTU-IDSEVAL-6)
+FINAL EVALUATION RESULTS (CTU-IDSEVAL-6)
 ================================================================================
-Metric                    | Original Baseline (T=0.50) | Optimized IF (T=0.52)     | Delta     
-----------------------------------------------------------------------------------------
-Accuracy                  | 90.48%                    | [Your Kaggle Result]      | ...       
-Precision                 | 90.02%                    | [Your Kaggle Result]      | ...       
-Recall                    | 94.92%                    | [Your Kaggle Result]      | ...       
-F1-Score                  | 92.41%                    | [Your Kaggle Result]      | ...       
-False Positive Rate       | 16.47%                    | [Your Kaggle Result]      | ...       
-False Negative Rate       | 5.08%                     | [Your Kaggle Result]      | ...       
-Score Separation          | 0.1523                    | [Your Kaggle Result]      | ...       
-========================================================================================
+Model Architecture         : Single Isolation Forest (Unsupervised)
+Feature Count              : 13 Canonical Features
+Training Time              : [Measured train time] seconds
+Prediction Latency         : [Measured inference time] ms / window
+Threshold                  : 0.50
+--------------------------------------------------------------------------------
+Accuracy                   : [Your Kaggle Result]%
+Precision                  : [Your Kaggle Result]%
+Recall                     : [Your Kaggle Result]%
+F1-Score                   : [Your Kaggle Result]%
+False Positive Rate (FPR)  : [Your Kaggle Result]%
+False Negative Rate (FNR)  : [Your Kaggle Result]%
+PR-AUC (Average Precision) : [Your Kaggle Result]
+ROC-AUC                    : [Your Kaggle Result]
+Score Separation Margin    : [Your Kaggle Result] (Malicious - Benign)
+Confusion Matrix           : TP=[...] | TN=[...] | FP=[...] | FN=[...]
+================================================================================
 ```
 
 ---
@@ -122,5 +134,6 @@ Score Separation          | 0.1523                    | [Your Kaggle Result]    
 ## 5. Security Invariants
 - `NETSENTINEL_FIREWALL_ENABLED=false`
 - `NETSENTINEL_AUTO_BLOCK=false`
-- Unsupervised Isolation Forest only (no supervised Random Forest models).
+- Exactly ONE Unsupervised Isolation Forest model using the 13 canonical network traffic features.
+- No supervised Random Forest models, no schema versions, no multi-model switching.
 - No external network packets dispatched.

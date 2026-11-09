@@ -1,7 +1,8 @@
 """NetSentinel Isolation Forest Model Module.
 
-Wraps Scikit-learn's IsolationForest for unsupervised network traffic anomaly detection.
-Provides model lifecycle management, training validation, anomaly scoring, and model persistence.
+Wraps Scikit-learn's IsolationForest for unsupervised network traffic anomaly detection
+using exactly the original 13 network traffic features.
+Provides model lifecycle management, training validation, anomaly scoring, and atomic persistence.
 """
 
 from enum import Enum
@@ -15,13 +16,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
-from ml.feature_extractor import (
-    FEATURE_NAMES,
-    FEATURE_NAMES_V1,
-    FEATURE_NAMES_V2,
-    FEATURE_SCHEMAS,
-    get_feature_names,
-)
+from ml.feature_extractor import FEATURE_NAMES
 
 logger = logging.getLogger("netsentinel.ml.model")
 
@@ -40,29 +35,34 @@ class IsolationForestModel:
     def __init__(
         self,
         n_estimators: int = 100,
+        max_samples: Any = "auto",
         contamination: Any = "auto",
+        max_features: float = 1.0,
         random_state: int = 42,
         min_samples: int = 5,
-        schema_version: str = "v1",
-        feature_names: Optional[List[str]] = None,
     ):
         self.n_estimators = int(n_estimators)
+        if isinstance(max_samples, str) and max_samples.strip().lower() == "auto":
+            self.max_samples: Any = "auto"
+        elif max_samples is not None and not isinstance(max_samples, str):
+            self.max_samples = int(max_samples) if max_samples > 1 else float(max_samples)
+        else:
+            self.max_samples = "auto"
+
         if isinstance(contamination, str) and contamination.strip().lower() == "auto":
             self.contamination: Any = "auto"
         else:
             self.contamination = float(contamination)
+
+        self.max_features = float(max_features)
         self.random_state = int(random_state)
         self.min_samples = int(min_samples)
-        self.schema_version = str(schema_version or "v1")
 
         self.status = ModelStatus.MODEL_NOT_READY
         self.model: Optional[IsolationForest] = None
         self.trained_at: Optional[float] = None
         self.training_sample_count: int = 0
-        if feature_names is not None:
-            self.feature_names: List[str] = list(feature_names)
-        else:
-            self.feature_names = get_feature_names(self.schema_version)
+        self.feature_names: List[str] = list(FEATURE_NAMES)
         self.last_error: Optional[str] = None
 
     def train(self, feature_matrix: List[List[float]]) -> bool:
@@ -75,7 +75,7 @@ class IsolationForestModel:
             True if training succeeded, False if training criteria was not met.
 
         Raises:
-            ValueError: If sample count is below min_samples.
+            ValueError: If sample count is below min_samples or dimensions mismatch.
         """
         sample_count = len(feature_matrix)
         if sample_count < self.min_samples:
@@ -92,13 +92,15 @@ class IsolationForestModel:
             X = np.asarray(feature_matrix, dtype=np.float64)
             if X.shape[1] != len(self.feature_names):
                 raise ValueError(
-                    f"Feature dimension mismatch: expected {len(self.feature_names)}, got {X.shape[1]}."
+                    f"Feature dimension mismatch: expected {len(self.feature_names)} features, got {X.shape[1]}."
                 )
 
             # Fit unsupervised Isolation Forest
             model = IsolationForest(
                 n_estimators=self.n_estimators,
+                max_samples=self.max_samples,
                 contamination=self.contamination,
+                max_features=self.max_features,
                 random_state=self.random_state,
                 n_jobs=-1,
             )
@@ -132,14 +134,14 @@ class IsolationForestModel:
 
         Raises:
             RuntimeError: If model is not in READY state.
+            ValueError: If feature vector length does not match FEATURE_NAMES (13).
         """
         if self.status != ModelStatus.READY or self.model is None:
             raise RuntimeError(f"Cannot perform prediction while model is in {self.status.value} state.")
 
         if len(feature_vector) != len(self.feature_names):
             raise ValueError(
-                f"Feature vector dimension mismatch: expected {len(self.feature_names)} features "
-                f"({self.schema_version}), got {len(feature_vector)}."
+                f"Feature vector dimension mismatch: expected {len(self.feature_names)} features, got {len(feature_vector)}."
             )
 
         X = np.asarray([feature_vector], dtype=np.float64)
@@ -156,7 +158,7 @@ class IsolationForestModel:
         return is_anomaly, round(raw_score, 4), normalized_score
 
     def save(self, model_path: str, metadata_path: str) -> bool:
-        """Persist trained model binary and feature metadata to disk.
+        """Persist trained model binary and feature metadata to disk atomically.
 
         Args:
             model_path: Filepath for the joblib model artifact.
@@ -177,13 +179,14 @@ class IsolationForestModel:
             joblib.dump(self.model, tmp_model)
 
             meta = {
-                "schema_version": self.schema_version,
                 "trained_at": self.trained_at,
                 "training_sample_count": self.training_sample_count,
                 "feature_names": self.feature_names,
                 "feature_count": len(self.feature_names),
                 "n_estimators": self.n_estimators,
+                "max_samples": self.max_samples,
                 "contamination": self.contamination,
+                "max_features": self.max_features,
                 "random_state": self.random_state,
             }
             with open(tmp_meta, "w", encoding="utf-8") as fh:
@@ -217,19 +220,10 @@ class IsolationForestModel:
                 meta = json.load(fh)
 
             saved_features = meta.get("feature_names", [])
-            saved_schema = meta.get("schema_version")
             if saved_features != self.feature_names:
-                # Check whether saved features match a known schema version
-                if saved_features == FEATURE_NAMES_V1:
-                    self.feature_names = list(FEATURE_NAMES_V1)
-                    self.schema_version = "v1"
-                elif saved_features == FEATURE_NAMES_V2:
-                    self.feature_names = list(FEATURE_NAMES_V2)
-                    self.schema_version = "v2"
-                else:
-                    raise ValueError("Loaded model feature ordering does not match current feature definitions.")
-            else:
-                self.schema_version = saved_schema or ("v2" if len(saved_features) == len(FEATURE_NAMES_V2) else "v1")
+                raise ValueError(
+                    f"Loaded model feature ordering mismatch: expected {len(self.feature_names)} features, got {len(saved_features)}."
+                )
 
             loaded_model = joblib.load(model_path)
 
@@ -237,11 +231,13 @@ class IsolationForestModel:
             self.trained_at = meta.get("trained_at")
             self.training_sample_count = meta.get("training_sample_count", 0)
             self.n_estimators = meta.get("n_estimators", self.n_estimators)
+            self.max_samples = meta.get("max_samples", getattr(self, "max_samples", "auto"))
             self.contamination = meta.get("contamination", self.contamination)
+            self.max_features = meta.get("max_features", getattr(self, "max_features", 1.0))
             self.random_state = meta.get("random_state", self.random_state)
             self.status = ModelStatus.READY
             self.last_error = None
-            logger.info("Isolation Forest model loaded successfully from %s (schema=%s)", model_path, self.schema_version)
+            logger.info("Isolation Forest model loaded successfully from %s", model_path)
             return True
 
         except Exception as ex:

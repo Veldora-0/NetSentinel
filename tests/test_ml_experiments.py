@@ -18,8 +18,7 @@ from ml.feature_extractor import FEATURE_NAMES
 from ml_experiments.data_loader import SyntheticTrafficGenerator, ValidationDataset
 from ml_experiments.feature_experiments import (
     FeatureAnalyzer,
-    CANONICAL_V1_FEATURES,
-    CANDIDATE_V2_FEATURES,
+    CANONICAL_FEATURES,
 )
 from ml_experiments.hyperparameter_search import (
     IsolationForestOptimizer,
@@ -30,26 +29,20 @@ from ml_experiments.experiment_runner import MLOptimizationRunner
 
 
 def test_synthetic_traffic_generator_shapes():
-    """Verify data generator produces valid feature vectors for both schemas."""
+    """Verify data generator produces valid 13-feature vectors for all normal and attack modes."""
     gen = SyntheticTrafficGenerator(seed=123)
 
-    # v1 schema (13 features)
-    v1_norm = gen.generate_normal_window(mode="web", schema_version="v1")
-    assert len(v1_norm) == len(FEATURE_NAMES)
-    assert all(np.isfinite(v1_norm))
+    for mode in ["web", "stream", "dns", "ssh", "idle"]:
+        norm_vec = gen.generate_normal_window(mode=mode)
+        assert len(norm_vec) == 13
+        assert len(norm_vec) == len(FEATURE_NAMES)
+        assert all(np.isfinite(norm_vec))
 
-    v1_att = gen.generate_attack_window(attack_type="syn_flood", schema_version="v1")
-    assert len(v1_att) == len(FEATURE_NAMES)
-    assert all(np.isfinite(v1_att))
-
-    # v2 schema (17 features)
-    v2_norm = gen.generate_normal_window(mode="stream", schema_version="v2")
-    assert len(v2_norm) == len(CANDIDATE_V2_FEATURES)
-    assert all(np.isfinite(v2_norm))
-
-    v2_att = gen.generate_attack_window(attack_type="portscan", schema_version="v2")
-    assert len(v2_att) == len(CANDIDATE_V2_FEATURES)
-    assert all(np.isfinite(v2_att))
+    for atype in ["syn_flood", "udp_flood", "portscan", "slowloris", "c2_beacon"]:
+        att_vec = gen.generate_attack_window(attack_type=atype)
+        assert len(att_vec) == 13
+        assert len(att_vec) == len(FEATURE_NAMES)
+        assert all(np.isfinite(att_vec))
 
 
 def test_build_benchmark_dataset():
@@ -59,7 +52,6 @@ def test_build_benchmark_dataset():
         train_samples=50,
         val_normal_samples=20,
         val_attack_samples=20,
-        schema_version="v1",
     )
     assert ds.X_train_normal.shape == (50, 13)
     assert ds.X_val.shape == (40, 13)
@@ -73,7 +65,7 @@ def test_feature_analyzer_metrics():
     """Verify statistical analysis and Fisher separation scores."""
     gen = SyntheticTrafficGenerator(seed=42)
     ds = gen.build_benchmark_dataset(train_samples=40, val_normal_samples=20, val_attack_samples=20)
-    analyzer = FeatureAnalyzer(CANONICAL_V1_FEATURES)
+    analyzer = FeatureAnalyzer(CANONICAL_FEATURES)
 
     stats = analyzer.compute_feature_statistics(ds.X_train_normal)
     assert len(stats) == 13
@@ -161,7 +153,7 @@ def test_ml_optimization_runner_execution():
         with open(os.path.join(temp_dir, "experiment_results.json"), "r", encoding="utf-8") as f:
             data = json.load(f)
             assert "hyperparameter_search" in data
-            assert data["hyperparameter_search"]["total_trials_v1"] > 0
+            assert data["hyperparameter_search"]["total_trials"] > 0
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 

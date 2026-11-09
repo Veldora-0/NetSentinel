@@ -27,7 +27,7 @@ if PROJECT_ROOT not in sys.path:
 
 import numpy as np
 
-from ml.feature_extractor import FEATURE_NAMES, get_feature_names
+from ml.feature_extractor import FEATURE_NAMES
 from ml.model import IsolationForestModel, ModelStatus
 
 try:
@@ -131,7 +131,6 @@ class RealDatasetEvaluator:
         zeek_dir: Optional[str] = None,
         window_duration: float = 5.0,
         include_empty_windows: bool = False,
-        schema_version: str = "v1",
         anomaly_threshold: float = 0.50,
         n_estimators: int = 100,
         contamination: Any = "auto",
@@ -142,7 +141,6 @@ class RealDatasetEvaluator:
         self.zeek_dir = zeek_dir or (os.path.join(self.dataset_root, "zeek") if self.dataset_root else "")
         self.window_duration = float(window_duration)
         self.include_empty_windows = bool(include_empty_windows)
-        self.schema_version = str(schema_version or "v1")
         self.anomaly_threshold = float(anomaly_threshold)
         self.n_estimators = int(n_estimators)
         self.contamination = contamination
@@ -151,7 +149,6 @@ class RealDatasetEvaluator:
         self.window_builder = TrafficWindowBuilder(
             window_duration=self.window_duration,
             include_empty_windows=self.include_empty_windows,
-            schema_version=self.schema_version,
         )
 
     def discover_captures(self) -> Dict[str, Dict[str, str]]:
@@ -250,7 +247,7 @@ class RealDatasetEvaluator:
         print(f"Held-Out Test Captures    : {', '.join(test_tags)}")
         print(f"Window Duration           : {self.window_duration}s")
         print(f"Decision Threshold        : {self.anomaly_threshold:.2f} (normalized score)")
-        print(f"Feature Schema Version    : {self.schema_version} ({len(get_feature_names(self.schema_version))} features)")
+        print(f"Feature Schema            : Canonical 13 features ({len(FEATURE_NAMES)} features)")
         print(f"Estimators / Contam       : {self.n_estimators} / {self.contamination}")
         print("=" * 70)
 
@@ -295,7 +292,6 @@ class RealDatasetEvaluator:
             contamination=self.contamination,
             random_state=42,
             min_samples=max(5, len(X_train) // 2),
-            schema_version=self.schema_version,
         )
         trained_ok = model.train(X_train)
         if not trained_ok or model.status != ModelStatus.READY:
@@ -776,12 +772,6 @@ def main():
         help="Generate empty windows for silent 5-second intervals (default: False)",
     )
     parser.add_argument(
-        "--schema-version",
-        type=str,
-        default="v1",
-        help="Feature schema version ('v1' for 13 features, 'v2' for 17 features, default: v1)",
-    )
-    parser.add_argument(
         "--threshold",
         type=float,
         default=0.50,
@@ -831,7 +821,6 @@ def main():
         pcap_dir=args.pcap_dir,
         zeek_dir=args.zeek_dir,
         include_empty_windows=args.include_empty_windows,
-        schema_version=args.schema_version,
         anomaly_threshold=args.threshold,
         n_estimators=args.n_estimators,
         contamination=contam_val,
