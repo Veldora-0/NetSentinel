@@ -6,11 +6,13 @@ Provides model lifecycle management, training validation, anomaly scoring, and a
 """
 
 from enum import Enum
+import hashlib
 import json
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
+import uuid
 
 import joblib
 import numpy as np
@@ -164,7 +166,7 @@ class IsolationForestModel:
         return is_anomaly, round(raw_score, 4), normalized_score
 
     def save(self, model_path: str, metadata_path: str) -> bool:
-        """Persist trained model binary and feature metadata to disk atomically.
+        """Persist trained model binary, feature metadata, and manifest atomically as a crash-consistent generation.
 
         Args:
             model_path: Filepath for the joblib model artifact.
@@ -179,15 +181,31 @@ class IsolationForestModel:
 
         tmp_model = None
         tmp_meta = None
+        tmp_manifest = None
         try:
-            os.makedirs(os.path.dirname(os.path.abspath(model_path)), exist_ok=True)
+            model_dir = os.path.dirname(os.path.abspath(model_path))
+            os.makedirs(model_dir, exist_ok=True)
             suffix = f"{os.getpid()}.{time.time_ns()}"
             tmp_model = f"{model_path}.tmp.{suffix}"
             tmp_meta = f"{metadata_path}.tmp.{suffix}"
+            manifest_path = os.path.join(model_dir, "model_manifest.json")
+            tmp_manifest = f"{manifest_path}.tmp.{suffix}"
 
+            # 1. Dump model binary to temporary file
             joblib.dump(self.model, tmp_model)
 
+            # 2. Compute binary SHA-256 and generation ID
+            with open(tmp_model, "rb") as fh:
+                model_sha256 = hashlib.sha256(fh.read()).hexdigest()
+
+            generation_id = getattr(self, "generation_id", None) or uuid.uuid4().hex[:16]
+            self.generation_id = generation_id
+            self.model_sha256 = model_sha256
+
+            # 3. Create metadata bound to generation and binary SHA-256
             meta = {
+                "generation_id": generation_id,
+                "model_sha256": model_sha256,
                 "trained_at": self.trained_at,
                 "training_sample_count": self.training_sample_count,
                 "min_samples": self.min_samples,
@@ -202,43 +220,69 @@ class IsolationForestModel:
             with open(tmp_meta, "w", encoding="utf-8") as fh:
                 json.dump(meta, fh, indent=2)
 
+            with open(tmp_meta, "rb") as fh:
+                meta_sha256 = hashlib.sha256(fh.read()).hexdigest()
+
+            # 4. Create generation manifest
+            manifest = {
+                "generation_id": generation_id,
+                "model_file": os.path.basename(model_path),
+                "model_sha256": model_sha256,
+                "metadata_file": os.path.basename(metadata_path),
+                "metadata_sha256": meta_sha256,
+                "committed_at": time.time(),
+            }
+            with open(tmp_manifest, "w", encoding="utf-8") as fh:
+                json.dump(manifest, fh, indent=2)
+
+            # 5. Atomic replacement sequence: model, then metadata, then manifest commit
             os.replace(tmp_model, model_path)
             os.replace(tmp_meta, metadata_path)
+            os.replace(tmp_manifest, manifest_path)
 
-            logger.info("Isolation Forest model saved atomically to %s", model_path)
+            logger.info("Isolation Forest model generation %s saved atomically to %s", generation_id, model_path)
             return True
         except Exception as ex:
-            if tmp_model and os.path.exists(tmp_model):
-                try:
-                    os.remove(tmp_model)
-                except OSError:
-                    pass
-            if tmp_meta and os.path.exists(tmp_meta):
-                try:
-                    os.remove(tmp_meta)
-                except OSError:
-                    pass
+            for tmp_f in (tmp_model, tmp_meta, tmp_manifest):
+                if tmp_f and os.path.exists(tmp_f):
+                    try:
+                        os.remove(tmp_f)
+                    except OSError:
+                        pass
             logger.error("Failed to save model: %s", ex)
             return False
 
-    def load(self, model_path: str, metadata_path: str) -> bool:
-        """Load trained model artifact and verify feature consistency and minimum samples.
+    def load(
+        self,
+        model_path: str,
+        metadata_path: str,
+        enforce_approved_params: Optional[bool] = None,
+    ) -> bool:
+        """Load trained model artifact and verify generation integrity and parameters.
 
         Args:
             model_path: Filepath for the joblib model artifact.
             metadata_path: Filepath for the JSON metadata file.
+            enforce_approved_params: Whether to enforce approved production hyperparameters
+                (n_estimators=100, max_samples='auto', contamination='auto', max_features=1.0,
+                random_state=42, 13 features, min_samples>=512). If None, defaults to True
+                when min_samples >= 512 and n_estimators == 100.
 
         Returns:
-            True if loaded successfully, False if missing, corrupted, or incompatible.
+            True if loaded successfully, False if missing, corrupted, interrupted, or incompatible.
         """
         if not os.path.exists(model_path) or not os.path.exists(metadata_path):
             self.status = ModelStatus.MODEL_NOT_READY
             return False
 
+        if enforce_approved_params is None:
+            enforce_approved_params = (self.min_samples >= 512 and self.n_estimators == 100)
+
         try:
             with open(metadata_path, "r", encoding="utf-8") as fh:
                 meta = json.load(fh)
 
+            # 1. Feature schema & ordering verification
             saved_features = meta.get("feature_names", [])
             if saved_features != self.feature_names:
                 raise ValueError(
@@ -251,11 +295,7 @@ class IsolationForestModel:
                     f"Feature count mismatch: expected {len(self.feature_names)}, got {feature_count}."
                 )
 
-            saved_n_estimators = meta.get("n_estimators")
-            if saved_n_estimators is not None:
-                if not isinstance(saved_n_estimators, int) or saved_n_estimators < 1:
-                    raise ValueError(f"Invalid n_estimators in metadata: {saved_n_estimators}")
-
+            # 2. Check minimum sample count
             training_sample_count = int(meta.get("training_sample_count", 0))
             if training_sample_count < self.min_samples:
                 raise ValueError(
@@ -263,6 +303,38 @@ class IsolationForestModel:
                     f"minimum required is {self.min_samples}."
                 )
 
+            # 3. Model binary SHA-256 checksum and crash-consistency check
+            with open(model_path, "rb") as fh:
+                actual_model_sha256 = hashlib.sha256(fh.read()).hexdigest()
+
+            expected_sha256 = meta.get("model_sha256")
+            if expected_sha256 is not None and actual_model_sha256 != expected_sha256:
+                raise ValueError(
+                    f"Model binary SHA-256 mismatch (crash-inconsistent generation): "
+                    f"metadata expected {expected_sha256}, actual binary is {actual_model_sha256}."
+                )
+
+            # 4. Generation manifest validation (if manifest exists)
+            manifest_path = os.path.join(os.path.dirname(os.path.abspath(model_path)), "model_manifest.json")
+            if os.path.exists(manifest_path):
+                try:
+                    with open(manifest_path, "r", encoding="utf-8") as mfh:
+                        manifest = json.load(mfh)
+                    if manifest.get("generation_id") and meta.get("generation_id"):
+                        if manifest["generation_id"] != meta["generation_id"]:
+                            raise ValueError(
+                                f"Generation manifest mismatch: manifest generation {manifest.get('generation_id')} "
+                                f"differs from metadata generation {meta.get('generation_id')}."
+                            )
+                    if manifest.get("model_sha256") and manifest["model_sha256"] != actual_model_sha256:
+                        raise ValueError(
+                            f"Manifest model SHA-256 mismatch: manifest {manifest.get('model_sha256')}, "
+                            f"actual {actual_model_sha256}."
+                        )
+                except json.JSONDecodeError:
+                    raise ValueError(f"Corrupted generation manifest file at {manifest_path}")
+
+            # 5. Load model binary
             loaded_model = joblib.load(model_path)
             if not isinstance(loaded_model, IsolationForest):
                 raise TypeError(f"Loaded artifact is not an IsolationForest instance: {type(loaded_model)}")
@@ -273,15 +345,35 @@ class IsolationForestModel:
                     f"got {getattr(loaded_model, 'n_features_in_', None)}."
                 )
 
+            saved_n_estimators = meta.get("n_estimators")
             if saved_n_estimators is not None and getattr(loaded_model, "n_estimators", None) != saved_n_estimators:
                 raise ValueError(
                     f"Loaded model binary n_estimators ({getattr(loaded_model, 'n_estimators', None)}) "
                     f"differs from metadata ({saved_n_estimators})."
                 )
 
+            # 6. Strict approved production parameters check
+            if enforce_approved_params:
+                if expected_sha256 is None:
+                    raise ValueError("Model metadata lacks required model_sha256 checksum for production model.")
+                if saved_n_estimators != 100 or getattr(loaded_model, "n_estimators", None) != 100:
+                    raise ValueError(f"Invalid n_estimators for production Isolation Forest: expected 100, got {saved_n_estimators}")
+                if meta.get("max_samples") != "auto" or getattr(loaded_model, "max_samples", None) != "auto":
+                    raise ValueError(f"Invalid max_samples for production Isolation Forest: expected 'auto', got {meta.get('max_samples')}")
+                if meta.get("contamination") != "auto" or getattr(loaded_model, "contamination", None) != "auto":
+                    raise ValueError(f"Invalid contamination for production Isolation Forest: expected 'auto', got {meta.get('contamination')}")
+                if meta.get("max_features") != 1.0 or getattr(loaded_model, "max_features", None) != 1.0:
+                    raise ValueError(f"Invalid max_features for production Isolation Forest: expected 1.0, got {meta.get('max_features')}")
+                if meta.get("random_state") != 42 or getattr(loaded_model, "random_state", None) != 42:
+                    raise ValueError(f"Invalid random_state for production Isolation Forest: expected 42, got {meta.get('random_state')}")
+                if training_sample_count < 512:
+                    raise ValueError(f"Production model baseline samples must be >= 512, found {training_sample_count}")
+
             self.model = loaded_model
             self.trained_at = meta.get("trained_at")
             self.training_sample_count = training_sample_count
+            self.generation_id = meta.get("generation_id")
+            self.model_sha256 = actual_model_sha256
             self.n_estimators = saved_n_estimators or self.n_estimators
             self.max_samples = meta.get("max_samples", getattr(self, "max_samples", "auto"))
             self.contamination = meta.get("contamination", self.contamination)
@@ -289,7 +381,7 @@ class IsolationForestModel:
             self.random_state = meta.get("random_state", self.random_state)
             self.status = ModelStatus.READY
             self.last_error = None
-            logger.info("Isolation Forest model loaded successfully from %s", model_path)
+            logger.info("Isolation Forest model (generation=%s) loaded successfully from %s", self.generation_id, model_path)
             return True
 
         except Exception as ex:

@@ -7,6 +7,7 @@ and host system telemetry sampling.
 """
 
 import platform
+import shutil
 import sys
 import threading
 import time
@@ -294,6 +295,20 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
         telemetry_worker.set_heartbeat_callback(lambda: lifecycle_manager.record_heartbeat("telemetry"))
     if hasattr(host_manager, "set_heartbeat_callback"):
         host_manager.set_heartbeat_callback(lambda: lifecycle_manager.record_heartbeat("host_manager"))
+
+    # Wire actual sensor operational health provider to ml_detector
+    def _get_sensor_statuses() -> Dict[str, str]:
+        rule_status = "active" if detector is not None else "stopped"
+        hids_status = "active" if (host_manager is not None and getattr(host_manager, "_running", True)) else "stopped"
+        suricata_status = "active" if shutil.which("suricata") else "unknown"
+        return {
+            "rule_nids": rule_status,
+            "suricata": suricata_status,
+            "hids": hids_status,
+        }
+
+    if hasattr(ml_detector, "set_sensor_status_provider"):
+        ml_detector.set_sensor_status_provider(_get_sensor_statuses)
 
     # Connect rule detector security events to persistence, Socket.IO, and Risk Engine
     def _on_security_event(event: SecurityEvent) -> None:
@@ -823,6 +838,30 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     def get_ml_metrics():
         """REST endpoint to retrieve ML window history and recent anomalies."""
         return jsonify(ml_detector.get_metrics()), 200
+
+    @app.route("/api/ml/retry", methods=["POST"])
+    @permission_required(Permission.SYSTEM_ADMIN)
+    def retry_ml_training():
+        """REST endpoint to trigger manual retry of ML model training on collected baseline."""
+        if not ml_detector:
+            return jsonify({"status": "error", "message": "ML detector not initialized"}), 503
+        ok = ml_detector.retry_training()
+        status = ml_detector.get_status()
+        if ok:
+            return jsonify({"status": "ok", "message": "ML training retried successfully", "ml_status": status}), 200
+        else:
+            return jsonify({"status": "error", "message": status.get("error_message") or "Retry failed", "ml_status": status}), 400
+
+    @app.route("/api/ml/reset", methods=["POST"])
+    @permission_required(Permission.SYSTEM_ADMIN)
+    def reset_ml_baseline():
+        """REST endpoint to reset ML detector from ERROR state back to baseline collection."""
+        if not ml_detector:
+            return jsonify({"status": "error", "message": "ML detector not initialized"}), 503
+        data = request.get_json(silent=True) or {}
+        clear_samples = bool(data.get("clear_samples", False))
+        ml_detector.reset_baseline(clear_samples=clear_samples)
+        return jsonify({"status": "ok", "message": "ML baseline collection reset", "ml_status": ml_detector.get_status()}), 200
 
     # Risk Engine & Firewall Endpoints
     @app.route("/api/risk/recent", methods=["GET"])

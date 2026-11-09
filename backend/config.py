@@ -142,7 +142,7 @@ class Config:
         # Minimum baseline samples strictly required before training is permitted
         "min_samples": int(os.environ.get("ML_MIN_SAMPLES", "512")),
         # Production baseline filter strategy: 'none' (default) or experimental 'two_stage_trim'
-        "baseline_filter": os.environ.get("ML_BASELINE_FILTER", "none").lower(),
+        "baseline_filter": os.environ.get("ML_BASELINE_FILTER", "none").strip().lower() if os.environ.get("ML_BASELINE_FILTER", "none").strip().lower() in ("none", "two_stage_trim") else "none",
         # Isolation Forest hyperparameters
         "n_estimators": int(os.environ.get("ML_N_ESTIMATORS", "100")),
         "max_samples": os.environ.get("ML_MAX_SAMPLES", "auto"),
@@ -156,6 +156,9 @@ class Config:
         "model_path": os.path.join(MODELS_DIR, "isolation_forest.joblib"),
         "metadata_path": os.path.join(MODELS_DIR, "model_metadata.json"),
     }
+
+    if ML_SETTINGS["min_samples"] > ML_SETTINGS["baseline_windows"]:
+        ML_SETTINGS["min_samples"] = ML_SETTINGS["baseline_windows"]
 
     ML_WINDOW_SECONDS = ML_SETTINGS["window_seconds"]
     ML_BASELINE_WINDOWS = ML_SETTINGS["baseline_windows"]

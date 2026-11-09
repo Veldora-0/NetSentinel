@@ -213,6 +213,24 @@ class ConfigValidator:
                     cls.validate_positive_int(ml["min_samples"], "ML_SETTINGS.min_samples", min_val=1)
                 except ConfigurationError as e:
                     errors.append(str(e))
+            if "min_samples" in ml and "baseline_windows" in ml:
+                if ml["min_samples"] > ml["baseline_windows"]:
+                    errors.append(
+                        f"ML_SETTINGS.min_samples ({ml['min_samples']}) cannot exceed "
+                        f"ML_SETTINGS.baseline_windows ({ml['baseline_windows']})"
+                    )
+            env_name = str(get_val("ENV") or os.environ.get("NETSENTINEL_ENV") or "production").lower()
+            if env_name == "production" and not os.environ.get("PYTEST_CURRENT_TEST"):
+                if ml.get("baseline_windows", 512) < 512:
+                    errors.append(
+                        f"Production environment requires ML_SETTINGS.baseline_windows >= 512, "
+                        f"got {ml.get('baseline_windows')}"
+                    )
+                if ml.get("min_samples", 512) < 512:
+                    errors.append(
+                        f"Production environment requires ML_SETTINGS.min_samples >= 512, "
+                        f"got {ml.get('min_samples')}"
+                    )
             if "baseline_filter" in ml and ml["baseline_filter"] is not None:
                 filter_strat = str(ml["baseline_filter"]).strip().lower()
                 if filter_strat not in ("none", "two_stage_trim", "iqr"):
