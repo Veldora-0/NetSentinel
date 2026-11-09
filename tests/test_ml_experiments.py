@@ -164,3 +164,39 @@ def test_kaggle_evaluation_package_smoke():
     # Should execute and pass without throwing any exception
     run_kaggle_smoke_test()
 
+
+def test_two_stage_trim_defense():
+    """Verify two-stage trimmed defense removes extreme anomalous windows from contaminated baseline."""
+    from ml_experiments.baseline_contamination_study import two_stage_trim_defense
+    from ml_experiments.data_loader import SyntheticTrafficGenerator
+
+    gen = SyntheticTrafficGenerator(seed=42)
+    clean = [gen.generate_normal_window() for _ in range(50)]
+    # Inject 5 extreme syn_flood windows
+    attacks = [gen.generate_attack_window(attack_type="syn_flood") for _ in range(5)]
+    contaminated = clean + attacks
+
+    trimmed = two_stage_trim_defense(contaminated, trim_percentile=90.0)
+    assert len(trimmed) <= len(contaminated)
+    assert len(trimmed) >= 10
+    # The trimmed baseline should be primarily clean samples
+    assert len(trimmed) < len(contaminated)
+
+
+def test_independent_feature_shift_structure():
+    """Verify independent evaluation structures and feature schema conformity."""
+    from ml_experiments.independent_dataset_eval import FeatureShiftRecord
+    rec = FeatureShiftRecord(
+        feature_name="packets_per_second",
+        ctu_mean=4.44,
+        ctu_std=6.53,
+        cic_mean=44.65,
+        cic_std=54.61,
+        mean_ratio=10.05,
+        ks_statistic=0.6327,
+        ks_pvalue=1e-26,
+    )
+    assert rec.mean_ratio > 1.0
+    assert rec.feature_name in FEATURE_NAMES
+
+

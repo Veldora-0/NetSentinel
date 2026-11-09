@@ -1,0 +1,132 @@
+[
+  {
+    "feature_name": "packets_per_second",
+    "ctu_mean": 4.441,
+    "ctu_std": 6.527,
+    "cic_mean": 44.651,
+    "cic_std": 54.614,
+    "mean_ratio": 10.05,
+    "ks_statistic": 0.6327,
+    "ks_pvalue": 9.062782831117662e-27
+  },
+  {
+    "feature_name": "bytes_per_second",
+    "ctu_mean": 1138.764,
+    "ctu_std": 3635.098,
+    "cic_mean": 13483.423,
+    "cic_std": 37859.063,
+    "mean_ratio": 11.84,
+    "ks_statistic": 0.6389,
+    "ks_pvalue": 2.3597998748323748e-27
+  },
+  {
+    "feature_name": "average_packet_size",
+    "ctu_mean": 144.153,
+    "ctu_std": 138.839,
+    "cic_mean": 226.716,
+    "cic_std": 176.551,
+    "mean_ratio": 1.57,
+    "ks_statistic": 0.647,
+    "ks_pvalue": 3.903122913012829e-28
+  },
+  {
+    "feature_name": "tcp_ratio",
+    "ctu_mean": 0.169,
+    "ctu_std": 0.341,
+    "cic_mean": 0.297,
+    "cic_std": 0.278,
+    "mean_ratio": 1.76,
+    "ks_statistic": 0.5255,
+    "ks_pvalue": 5.883150375258862e-18
+  },
+  {
+    "feature_name": "udp_ratio",
+    "ctu_mean": 0.127,
+    "ctu_std": 0.268,
+    "cic_mean": 0.545,
+    "cic_std": 0.31,
+    "mean_ratio": 4.3,
+    "ks_statistic": 0.6695,
+    "ks_pvalue": 2.1188483117277327e-30
+  },
+  {
+    "feature_name": "icmp_ratio",
+    "ctu_mean": 0.014,
+    "ctu_std": 0.084,
+    "cic_mean": 0.005,
+    "cic_std": 0.014,
+    "mean_ratio": 0.35,
+    "ks_statistic": 0.0652,
+    "ks_pvalue": 0.9164707069352622
+  },
+  {
+    "feature_name": "syn_ratio",
+    "ctu_mean": 0.006,
+    "ctu_std": 0.029,
+    "cic_mean": 0.02,
+    "cic_std": 0.033,
+    "mean_ratio": 3.12,
+    "ks_statistic": 0.3663,
+    "ks_pvalue": 1.1389867506986312e-08
+  },
+  {
+    "feature_name": "ack_ratio",
+    "ctu_mean": 0.165,
+    "ctu_std": 0.334,
+    "cic_mean": 0.285,
+    "cic_std": 0.27,
+    "mean_ratio": 1.72,
+    "ks_statistic": 0.5255,
+    "ks_pvalue": 5.883150375258862e-18
+  },
+  {
+    "feature_name": "rst_ratio",
+    "ctu_mean": 0.03,
+    "ctu_std": 0.139,
+    "cic_mean": 0.01,
+    "cic_std": 0.02,
+    "mean_ratio": 0.32,
+    "ks_statistic": 0.2999,
+    "ks_pvalue": 6.583377504408986e-06
+  },
+  {
+    "feature_name": "fin_ratio",
+    "ctu_mean": 0.0,
+    "ctu_std": 0.007,
+    "cic_mean": 0.04,
+    "cic_std": 0.142,
+    "mean_ratio": 115.13,
+    "ks_statistic": 0.4938,
+    "ks_pvalue": 8.947765814748945e-16
+  },
+  {
+    "feature_name": "unique_destination_ports",
+    "ctu_mean": 1.706,
+    "ctu_std": 3.822,
+    "cic_mean": 16.5,
+    "cic_std": 20.989,
+    "mean_ratio": 9.67,
+    "ks_statistic": 0.5811,
+    "ks_pvalue": 3.125876074635658e-22
+  },
+  {
+    "feature_name": "unique_source_ips",
+    "ctu_mean": 7.867,
+    "ctu_std": 4.042,
+    "cic_mean": 8.286,
+    "cic_std": 5.612,
+    "mean_ratio": 1.05,
+    "ks_statistic": 0.1743,
+    "ks_pvalue": 0.028243574018920473
+  },
+  {
+    "feature_name": "unique_destination_ips",
+    "ctu_mean": 11.749,
+    "ctu_std": 7.275,
+    "cic_mean": 9.2,
+    "cic_std": 6.515,
+    "mean_ratio": 0.78,
+    "ks_statistic": 0.2112,
+    "ks_pvalue": 0.0038894113880410617
+  }
+]

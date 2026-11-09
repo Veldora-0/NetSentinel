@@ -3,8 +3,9 @@
 **Document Status**: Experimental Research & Methodological Validation  
 **Date**: November 9, 2026  
 **Repository Branch**: `main`  
-**Current HEAD**: `91e989d`  
+**Current HEAD**: `9f6ddc4`  
 **Evaluation Scope**: Independent Dataset Audit, Strict Three-Way Partitioning, Baseline Scaling, Outlier Defense Analysis, and Model Sensitivity  
+**Companion Report**: See [`reports/final_validation/final_validation_report.md`](file:///home/debian/Desktop/NetSentinel/reports/final_validation/final_validation_report.md) for the definitive pre-production validation study.  
 
 ---
 
@@ -25,10 +26,11 @@ This investigation provides a rigorous, evidence-driven evaluation of NetSentine
    To eliminate dataset recycling:
    - **Baseline Training Partition**: `ctu-idseval-6-benign-user-traffic-1` ($2,250$ clean windows).
    - **Development Validation Partition**: `ctu-idseval-6-malicious-malware-1` ($26,094$ windows: $16,499$ benign, $9,595$ malicious).
-   - **Strictly Held-Out Final Test Partition**: `malware-2` + `portscan-1, 2, 3` ($33,226$ windows: $6,628$ benign, $26,598$ malicious), kept frozen until candidate evaluation.
-6. **Final Holdout Findings**:
+   - **Development Holdout Partition**: `malware-2` + `portscan-1, 2, 3` ($33,226$ windows: $6,628$ benign, $26,598$ malicious), kept frozen until candidate evaluation.
+6. **Development Holdout Findings & Imbalance Audit**:
    - On the holdout test set, baseline size 30 with IQR filtering suffered a catastrophic **`94.95%` FPR** on benign traffic (`81.06%` accuracy).
-   - Removing IQR filtering on the exact same 30-sample baseline immediately dropped the FPR to **`0.94%`**, jumping accuracy to **`98.50%`**!
+   - Removing IQR filtering on the exact same 30-sample baseline immediately dropped the FPR to **`0.94%`**, jumping accuracy to **`98.50%`**.
+   - *Methodological Audit*: This $98.50\%$ accuracy is heavily influenced by class imbalance ($80.05\%$ attack windows). High recall ($98.36\%$) drives high overall accuracy; on balanced validation traffic (`malware-1`, $63.2\%$ benign), accuracy is $78.43\%$ with an FPR of $33.77\%$.
    - Scaling to $N = 512$ windows without filtering achieved the optimal balance: **`0.65%` FPR, `96.01%` Accuracy, `99.83%` Precision, `95.17%` Recall, and `0.9871` ROC-AUC**.
 
 ---
