@@ -324,6 +324,7 @@ def run_kaggle_evaluation(
         max_samples=max_samples,
         contamination=contamination,
         random_state=42,
+        min_samples=min(10, len(X_train)),
     )
     model.train(X_train)
     t_train_end = time.perf_counter()

@@ -131,7 +131,8 @@ export function Detection() {
 
   const modelStatusStr = (mlStatus?.model_status || '').toUpperCase();
   const isModelReady = modelStatusStr === 'READY' || mlStatus?.model_ready === true;
-  const isCollecting = modelStatusStr === 'COLLECTING' || mlStatus?.is_collecting === true;
+  const isModelTraining = modelStatusStr === 'TRAINING' || mlStatus?.warmup_status === 'TRAINING' || mlStatus?.training_in_progress === true;
+  const isCollecting = modelStatusStr === 'COLLECTING' || modelStatusStr === 'COLLECTING_BASELINE' || mlStatus?.is_collecting === true || mlStatus?.warmup_status === 'WARMUP';
 
   // Real Detection-Type Distribution from Backend
   const detectionTypeData = Object.entries(summary?.detection_types || {})
@@ -186,17 +187,25 @@ export function Detection() {
       <div className="metric-cards-grid">
         <MetricCard
           title="Isolation Forest Model"
-          value={isModelReady ? 'MODEL READY' : isCollecting ? 'COLLECTING' : 'INITIALIZING'}
+          value={
+            isModelReady
+              ? 'MODEL READY'
+              : isModelTraining
+              ? 'TRAINING MODEL'
+              : isCollecting
+              ? `WARMING UP (${mlStatus?.warmup_progress_percent ?? 0}%)`
+              : 'INITIALIZING'
+          }
           subtext={
             isModelReady
-              ? `Baseline: ${mlStatus?.training_sample_count || mlStatus?.baseline_samples_collected || 10} / ${mlStatus?.baseline_target_samples || 10} samples (Active)`
-              : `Baseline: ${mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_target_samples ?? 10} samples`
+              ? `Baseline: ${mlStatus?.training_sample_count || mlStatus?.baseline_windows_collected || 512} / ${mlStatus?.baseline_windows_required || mlStatus?.baseline_target_samples || 512} windows (Active)`
+              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows`
           }
           icon={Brain}
           badge={
             <StatusBadge
               status={isModelReady ? 'HEALTHY' : 'INITIALIZING'}
-              text={isModelReady ? 'ONLINE' : isCollecting ? 'COLLECTING' : 'TRAINING'}
+              text={isModelReady ? 'ONLINE' : isModelTraining ? 'TRAINING' : 'WARMUP'}
             />
           }
         />
@@ -233,8 +242,32 @@ export function Detection() {
           <div className="status-detail-list">
             <div className="detail-item">
               <span className="detail-label">Model Lifecycle Status:</span>
-              <span className={`badge ${isModelReady ? 'badge-success' : 'badge-warning'}`}>
-                {isModelReady ? 'MODEL READY' : isCollecting ? 'COLLECTING BASELINE' : 'AWAITING TRAFFIC'}
+              <span className={`badge ${isModelReady ? 'badge-success' : isModelTraining ? 'badge-warning' : 'badge-warning'}`}>
+                {isModelReady
+                  ? 'MODEL READY'
+                  : isModelTraining
+                  ? 'FITTING BASELINE MODEL'
+                  : isCollecting
+                  ? `WARMING UP (${mlStatus?.baseline_windows_collected ?? 0}/${mlStatus?.baseline_windows_required ?? 512} windows - ${mlStatus?.warmup_progress_percent ?? 0}%)`
+                  : 'AWAITING TRAFFIC'}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Hybrid Sensors Status:</span>
+              <span className="badge badge-success">
+                Rule NIDS & Host HIDS Active
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Baseline Requirement:</span>
+              <span className="detail-value">
+                {mlStatus?.baseline_windows_required ?? 512} windows ({mlStatus?.window_seconds ?? 5.0}s each ≈ 42m 40s)
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Baseline Contamination Filter:</span>
+              <span className="detail-value">
+                {(mlStatus?.baseline_filter || 'none').toUpperCase()} (Production Clean Profile)
               </span>
             </div>
             <div className="detail-item">
@@ -299,10 +332,13 @@ export function Detection() {
             <div className="placeholder-state">
               <Activity size={28} className="placeholder-icon" style={{ color: '#f59e0b' }} />
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                Baseline Traffic Collection in Progress
+                Baseline Traffic Warm-Up in Progress
               </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Accumulating normal baseline windows ({mlStatus?.baseline_samples_collected ?? 0}/{mlStatus?.baseline_target_samples ?? 10}). Anomaly scoring activates upon baseline completion.
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Collecting 512 representative normal traffic windows ({mlStatus?.baseline_windows_collected ?? 0}/{mlStatus?.baseline_windows_required ?? 512} windows - {mlStatus?.warmup_progress_percent ?? 0}% complete). Anomaly scoring activates upon baseline completion.
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--accent-cyan)' }}>
+                Rule-based NIDS (Suricata) and Host HIDS (auditd) monitoring are active and protecting the system during ML warm-up.
               </div>
             </div>
           ) : (

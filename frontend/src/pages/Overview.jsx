@@ -235,7 +235,8 @@ export function Overview() {
 
   const isReady = readiness?.ready === true;
   const isMlReady = mlStatus?.model_status === 'READY' || mlStatus?.model_ready === true;
-  const isMlCollecting = mlStatus?.model_status === 'COLLECTING' || mlStatus?.is_collecting === true;
+  const isMlTraining = mlStatus?.model_status === 'TRAINING' || mlStatus?.warmup_status === 'TRAINING' || mlStatus?.training_in_progress === true;
+  const isMlWarmup = mlStatus?.model_status === 'COLLECTING' || mlStatus?.model_status === 'COLLECTING_BASELINE' || mlStatus?.is_collecting === true || mlStatus?.warmup_status === 'WARMUP';
 
   // Severity Distribution Data from Summary or Risk Stats
   const severityBreakdown = [
@@ -342,10 +343,27 @@ export function Overview() {
         />
         <MetricCard
           title="ML Anomaly Engine"
-          value={isMlReady ? 'MODEL READY' : isMlCollecting ? 'COLLECTING' : 'INITIALIZING'}
-          subtext={`Baseline: ${mlStatus?.baseline_samples_collected ?? 0}/${mlStatus?.baseline_target_samples ?? 10} samples`}
+          value={
+            isMlReady
+              ? 'MODEL READY'
+              : isMlTraining
+              ? 'TRAINING MODEL'
+              : isMlWarmup
+              ? `WARMING UP (${mlStatus?.warmup_progress_percent ?? 0}%)`
+              : 'INITIALIZING'
+          }
+          subtext={
+            isMlReady
+              ? `Baseline: ${mlStatus?.training_sample_count ?? 512} / ${mlStatus?.baseline_windows_required ?? 512} windows (Active)`
+              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows (NIDS/HIDS Active)`
+          }
           icon={Brain}
-          badge={<StatusBadge status={isMlReady ? 'HEALTHY' : 'INITIALIZING'} text={isMlReady ? 'ONLINE' : 'TRAINING'} />}
+          badge={
+            <StatusBadge
+              status={isMlReady ? 'HEALTHY' : 'INITIALIZING'}
+              text={isMlReady ? 'ONLINE' : isMlTraining ? 'TRAINING' : 'WARMUP'}
+            />
+          }
           onClick={() => navigate('/detection')}
         />
       </div>

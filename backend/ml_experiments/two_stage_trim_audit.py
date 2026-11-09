@@ -125,7 +125,7 @@ def execute_two_stage_trim(
         return list(labeled_samples), [], time.perf_counter() - t0
 
     features = [s[0] for s in labeled_samples]
-    init_model = IsolationForestModel(n_estimators=50, random_state=42)
+    init_model = IsolationForestModel(n_estimators=50, random_state=42, min_samples=min(10, len(features)))
     init_model.train(features)
 
     X = np.array(features)

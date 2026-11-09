@@ -137,10 +137,15 @@ class Config:
         "enabled": os.environ.get("ML_ENABLED", "True").lower() in ("true", "1", "t"),
         # Duration of each traffic aggregation window in seconds
         "window_seconds": float(os.environ.get("ML_WINDOW_SECONDS", "5.0")),
-        # Target number of normal traffic windows required to fit the baseline model (30 windows * 5s = 150s)
-        "baseline_windows": int(os.environ.get("ML_BASELINE_WINDOWS", "30")),
+        # Target number of normal traffic windows required to fit the baseline model (512 windows * 5s = 2560s ≈ 42m 40s)
+        "baseline_windows": int(os.environ.get("ML_BASELINE_WINDOWS", "512")),
+        # Minimum baseline samples strictly required before training is permitted
+        "min_samples": int(os.environ.get("ML_MIN_SAMPLES", "512")),
+        # Production baseline filter strategy: 'none' (default) or experimental 'two_stage_trim'
+        "baseline_filter": os.environ.get("ML_BASELINE_FILTER", "none").lower(),
         # Isolation Forest hyperparameters
         "n_estimators": int(os.environ.get("ML_N_ESTIMATORS", "100")),
+        "max_samples": os.environ.get("ML_MAX_SAMPLES", "auto"),
         "contamination": os.environ.get("ML_CONTAMINATION", "auto"),
         "random_state": int(os.environ.get("ML_RANDOM_STATE", "42")),
         # Anomaly alert suppression cooldown in seconds
@@ -154,7 +159,10 @@ class Config:
 
     ML_WINDOW_SECONDS = ML_SETTINGS["window_seconds"]
     ML_BASELINE_WINDOWS = ML_SETTINGS["baseline_windows"]
+    ML_MIN_SAMPLES = ML_SETTINGS["min_samples"]
+    ML_BASELINE_FILTER = ML_SETTINGS["baseline_filter"]
     ML_N_ESTIMATORS = ML_SETTINGS["n_estimators"]
+    ML_MAX_SAMPLES = ML_SETTINGS["max_samples"]
     ML_CONTAMINATION = ML_SETTINGS["contamination"]
     ML_RANDOM_STATE = ML_SETTINGS["random_state"]
     ML_ALERT_COOLDOWN_SECONDS = ML_SETTINGS["alert_cooldown_seconds"]

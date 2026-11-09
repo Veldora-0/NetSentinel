@@ -25,6 +25,7 @@ class ModelStatus(str, Enum):
     """Lifecycle state of the Isolation Forest model."""
     MODEL_NOT_READY = "MODEL_NOT_READY"
     COLLECTING_BASELINE = "COLLECTING_BASELINE"
+    TRAINING = "TRAINING"
     READY = "READY"
     ERROR = "ERROR"
 
@@ -39,7 +40,7 @@ class IsolationForestModel:
         contamination: Any = "auto",
         max_features: float = 1.0,
         random_state: int = 42,
-        min_samples: int = 5,
+        min_samples: int = 512,
     ):
         self.n_estimators = int(n_estimators)
         if isinstance(max_samples, str) and max_samples.strip().lower() == "auto":
@@ -88,12 +89,16 @@ class IsolationForestModel:
             logger.warning(err_msg)
             raise ValueError(err_msg)
 
+        self.status = ModelStatus.TRAINING
         try:
             X = np.asarray(feature_matrix, dtype=np.float64)
             if X.shape[1] != len(self.feature_names):
                 raise ValueError(
                     f"Feature dimension mismatch: expected {len(self.feature_names)} features, got {X.shape[1]}."
                 )
+
+            if not np.all(np.isfinite(X)):
+                raise ValueError("Feature matrix contains non-finite values (NaN or Inf).")
 
             # Fit unsupervised Isolation Forest
             model = IsolationForest(
@@ -115,6 +120,7 @@ class IsolationForestModel:
             return True
 
         except Exception as ex:
+            self.model = None
             self.status = ModelStatus.ERROR
             self.last_error = f"Model training failed: {str(ex)}"
             logger.error(self.last_error)
@@ -171,16 +177,20 @@ class IsolationForestModel:
             logger.warning("Attempted to save model that is not in READY state.")
             return False
 
+        tmp_model = None
+        tmp_meta = None
         try:
             os.makedirs(os.path.dirname(os.path.abspath(model_path)), exist_ok=True)
-            tmp_model = f"{model_path}.tmp.{os.getpid()}"
-            tmp_meta = f"{metadata_path}.tmp.{os.getpid()}"
+            suffix = f"{os.getpid()}.{time.time_ns()}"
+            tmp_model = f"{model_path}.tmp.{suffix}"
+            tmp_meta = f"{metadata_path}.tmp.{suffix}"
 
             joblib.dump(self.model, tmp_model)
 
             meta = {
                 "trained_at": self.trained_at,
                 "training_sample_count": self.training_sample_count,
+                "min_samples": self.min_samples,
                 "feature_names": self.feature_names,
                 "feature_count": len(self.feature_names),
                 "n_estimators": self.n_estimators,
@@ -198,11 +208,21 @@ class IsolationForestModel:
             logger.info("Isolation Forest model saved atomically to %s", model_path)
             return True
         except Exception as ex:
+            if tmp_model and os.path.exists(tmp_model):
+                try:
+                    os.remove(tmp_model)
+                except OSError:
+                    pass
+            if tmp_meta and os.path.exists(tmp_meta):
+                try:
+                    os.remove(tmp_meta)
+                except OSError:
+                    pass
             logger.error("Failed to save model: %s", ex)
             return False
 
     def load(self, model_path: str, metadata_path: str) -> bool:
-        """Load trained model artifact and verify feature consistency.
+        """Load trained model artifact and verify feature consistency and minimum samples.
 
         Args:
             model_path: Filepath for the joblib model artifact.
@@ -225,12 +245,44 @@ class IsolationForestModel:
                     f"Loaded model feature ordering mismatch: expected {len(self.feature_names)} features, got {len(saved_features)}."
                 )
 
+            feature_count = meta.get("feature_count", len(saved_features))
+            if feature_count != len(self.feature_names):
+                raise ValueError(
+                    f"Feature count mismatch: expected {len(self.feature_names)}, got {feature_count}."
+                )
+
+            saved_n_estimators = meta.get("n_estimators")
+            if saved_n_estimators is not None:
+                if not isinstance(saved_n_estimators, int) or saved_n_estimators < 1:
+                    raise ValueError(f"Invalid n_estimators in metadata: {saved_n_estimators}")
+
+            training_sample_count = int(meta.get("training_sample_count", 0))
+            if training_sample_count < self.min_samples:
+                raise ValueError(
+                    f"Insufficient baseline samples in persisted model: found {training_sample_count}, "
+                    f"minimum required is {self.min_samples}."
+                )
+
             loaded_model = joblib.load(model_path)
+            if not isinstance(loaded_model, IsolationForest):
+                raise TypeError(f"Loaded artifact is not an IsolationForest instance: {type(loaded_model)}")
+
+            if getattr(loaded_model, "n_features_in_", None) != len(self.feature_names):
+                raise ValueError(
+                    f"Loaded model features dimension mismatch: expected {len(self.feature_names)}, "
+                    f"got {getattr(loaded_model, 'n_features_in_', None)}."
+                )
+
+            if saved_n_estimators is not None and getattr(loaded_model, "n_estimators", None) != saved_n_estimators:
+                raise ValueError(
+                    f"Loaded model binary n_estimators ({getattr(loaded_model, 'n_estimators', None)}) "
+                    f"differs from metadata ({saved_n_estimators})."
+                )
 
             self.model = loaded_model
             self.trained_at = meta.get("trained_at")
-            self.training_sample_count = meta.get("training_sample_count", 0)
-            self.n_estimators = meta.get("n_estimators", self.n_estimators)
+            self.training_sample_count = training_sample_count
+            self.n_estimators = saved_n_estimators or self.n_estimators
             self.max_samples = meta.get("max_samples", getattr(self, "max_samples", "auto"))
             self.contamination = meta.get("contamination", self.contamination)
             self.max_features = meta.get("max_features", getattr(self, "max_features", 1.0))
@@ -241,6 +293,7 @@ class IsolationForestModel:
             return True
 
         except Exception as ex:
+            self.model = None
             self.status = ModelStatus.ERROR
             self.last_error = f"Failed to load model: {str(ex)}"
             logger.error(self.last_error)

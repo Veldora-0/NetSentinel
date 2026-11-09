@@ -208,6 +208,17 @@ class ConfigValidator:
                     cls.validate_positive_int(ml["baseline_windows"], "ML_SETTINGS.baseline_windows", min_val=1)
                 except ConfigurationError as e:
                     errors.append(str(e))
+            if "min_samples" in ml:
+                try:
+                    cls.validate_positive_int(ml["min_samples"], "ML_SETTINGS.min_samples", min_val=1)
+                except ConfigurationError as e:
+                    errors.append(str(e))
+            if "baseline_filter" in ml and ml["baseline_filter"] is not None:
+                filter_strat = str(ml["baseline_filter"]).strip().lower()
+                if filter_strat not in ("none", "two_stage_trim", "iqr"):
+                    errors.append(
+                        f"ML_SETTINGS.baseline_filter must be one of ['none', 'two_stage_trim'], got '{filter_strat}'"
+                    )
             if "n_estimators" in ml:
                 try:
                     cls.validate_positive_int(ml["n_estimators"], "ML_SETTINGS.n_estimators", min_val=10)

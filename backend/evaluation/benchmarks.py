@@ -215,7 +215,7 @@ class BenchmarkSuite:
 
             # 2. Isolation Forest Inference Micro-Benchmark (READY model)
             model = IsolationForestModel(n_estimators=100, contamination="auto", random_state=42)
-            baseline = self.gen.generate_ml_baseline_dataset(window_count=30)
+            baseline = self.gen.generate_ml_baseline_dataset(window_count=512)
             model.train(baseline)
             assert model.status == ModelStatus.READY
 

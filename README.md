@@ -893,6 +893,79 @@ Generated evaluation artifacts:
 
 ---
 
+## 18.6 Production Isolation Forest Baseline Architecture & Warm-Up Lifecycle
+
+Following empirical independent validation across CTU-IDSEVAL-6, CIC-IDS2017, and synthetic contamination audits, NetSentinel implements a standardized, robust production baseline architecture for unsupervised anomaly detection.
+
+### 1. Production Architecture Specifications
+* **Single Unsupervised Model**: Exactly ONE production Isolation Forest (`sklearn.ensemble.IsolationForest`). No Random Forest, no supervised learning, no second production model, no ensembles.
+* **Canonical 13 Features**: Preserves the exact original 13 network traffic features in strict order:
+  1. `packets_per_second`
+  2. `bytes_per_second`
+  3. `average_packet_size`
+  4. `tcp_ratio`
+  5. `udp_ratio`
+  6. `icmp_ratio`
+  7. `syn_ratio`
+  8. `ack_ratio`
+  9. `rst_ratio`
+  10. `fin_ratio`
+  11. `unique_destination_ports`
+  12. `unique_source_ips`
+  13. `unique_destination_ips`
+* **Aggregation Window**: Discrete 5.0-second non-overlapping windows.
+* **Hyperparameters**: `n_estimators=100`, `max_samples="auto"`, `contamination="auto"`, `random_state=42`.
+* **Decision Threshold**: Calibrated anomaly decision threshold $T = 0.50$.
+* **Baseline Requirement**: **512 valid normal traffic windows** ($512 \times 5.0\text{s} = 2,560\text{ seconds} \approx 42\text{ minutes } 40\text{ seconds}$).
+* **Minimum Sample Requirement**: `min_samples = 512` strictly enforced across `Config`, `MLAnomalyDetector`, and `IsolationForestModel`. Prevents premature fitting on unrepresentative sample sizes.
+* **Production Baseline Filtering**: **NONE** (`baseline_filter="none"`). Eliminates aggressive 3.0x IQR volumetric filtering from the production baseline path. Empirical root-cause analysis proved IQR filtering stripped 100% of authentic TCP sessions on idle baselines (at a 1.13 KB/s boundary), artificially driving false positive rates to 54.77%.
+
+### 2. Safe Warm-Up Lifecycle
+```
+[Startup / Restart]
+       │
+       ▼
+ [Check Persisted Artifact]
+       │
+       ├── Incompatible / Missing / < 512 samples ──► Reject artifact, reset count = 0
+       │                                                      │
+       └── Compatible (13 features, 100 trees, >= 512)        ▼
+                 │                                    [COLLECTING_BASELINE (WARMUP)]
+                 ▼                                            │ (Suricata NIDS & HIDS active)
+              [READY]                                         │ Collect 512 valid windows
+                 ▲                                            ▼
+                 │                                       [TRAINING] (Atomic fitting lock)
+                 │                                            │
+                 ├── Success & Atomic Persistence ────────────┤
+                 └── Fitting / Persistence Failure ───────────► [ERROR / FAILED]
+```
+
+* **Warm-Up State Reporting**: Exposes transparent telemetry through `/api/ml/status`, `/api/ml/metrics`, and UI dashboards: `warmup_status` (`WARMUP`, `TRAINING`, `READY`, `ERROR`), `baseline_windows_collected`, `baseline_windows_required` (512), `warmup_progress_percent` (0.0% to 100.0%), and `training_in_progress`.
+* **Sensor Transparency**: Explicitly communicates that while ML is warming up, signature-based NIDS (Suricata) and host-based HIDS (`auditd`) sensors are active and protecting the system.
+* **Strict Window Validation**: Excludes malformed, non-finite (NaN, Inf, -Inf), under-dimensioned, over-dimensioned, or negative-count feature vectors from counting toward the 512 baseline windows.
+* **Window Deduplication**: Re-evaluations of identical timestamps or identical window identifiers are deduplicated and never counted twice.
+* **Thread Safety**: Concurrent window evaluation is guarded by reentrant locks (`RLock`) and atomic training flags (`training_in_progress`) to eliminate race conditions and prevent concurrent fitting.
+* **Atomic Persistence**: Trained model artifacts are persisted via process-unique temporary files (`.tmp.<pid>.<ns>`) and committed using atomic POSIX rename operations (`os.replace`).
+* **Safe Restart Compatibility Check**: Upon startup, any persisted model is validated for:
+  - Exact match of the 13 canonical feature names in order.
+  - Feature count equal to 13 (`n_features_in_ == 13`).
+  - Estimator parameter consistency (`n_estimators == 100`).
+  - Training sample count $\ge 512$. Persisted models from obsolete baselines (< 512 samples) are rejected and initiate fresh baseline collection.
+
+### 3. Experimental Two-Stage Trim (Standalone Research Defense)
+* Implemented as an optional, importable research function (`two_stage_trim_filter`).
+* **Documented Limitations**:
+  1. *Benign Traffic Pruning*: On 100% clean baselines, Two-Stage Trim removes 5.1% of authentic high-throughput traffic windows.
+  2. *Contamination Saturation*: Under heavy contamination ($\ge 20\%$), the preliminary 50-tree Isolation Forest incorporates the attack pattern into its trees and trims legitimate baseline traffic instead of the attack.
+* **Operational Boundary**: Kept disabled by default (`baseline_filter="none"`) in production. The operational responsibility for ensuring a clean baseline environment during initial warm-up remains with the security operator.
+
+### 4. Safety Boundaries
+* Firewall remains disabled: `NETSENTINEL_FIREWALL_ENABLED=false`.
+* Autonomous blocking remains disabled: `NETSENTINEL_AUTO_BLOCK=false`.
+* Firewall dry-run mode active: `NETSENTINEL_FIREWALL_DRY_RUN=true`.
+
+---
+
 ## 19. Current Scope Limitations & Future Roadmap
 
 * **Live Attack Simulation & Red-Teaming Automation**: Automated validation scripts and attack simulations for defense drills (Phase 14 completed via deterministic validation harness).

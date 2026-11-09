@@ -93,7 +93,7 @@ def two_stage_trim_defense(raw_baseline: List[List[float]], trim_percentile: flo
     if len(raw_baseline) < 20:
         return raw_baseline
     
-    init_model = IsolationForestModel(n_estimators=50, random_state=42)
+    init_model = IsolationForestModel(n_estimators=50, random_state=42, min_samples=min(10, len(raw_baseline)))
     init_model.train(raw_baseline)
     
     X = np.array(raw_baseline)

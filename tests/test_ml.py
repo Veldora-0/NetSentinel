@@ -190,7 +190,7 @@ def test_model_persistence():
         assert os.path.exists(meta_path)
 
         # Reload in a fresh instance
-        model2 = IsolationForestModel()
+        model2 = IsolationForestModel(n_estimators=30, min_samples=5)
         assert model2.load(model_path, meta_path) is True
         assert model2.status == ModelStatus.READY
         assert model2.training_sample_count == 10
@@ -376,7 +376,7 @@ def test_model_persistence_and_loading():
         m1.train([[2.0] * 13 for _ in range(8)])
         assert m1.save(mod_file, meta_file) is True
 
-        m2 = IsolationForestModel()
+        m2 = IsolationForestModel(n_estimators=10, min_samples=5)
         assert m2.load(mod_file, meta_file) is True
         assert len(m2.feature_names) == 13
         assert m2.status == ModelStatus.READY
@@ -453,10 +453,14 @@ def test_production_baseline_defaults_and_filtering():
     from config import Config
     from ml.detector import filter_baseline_outliers
 
-    assert Config.ML_BASELINE_WINDOWS == 30
+    assert Config.ML_BASELINE_WINDOWS == 512
+    assert Config.ML_MIN_SAMPLES == 512
+    assert Config.ML_BASELINE_FILTER == "none"
 
     detector = MLAnomalyDetector()
-    assert detector.baseline_windows == 30
+    assert detector.baseline_windows == 512
+    assert detector.min_samples == 512
+    assert detector.baseline_filter == "none"
     assert detector.anomaly_threshold == 0.50
 
     # 10 windows: 9 normal, 1 extreme volumetric outlier
