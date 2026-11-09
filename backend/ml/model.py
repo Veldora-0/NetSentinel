@@ -171,7 +171,10 @@ class IsolationForestModel:
 
         try:
             os.makedirs(os.path.dirname(os.path.abspath(model_path)), exist_ok=True)
-            joblib.dump(self.model, model_path)
+            tmp_model = f"{model_path}.tmp.{os.getpid()}"
+            tmp_meta = f"{metadata_path}.tmp.{os.getpid()}"
+
+            joblib.dump(self.model, tmp_model)
 
             meta = {
                 "schema_version": self.schema_version,
@@ -183,10 +186,13 @@ class IsolationForestModel:
                 "contamination": self.contamination,
                 "random_state": self.random_state,
             }
-            with open(metadata_path, "w", encoding="utf-8") as fh:
+            with open(tmp_meta, "w", encoding="utf-8") as fh:
                 json.dump(meta, fh, indent=2)
 
-            logger.info("Isolation Forest model saved to %s", model_path)
+            os.replace(tmp_model, model_path)
+            os.replace(tmp_meta, metadata_path)
+
+            logger.info("Isolation Forest model saved atomically to %s", model_path)
             return True
         except Exception as ex:
             logger.error("Failed to save model: %s", ex)

@@ -13,6 +13,8 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 import uuid
 
+import numpy as np
+
 from config import Config
 from ml.feature_extractor import TrafficWindow, FEATURE_NAMES
 from ml.model import IsolationForestModel, ModelStatus
@@ -53,6 +55,7 @@ class MLAnomalyDetector:
         self.window_seconds = float(cfg.get("window_seconds", 5.0))
         self.baseline_windows = int(cfg.get("baseline_windows", 10))
         self.alert_cooldown_seconds = float(cfg.get("alert_cooldown_seconds", 15.0))
+        self.anomaly_threshold = float(cfg.get("anomaly_threshold", 0.50))
         self.model_path = str(cfg.get("model_path", Config.ML_MODEL_PATH))
         self.metadata_path = str(cfg.get("metadata_path", Config.ML_METADATA_PATH))
 
@@ -103,6 +106,58 @@ class MLAnomalyDetector:
         """Register a callback for generated ML anomaly events."""
         self._anomaly_callbacks.append(callback)
 
+    def _filter_baseline_outliers(self, samples: List[List[float]]) -> List[List[float]]:
+        """Filter extreme outlier windows from baseline samples before model fitting.
+
+        Protects baseline training against adversarial pollution or flood traffic occurring
+        during the initial baseline collection period.
+        """
+        if len(samples) < 8:
+            return list(samples)
+
+        try:
+            arr = np.asarray(samples, dtype=np.float64)
+            # Inspect key volumetric and attack features:
+            # 0: packets_per_second, 1: bytes_per_second, 6: syn_ratio, 10: unique_destination_ports
+            check_indices = [0, 1, 6, 10]
+            outlier_set = set()
+
+            for idx in check_indices:
+                if idx >= arr.shape[1]:
+                    continue
+                col = arr[:, idx]
+                q25 = float(np.percentile(col, 25))
+                q75 = float(np.percentile(col, 75))
+                iqr = q75 - q25
+                med = float(np.median(col))
+                std = float(np.std(col))
+
+                if iqr > 1e-4:
+                    upper_bound = q75 + (3.0 * iqr)
+                elif std > 1e-4:
+                    upper_bound = med + (3.0 * std)
+                else:
+                    upper_bound = max(1.0, med * 3.0)
+
+                outliers = np.where(col > upper_bound)[0]
+                for out_idx in outliers:
+                    outlier_set.add(int(out_idx))
+
+            if outlier_set:
+                clean_indices = [i for i in range(len(samples)) if i not in outlier_set]
+                if len(clean_indices) >= self.model.min_samples:
+                    logger.warning(
+                        "Baseline contamination defense: filtered %d outlier windows from baseline (retained %d clean windows).",
+                        len(outlier_set),
+                        len(clean_indices),
+                    )
+                    return [samples[i] for i in clean_indices]
+
+            return list(samples)
+        except Exception as ex:
+            logger.debug("Baseline outlier filtering skipped due to error: %s", ex)
+            return list(samples)
+
     def process_packet(self, packet: ParsedPacket) -> None:
         """Callback invoked by PacketCapture for each captured frame."""
         if not self.enabled:
@@ -125,10 +180,10 @@ class MLAnomalyDetector:
 
         if custom_features is not None:
             vec = custom_features
-            f_dict = custom_dict or {name: val for name, val in zip(FEATURE_NAMES, vec)}
+            f_dict = custom_dict or {name: val for name, val in zip(self.model.feature_names, vec)}
             pkt_count = int(vec[0] * self.window_seconds)
         else:
-            vec, f_dict, pkt_count = self.window.consume_window()
+            vec, f_dict, pkt_count = self.window.consume_window(schema_version=self.model.schema_version)
 
         with self._lock:
             # 1. Baseline Collection Mode
@@ -143,8 +198,16 @@ class MLAnomalyDetector:
 
                 if len(self.baseline_samples) >= self.baseline_windows:
                     try:
-                        self.model.train(self.baseline_samples)
-                        self.model.save(self.model_path, self.metadata_path)
+                        clean_samples = self._filter_baseline_outliers(self.baseline_samples)
+                        if len(clean_samples) >= self.model.min_samples:
+                            self.model.train(clean_samples)
+                            self.model.save(self.model_path, self.metadata_path)
+                        else:
+                            logger.warning(
+                                "Baseline contained too many contaminated windows (%d clean < %d required). Continuing collection.",
+                                len(clean_samples),
+                                self.model.min_samples,
+                            )
                     except Exception as err:
                         logger.error("Failed to train model from baseline: %s", err)
 
@@ -162,7 +225,9 @@ class MLAnomalyDetector:
             # 2. Live Inference Mode
             if self.model.status == ModelStatus.READY:
                 try:
-                    is_anomaly, raw_score, norm_score = self.model.predict(vec)
+                    is_raw_anom, raw_score, norm_score = self.model.predict(vec)
+                    # Use calibrated decision threshold
+                    is_anomaly = bool(norm_score > self.anomaly_threshold)
                     self.latest_raw_score = raw_score
                     self.latest_anomaly_score = norm_score
                     self.latest_prediction = "ANOMALY" if is_anomaly else "NORMAL"
@@ -276,6 +341,7 @@ class MLAnomalyDetector:
                 "latest_prediction": self.latest_prediction,
                 "latest_anomaly_score": self.latest_anomaly_score,
                 "latest_raw_score": self.latest_raw_score,
+                "anomaly_threshold": self.anomaly_threshold,
                 "window_seconds": self.window_seconds,
                 "last_alert_time": self.last_alert_time,
                 "model_trained_at": self.model.trained_at,

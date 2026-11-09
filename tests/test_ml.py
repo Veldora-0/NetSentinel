@@ -385,3 +385,64 @@ def test_model_cross_schema_loading():
         assert len(m2.feature_names) == 17
         assert m2.status == ModelStatus.READY
 
+
+def test_baseline_outlier_filtering():
+    """Verify detector baseline outlier filtering rejects contaminated flood windows."""
+    cfg = {
+        "enabled": True,
+        "baseline_windows": 10,
+        "window_seconds": 5.0,
+        "n_estimators": 50,
+        "min_samples": 5,
+    }
+    detector = MLAnomalyDetector(config=cfg)
+
+    # 10 windows: 9 normal windows and 1 massive flood outlier
+    normal_samples = [[20.0, 15000.0, 750.0, 0.9, 0.1, 0.0, 0.05, 0.85, 0.01, 0.02, 5.0, 2.0, 4.0] for _ in range(9)]
+    outlier_sample = [5000.0, 5000000.0, 1000.0, 1.0, 0.0, 0.0, 0.99, 0.0, 0.0, 0.0, 200.0, 100.0, 2.0]
+    all_samples = normal_samples + [outlier_sample]
+
+    filtered = detector._filter_baseline_outliers(all_samples)
+    assert len(filtered) == 9
+    assert outlier_sample not in filtered
+
+
+def test_calibrated_anomaly_threshold():
+    """Verify calibrated decision threshold suppresses false alarms at borderline scores."""
+    # Detector with calibrated threshold = 0.58
+    cfg = {
+        "enabled": True,
+        "baseline_windows": 5,
+        "window_seconds": 5.0,
+        "anomaly_threshold": 0.58,
+    }
+    detector = MLAnomalyDetector(config=cfg)
+    assert detector.anomaly_threshold == 0.58
+
+    # Train model on normal samples
+    normal_samples = [[20.0, 15000.0, 750.0, 0.9, 0.1, 0.0, 0.05, 0.85, 0.01, 0.02, 5.0, 2.0, 4.0] for _ in range(10)]
+    detector.model.train(normal_samples)
+
+    status = detector.get_status()
+    assert status["anomaly_threshold"] == 0.58
+
+
+def test_atomic_model_saving():
+    """Verify model save writes atomically and cleans up any temp files."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        mod_file = os.path.join(tmp_dir, "atomic_model.joblib")
+        meta_file = os.path.join(tmp_dir, "atomic_meta.json")
+
+        m = IsolationForestModel(n_estimators=10, min_samples=5)
+        m.train([[1.0] * 13 for _ in range(6)])
+        assert m.save(mod_file, meta_file) is True
+
+        assert os.path.exists(mod_file)
+        assert os.path.exists(meta_file)
+
+        # Confirm no leftover .tmp files
+        files = os.listdir(tmp_dir)
+        tmp_files = [f for f in files if ".tmp" in f]
+        assert len(tmp_files) == 0
+
+

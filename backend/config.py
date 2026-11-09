@@ -145,6 +145,8 @@ class Config:
         "random_state": int(os.environ.get("ML_RANDOM_STATE", "42")),
         # Anomaly alert suppression cooldown in seconds
         "alert_cooldown_seconds": float(os.environ.get("ML_ALERT_COOLDOWN_SEC", "15.0")),
+        # Calibrated anomaly decision threshold (0.0 to 1.0)
+        "anomaly_threshold": float(os.environ.get("ML_ANOMALY_THRESHOLD", "0.50")),
         # Model persistence filesystem paths
         "model_path": os.path.join(MODELS_DIR, "isolation_forest.joblib"),
         "metadata_path": os.path.join(MODELS_DIR, "model_metadata.json"),
@@ -156,6 +158,7 @@ class Config:
     ML_CONTAMINATION = ML_SETTINGS["contamination"]
     ML_RANDOM_STATE = ML_SETTINGS["random_state"]
     ML_ALERT_COOLDOWN_SECONDS = ML_SETTINGS["alert_cooldown_seconds"]
+    ML_ANOMALY_THRESHOLD = ML_SETTINGS["anomaly_threshold"]
     ML_MODEL_PATH = ML_SETTINGS["model_path"]
     ML_METADATA_PATH = ML_SETTINGS["metadata_path"]
 
