@@ -270,7 +270,7 @@ export default function HostSecurity() {
               {telemetryHistory.length > 0 ? (
                 <div style={{ height: '180px', width: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={telemetryHistory} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="hostCpuGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
@@ -283,10 +283,11 @@ export default function HostSecurity() {
                       </defs>
                       <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={35} tickFormatter={(v) => `${v}%`} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={36} tickFormatter={(v) => `${v}%`} />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                         formatter={(val, name) => [`${val}%`, name]}
+                        cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
                       />
                       <Area type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />
                       <Area type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#hostMemGrad)" name="RAM %" />

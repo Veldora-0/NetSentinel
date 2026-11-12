@@ -16,9 +16,9 @@ export function DashboardCard({
     <div className={`dashboard-card ${className}`} style={style}>
       <div className="card-header">
         <div className="card-header-left">
-          {Icon && <Icon className="card-icon" size={18} />}
-          <div>
-            <h3>{title}</h3>
+          {Icon && <Icon className="card-icon" size={17} />}
+          <div className="card-header-titles">
+            <h3 className="card-title">{title}</h3>
             {subtitle && <span className="card-subtitle">{subtitle}</span>}
           </div>
         </div>
@@ -29,3 +29,4 @@ export function DashboardCard({
   );
 }
 
+export default DashboardCard;

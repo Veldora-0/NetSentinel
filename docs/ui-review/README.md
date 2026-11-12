@@ -1,6 +1,6 @@
 # NetSentinel — Frontend Visual Review & UI Redesign Inventory
 
-This document catalogs the visual audit screenshots captured from the live, running NetSentinel Security Operations Console frontend following the enterprise UI/UX visual redesign.
+This document catalogs the visual audit screenshots captured from the live, running NetSentinel Security Operations Console frontend following the enterprise UI/UX visual redesign and post-review corrections.
 
 All captures represent genuine application states running against the production Flask backend, React 18 / Vite single-page application, and active SQLite telemetry database.
 
@@ -13,7 +13,7 @@ All captures represent genuine application states running against the production
 - **Zoom Level:** 100%
 - **Desktop Viewport:** 1920 × 1080 (Inner rendering: 1920 × 994)
 - **Tablet Viewport:** 768 × 1024
-- **Responsive Mobile Viewport:** Mobile portrait viewport (~500 × 758, mobile breakpoint `< 768px`)
+- **Responsive Mobile Viewports:** Mobile portrait viewports (390 × 844 and ~500 × 758, mobile breakpoint `< 768px`)
 - **Authentication Session:** Authenticated as primary operator (`admin`, Role: `ADMIN`)
 - **Safety Posture:** All authentication inputs masked; no credentials, secrets, session cookies, or private API keys exposed.
 
@@ -53,35 +53,32 @@ All captures represent genuine application states running against the production
 
 ---
 
-## 4. Responsive Mobile Screenshot Inventory (390 × 844)
+## 4. Responsive Mobile Screenshot Inventory (390 × 844 / 500 × 758)
 
 | Screenshot File | Page Route | Viewport | Description |
 |---|---|---|---|
-| [`responsive-01-login.png`](./screenshots/responsive-01-login.png) | `/login` | 500 × 758 | Responsive mobile view of the authentication portal. |
-| [`responsive-02-dashboard.png`](./screenshots/responsive-02-dashboard.png) | `/overview` | 500 × 758 | Responsive single-column dashboard layout with vertically stacked metric cards. |
-| [`responsive-03-mobile-drawer.png`](./screenshots/responsive-03-mobile-drawer.png) | `/overview` | 500 × 758 | Mobile navigation slide-out drawer active via hamburger menu button. |
-| [`responsive-04-network.png`](./screenshots/responsive-04-network.png) | `/network` | 500 × 758 | Responsive network monitoring view adapted for compact mobile displays. |
-| [`responsive-05-incidents.png`](./screenshots/responsive-05-incidents.png) | `/incidents` | 500 × 758 | Responsive incidents queue showing mobile-friendly incident cards and status indicators. |
-| [`responsive-06-host.png`](./screenshots/responsive-06-host.png) | `/host` | 500 × 758 | Responsive host security monitor displaying host resource cards and FIM status. |
-| [`responsive-07-firewall.png`](./screenshots/responsive-07-firewall.png) | `/firewall` | 500 × 758 | Responsive firewall controls and safe-mode evaluation banner on mobile. |
+| [`responsive-01-login.png`](./screenshots/responsive-01-login.png) | `/login` | 500 × 672 | Responsive mobile view of the authentication portal. |
+| [`responsive-02-dashboard.png`](./screenshots/responsive-02-dashboard.png) | `/overview` | 500 × 672 | Responsive single-column dashboard layout with non-overlapping mobile topbar (brand title, compact health badge, operator profile trigger). |
+| [`responsive-03-mobile-drawer.png`](./screenshots/responsive-03-mobile-drawer.png) | `/overview` | 500 × 672 | Mobile navigation slide-out drawer active via hamburger menu button. |
+| [`responsive-04-network.png`](./screenshots/responsive-04-network.png) | `/network` | 500 × 672 | Responsive network monitoring view adapted for compact mobile displays. |
+| [`responsive-05-incidents.png`](./screenshots/responsive-05-incidents.png) | `/incidents` | 500 × 672 | Responsive incidents queue showing mobile-friendly incident cards and status indicators. |
+| [`responsive-06-host.png`](./screenshots/responsive-06-host.png) | `/host` | 500 × 672 | Responsive host security monitor displaying host resource cards and FIM status. |
+| [`responsive-07-firewall.png`](./screenshots/responsive-07-firewall.png) | `/firewall` | 500 × 672 | Responsive firewall controls and safe-mode evaluation banner on mobile. |
 
 ---
 
-## 5. Coverage & Redesign Verification Summary
+## 5. UI Review Corrections Implemented
 
-- **Total Screenshots Captured:** 27 (19 desktop + 1 tablet + 7 responsive mobile).
-- **Chart Preservation:** 100% of charts and graphs are preserved with live Recharts components (`ResponsiveContainer`, `AreaChart`, `BarChart`), enhanced with dark slate grids (`#1e293b`), custom dark tooltips (`.custom-chart-tooltip`), and readable axes.
-- **Pages Successfully Verified (100%):**
-  - `/login` (Authentication portal)
-  - `/overview` (Main SOC dashboard)
-  - `/network` (Network traffic monitoring)
-  - `/detection` (ML & rule-based intrusion detection)
-  - `/host` (Host security & FIM)
-  - `/incidents` (Incident response queue)
-  - `/incidents/:incidentId` (Incident detail & evidence timeline)
-  - `/threat-intelligence` (Threat intelligence & IP lookup)
-  - `/firewall` (Firewall policy & manual quarantine)
-  - `/history` (Security event audit history)
-  - `/system` (System status & telemetry)
-  - `/users` (RBAC user & operator management)
-  - `/not-found` (404 error state)
+1. **Mobile Topbar Overhaul:**
+   - Redesigned topbar navigation for mobile screens (`<= 768px`). Replaced bulky multi-pill layout with a compact system health badge and an accessible operator profile popover menu.
+   - All branding, hamburger drawer trigger, operator username, role badge, telemetry status indicators, and sign-out actions remain accessible without visual overlap or text collisions.
+2. **Dashboard Chart Header Alignment:**
+   - Resolved heading and action link collision on the Network Traffic Rate card by introducing a flex-wrapping card header with distinct title and subtitle hierarchy.
+   - Verified across desktop (1920×1080), laptop (1366×768), and tablet (768×1024) viewports.
+3. **Detection & Risk Chart Dark Mode Polish:**
+   - Removed jarring white background cursor from the Detection Vector Distribution bar chart by configuring dark slate highlight styling (`rgba(56, 189, 248, 0.08)`).
+   - Expanded vertical bar chart Y-axis width to 130px with truncation formatter to eliminate label clipping.
+   - Zero-offset margins applied across all time-series and distribution charts to prevent Y-axis tick label clipping.
+4. **Network Monitoring Empty States:**
+   - Preserved actual kernel packet capture permission-denied warnings.
+   - Maintained active AreaChart and BarChart visualization surfaces during 0-packet idle states using genuine zero-count data, eliminating blank loading states and awkward whitespace without fabricating fake data.

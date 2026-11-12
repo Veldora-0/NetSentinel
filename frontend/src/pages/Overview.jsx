@@ -373,54 +373,78 @@ export function Overview() {
       <div className="dashboard-grid">
         {/* Network Traffic Trend */}
         <DashboardCard
-          title="Network Traffic Rate (Packets / Second)"
+          title="Network Traffic Rate"
+          subtitle="Packets / second live trend"
           icon={Activity}
           headerRight={
-            <Link to="/network" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/network" className="card-header-link">
               Network Workspace <ArrowRight size={13} />
             </Link>
           }
         >
-          {trafficHistory.length > 0 ? (
-            <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="overviewPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
-                    labelStyle={{ color: '#94a3b8' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="pps"
-                    stroke="#38bdf8"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#overviewPpsGrad)"
-                    name="Packets/sec"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <LoadingState message="Awaiting live traffic telemetry..." compact />
-          )}
+          <div style={{ height: '210px', width: '100%', marginTop: '6px', position: 'relative' }}>
+            {trafficHistory.length === 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                zIndex: 10,
+                fontSize: '0.6875rem',
+                color: 'var(--text-muted)',
+                background: 'rgba(15, 23, 42, 0.85)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid #1e293b',
+              }}>
+                0 pps · Awaiting traffic
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={trafficHistory.length > 0 ? trafficHistory : [
+                  { time: 'T-20s', pps: 0 },
+                  { time: 'T-15s', pps: 0 },
+                  { time: 'T-10s', pps: 0 },
+                  { time: 'T-5s', pps: 0 },
+                  { time: 'Now', pps: 0 },
+                ]}
+                margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="overviewPpsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                  cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pps"
+                  stroke="#38bdf8"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#overviewPpsGrad)"
+                  name="Packets/sec"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </DashboardCard>
 
         {/* Threat Severity Distribution */}
         <DashboardCard
-          title="Security Event Severity Distribution"
+          title="Security Event Severity"
+          subtitle="Severity distribution breakdown"
           icon={ShieldCheck}
           headerRight={
-            <Link to="/detection" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/detection" className="card-header-link">
               Detection Engine <ArrowRight size={13} />
             </Link>
           }
@@ -428,13 +452,14 @@ export function Overview() {
           {totalSeverityCount > 0 ? (
             <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={35} allowDecimals={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     formatter={(val) => [`${val} events`, 'Count']}
+                    cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                   />
                   <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                     {severityBreakdown.map((entry, index) => (
@@ -455,10 +480,11 @@ export function Overview() {
 
         {/* Host Resource Trend */}
         <DashboardCard
-          title="Host Resources & Utilization History"
+          title="Host Resources"
+          subtitle="CPU & memory telemetry history"
           icon={Cpu}
           headerRight={
-            <Link to="/host" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/host" className="card-header-link">
               Host Security <ArrowRight size={13} />
             </Link>
           }
@@ -466,13 +492,14 @@ export function Overview() {
           {telemetryHistory.length > 0 ? (
             <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={telemetryHistory} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                <LineChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     formatter={(val, name) => [`${val}%`, name]}
+                    cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
                   <Line type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} dot={false} name="CPU %" />
                   <Line type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} dot={false} name="Memory %" />

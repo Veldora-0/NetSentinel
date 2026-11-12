@@ -273,6 +273,14 @@ input, select, textarea, button {
   white-space: nowrap;
 }
 
+.desktop-only-text {
+  display: inline;
+}
+
+.mobile-only-text {
+  display: none;
+}
+
 .topbar-subtitle {
   font-size: 0.6875rem;
   color: var(--text-muted);
@@ -286,6 +294,213 @@ input, select, textarea, button {
   align-items: center;
   gap: 0.65rem;
   flex-shrink: 0;
+}
+
+.desktop-topbar-controls {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-topbar-controls {
+  display: none;
+}
+
+.topbar-user-block {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+  padding-left: 0.65rem;
+  border-left: 1px solid var(--border-color);
+}
+
+.user-profile-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.user-role-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.btn-signout {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  color: #94a3b8;
+  border-radius: 5px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-signout:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.compact-sys-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.compact-sys-badge.connected {
+  background-color: var(--status-green-glow);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.compact-sys-badge.warning {
+  background-color: var(--status-yellow-glow);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.mobile-profile-wrapper {
+  position: relative;
+}
+
+.mobile-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobile-profile-btn:hover,
+.mobile-profile-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.profile-chevron {
+  transition: transform 0.2s ease;
+}
+
+.profile-chevron.open {
+  transform: rotate(180deg);
+}
+
+.mobile-profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 230px;
+  background-color: #0b1120;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  padding: 0.75rem;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.dropdown-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dropdown-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-avatar {
+  color: var(--accent-cyan);
+}
+
+.dropdown-username {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #f8fafc;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #1e293b;
+  margin: 0.5rem 0;
+}
+
+.dropdown-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dropdown-section-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dropdown-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.dropdown-status-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #94a3b8;
+}
+
+.dropdown-signout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem;
+  border-radius: 5px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dropdown-signout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .status-pill {
@@ -623,12 +838,20 @@ input, select, textarea, button {
   padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--border-color);
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .card-header-left {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.card-header-titles {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
@@ -637,14 +860,14 @@ input, select, textarea, button {
   flex-shrink: 0;
 }
 
+.card-title,
 .card-header h3 {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0;
+  line-height: 1.3;
 }
 
 .card-subtitle {
@@ -653,6 +876,7 @@ input, select, textarea, button {
   font-weight: 400;
   display: block;
   margin-top: 2px;
+  line-height: 1.2;
 }
 
 .card-header-right {
@@ -660,6 +884,23 @@ input, select, textarea, button {
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.card-header-link {
+  font-size: 0.75rem;
+  color: var(--accent-cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.card-header-link:hover {
+  color: var(--accent-blue);
 }
 
 .card-content {
@@ -1206,17 +1447,27 @@ input, select, textarea, button {
 
 /* Small Screens & Mobile (<= 768px) */
 @media (max-width: 768px) {
+  .desktop-only-text {
+    display: none !important;
+  }
+
+  .mobile-only-text {
+    display: inline !important;
+  }
+
+  .desktop-topbar-controls {
+    display: none !important;
+  }
+
+  .mobile-topbar-controls {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .metric-cards-grid {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 0.65rem;
-  }
-
-  .status-pill .status-label {
-    display: none;
-  }
-
-  .topbar-status-group {
-    gap: 0.4rem;
   }
 
   .page-header {
@@ -1244,11 +1495,16 @@ input, select, textarea, button {
     font-size: 0.8125rem;
   }
 
-  .app-main-content {
-    padding: 0.75rem 0.5rem;
+  .compact-sys-badge {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.625rem;
   }
 
-  .card-header {
-    flex-wrap: wrap;
+  .mobile-profile-name {
+    display: none;
+  }
+
+  .app-main-content {
+    padding: 0.75rem 0.5rem;
   }
 }
