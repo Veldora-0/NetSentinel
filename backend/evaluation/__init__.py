@@ -1,6 +1,6 @@
-"""NetSentinel Performance and Machine Learning Evaluation Package (Phase 15).
+"""NetSentinel Performance and Machine Learning Evaluation Package.
 
-Provides deterministic benchmarks, resource monitoring, and supervised evaluation
+Provides deterministic benchmarks, resource monitoring, and evaluation
 of the unsupervised Isolation Forest anomaly detection pipeline.
 """
 
@@ -17,34 +17,8 @@ from .data_generator import (
 )
 from .resource_monitor import ResourceMonitor, ResourceSnapshot
 from .ml_evaluator import MLEvaluator, MLEvaluationResult
-from .pcap_reader import (
-    PcapPacketRecord,
-    PcapReader,
-    write_synthetic_pcap,
-)
-from .zeek_parser import (
-    ZeekFlowRecord,
-    ZeekLogParser,
-    normalize_zeek_label,
-    write_synthetic_zeek_log,
-)
-from .window_builder import (
-    TrafficWindowBuilder,
-    WindowEvaluationRecord,
-    WindowGroundTruth,
-    CaptureProcessingSummary,
-    determine_window_ground_truth,
-)
-from .real_dataset import (
-    RealDatasetEvaluator,
-    DataLeakageError,
-    WindowPredictionRecord,
-    CaptureEvaluationMetrics,
-    run_smoke_test,
-)
 
-# Lazy exports for modules with heavier dependencies (e.g. app / benchmarks runtime)
-# to keep offline evaluations lightweight and isolate them from live application workers.
+# Lazy exports for modules with heavier dependencies
 _LAZY_EXPORTS = {
     "BenchmarkSuite": (".benchmarks", "BenchmarkSuite"),
     "BenchmarkResult": (".benchmarks", "BenchmarkResult"),
@@ -83,21 +57,4 @@ __all__ = [
     "MLEvaluator",
     "MLEvaluationResult",
     "EvaluationRunner",
-    "PcapPacketRecord",
-    "PcapReader",
-    "write_synthetic_pcap",
-    "ZeekFlowRecord",
-    "ZeekLogParser",
-    "normalize_zeek_label",
-    "write_synthetic_zeek_log",
-    "TrafficWindowBuilder",
-    "WindowEvaluationRecord",
-    "WindowGroundTruth",
-    "CaptureProcessingSummary",
-    "determine_window_ground_truth",
-    "RealDatasetEvaluator",
-    "DataLeakageError",
-    "WindowPredictionRecord",
-    "CaptureEvaluationMetrics",
-    "run_smoke_test",
 ]

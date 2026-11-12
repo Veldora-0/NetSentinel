@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** Phase 15 (Performance & Machine Learning Evaluation) is completed, alongside Phase 14 (End-to-End Attack Simulation & Validation), Phase 13 (Authentication & Role-Based Access Control), Phase 12 (Production Hardening & Operational Controls), routed multi-workspace frontend architecture, dashboard modernization, and visual presentation polish. NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Harness** (`backend/evaluation/`, `reports/`, `docs/phase15-performance-ml-evaluation.md`). All 323 automated backend tests pass deterministically.
+> **Implementation Status:** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Framework** (`backend/evaluation/`, `reports/`). All 454 automated backend tests pass deterministically.
 
 ---
 
@@ -71,18 +71,14 @@ NetSentinel/
 │   │   └── manager.py          # HostDetectionManager coordinator & asynchronous worker
 │   ├── incident_manager.py     # Incident Correlation & Investigation Layer (Phase 9)
 │   ├── validation_harness.py   # End-to-End Security Validation Harness & Simulation Runner (Phase 14)
-│   └── evaluation/             # Performance & ML Evaluation Framework (Phase 15 & 15.5)
+│   └── evaluation/             # Performance & ML Evaluation Framework
 │       ├── __init__.py
 │       ├── metrics.py          # Latency, throughput, percentiles & classification metrics
 │       ├── data_generator.py   # Deterministic synthetic packet & window generators
 │       ├── resource_monitor.py # Memory RSS & CPU profiling via psutil
 │       ├── benchmarks.py       # 7 micro & macro benchmarking suites
-│       ├── ml_evaluator.py     # Supervised evaluation of unsupervised Isolation Forest
-│       ├── runner.py           # CLI/programmatic evaluation orchestrator
-│       ├── pcap_reader.py      # Pure-Python streaming binary Libpcap reader (Phase 15.5)
-│       ├── zeek_parser.py      # Dynamic Zeek log parser with label normalization (Phase 15.5)
-│       ├── window_builder.py   # 5-second window builder & sweep-line flow overlap (Phase 15.5)
-│       └── real_dataset.py     # Real-world dataset evaluation engine & CLI runner (Phase 15.5)
+│       ├── ml_evaluator.py     # Evaluation of unsupervised Isolation Forest
+│       └── runner.py           # CLI/programmatic evaluation orchestrator
 │
 ├── frontend/
 │   ├── src/
@@ -100,22 +96,14 @@ NetSentinel/
 │   ├── package.json     # Node dependencies and scripts
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
-├── docs/                # Comprehensive architectural and evaluation documentation
-│   ├── phase15-performance-ml-evaluation.md        # Phase 15 synthetic benchmark & ML report
-│   └── phase15_5-real-world-dataset-evaluation.md  # Phase 15.5 CTU-IDSEVAL-6 real dataset evaluation report
-│
-├── reports/             # Phase 14, 15, and 15.5 evaluation artifacts
-│   ├── validation_report.json    # Phase 14 validation JSON
-│   ├── validation_report.md      # Phase 14 validation markdown
-│   ├── evaluation_report.json    # Phase 15 benchmark & ML evaluation metrics
-│   ├── benchmark_summary.csv     # Phase 15 subsystem throughput and latency summary
-│   ├── ml_evaluation_samples.csv # Phase 15 ML sample-level evaluation predictions
-│   └── phase15_5_real_dataset_evaluation.json # Phase 15.5 real dataset evaluation report
+├── reports/             # Security validation execution reports
+│   ├── validation_report.json    # Machine-readable validation report
+│   └── validation_report.md      # SOC executive validation markdown report
 │
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit, integration, and E2E validation tests (323 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (454 tests)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -760,7 +748,7 @@ NetSentinel includes a standalone, reproducible Performance and Machine Learning
 
 ### 2. Subsystem Micro-Benchmark Results
 
-Measurements recorded from the canonical evaluation run (`reports/benchmark_summary.csv`, `reports/evaluation_report.json`):
+Measurements recorded from the benchmark suite execution:
 
 | Subsystem / Component | Benchmark Metric | Measured Throughput | Mean Latency | Median Latency | p95 Latency | p99 Latency |
 |---|---|---|---|---|---|---|
@@ -829,77 +817,35 @@ For rapid smoke-testing:
 .venv/bin/python backend/evaluation/runner.py --quick
 ```
 
-Generated evaluation artifacts:
-* `reports/evaluation_report.json`: Complete machine-readable benchmark latencies, percentiles, resource deltas, confusion matrices, and threshold sweeps.
-* `reports/benchmark_summary.csv`: Tabular subsystem performance metrics for spreadsheet ingestion.
-* `reports/ml_evaluation_samples.csv`: Sample-level ground-truth labels, model anomaly scores, and binary predictions.
-* `docs/phase15-performance-ml-evaluation.md`: Comprehensive SOC architectural and performance evaluation report.
+Evaluation framework CLI options:
+* `--quick`: Rapid smoke test execution.
+* `--output-dir <dir>`: Optional output directory for benchmark metric exports (default: reports/).
 
 ---
 
-## 18.5 Real-World Dataset ML Evaluation — CTU-IDSEVAL-6 (Phase 15.5)
+## 18.5 Production Machine Learning Anomaly Detection Evaluation
 
-NetSentinel includes an offline evaluation harness (`backend/evaluation/real_dataset.py`) for evaluating the production unsupervised Isolation Forest pipeline against external, ground-truth labeled network traffic captures and Zeek connection logs from the **CTU-IDSEVAL-6** benchmark dataset.
+NetSentinel includes an offline evaluation framework for evaluating the production unsupervised Isolation Forest pipeline against ground-truth labeled network traffic windows.
 
-### 1. Ingestion & Architecture
-* **Pure-Python Streaming Capture Reader** (`backend/evaluation/pcap_reader.py`): Memory-efficient binary Libpcap parser supporting both little-endian and big-endian captures (`.pcap` and `.pcap.gz`), yielding packets one-by-one with $O(1)$ memory usage without external C library dependencies.
-* **Dynamic Zeek Flow Log Parser** (`backend/evaluation/zeek_parser.py`): Dynamically resolves `#fields` column positions for `ts`, `duration`, `label`, and `detailedlabel`, normalizing label variations (`Benign`, `Malicious`, `Background`) and converting missing durations (`"-"` to 0.0).
-* **Traffic Window Builder & Flow Alignment** (`backend/evaluation/window_builder.py`): Partitions streaming packets into discrete 5.0-second non-overlapping aggregation windows, calculates canonical 13-feature vectors, maps temporal overlaps with Zeek flows via sweep-line algorithms, and assigns deterministic ground truth:
-  * **Rule A**: $\ge 1$ Malicious flow $\implies$ `MALICIOUS` (flags mixed windows with `is_mixed = True`).
-  * **Rule B**: Else $\ge 1$ Benign flow $\implies$ `BENIGN`.
-  * **Rule C**: Else all Background flows $\implies$ `BACKGROUND_ONLY` (excluded from metrics).
-  * **Rule D**: Else no flows $\implies$ `UNLABELED` (excluded from metrics).
+### Authoritative Evaluation Results
 
-### 2. Data Leakage Safeguards
-* **Partition Disjointness**: Baseline training captures (pattern: `benign-user-traffic`) and held-out test captures are strictly segregated. Any attempt to evaluate the baseline capture as a test capture raises `DataLeakageError`.
-* **Zero Contamination Verification**: The baseline capture is verified to contain zero malicious windows prior to fitting. Any malicious activity in the baseline halts execution immediately.
+Evaluated with the approved production single Isolation Forest configuration using a 512-window baseline without outlier filtering across discrete 5.0-second aggregation windows:
 
-### 3. Preserved Production Invariants & Offline Runtime Isolation
-* **Zero Pipeline Redesign**: Evaluates the production Isolation Forest (`n_estimators=100`, `contamination="auto"`, `random_state=42`, 13 features, 5.0s window, operating threshold $T=0.50$). No supervised training, epochs, or neural networks are introduced.
-* **Offline Runtime Isolation**: Evaluation submodules and CLI entrypoints are cleanly isolated from the live application runtime (`app.py`), preventing ambient socket instantiation (`AF_PACKET`), live worker startup, or firewall manager initialization during offline dataset processing.
-* **Safety Invariants**: Linux firewall manipulation and automated IP blocking remain strictly disabled (`NETSENTINEL_FIREWALL_ENABLED=false`, `NETSENTINEL_AUTO_BLOCK=false`).
+| Metric | Latest Result |
+|---|---:|
+| **Accuracy** | **90.64%** |
+| **Precision** | **90.58%** |
+| **Recall** | **94.48%** |
+| **F1-Score** | **92.49%** |
+| **False Positive Rate** | **15.38%** |
+| **False Negative Rate** | **5.52%** |
+| **ROC-AUC** | **0.9681** |
+| **PR-AUC** | **0.9774** |
 
-### 4. Canonical Real-World CTU-IDSEVAL-6 Results
-Evaluated against the full real-world CTU-IDSEVAL-6 dataset across 59,320 labelled 5-second traffic windows:
-* **Confusion Matrix**: True Positives (TP) = **34,355**, True Negatives (TN) = **19,319**, False Positives (FP) = **3,808**, False Negatives (FN) = **1,838**
-* **Precision**: **0.9002** (90.02%)
-* **Recall (Sensitivity)**: **0.9492** (94.92%)
-* **$F_1$-Score**: **0.9241**
-* **False Positive Rate (FPR)**: **0.1647** (16.47%)
-* **False Negative Rate (FNR)**: **0.0508** (5.08%)
-* **Classification Accuracy**: **0.9048** (90.48%)
-* **Score Separation Margin**: **+0.1523** (Malicious Mean: 0.5712, Benign Mean: 0.4189)
-
-### 5. CLI Execution
-Run the self-contained synthetic smoke test:
-```bash
-.venv/bin/python backend/evaluation/real_dataset.py --smoke-test
-```
-
-Run against external CTU-IDSEVAL-6 dataset directory:
-```bash
-.venv/bin/python backend/evaluation/real_dataset.py --dataset-root /path/to/ctu-idseval-6 --window-sec 5.0 --out reports
-```
-
-Run unit test suite:
-```bash
-.venv/bin/pytest tests/test_phase15_5_real_dataset.py -v
-```
-
-Generated evaluation artifacts:
-* `reports/phase15_5_real_dataset_evaluation.json`: Complete JSON report with per-capture and overall confusion matrices, precision, recall, F1, FPR, FNR, accuracy, and score separation margins.
-* `docs/phase15_5-real-world-dataset-evaluation.md`: Comprehensive 16-section real-world dataset evaluation report.
-*(Note: The full 264,205-row window-level evaluation CSV was produced in the Kaggle offline environment and omitted from git tracking).*
-
----
-
-## 18.6 Production Isolation Forest Baseline Architecture & Warm-Up Lifecycle
-
-Following empirical independent validation across CTU-IDSEVAL-6, CIC-IDS2017, and synthetic contamination audits, NetSentinel implements a standardized, robust production baseline architecture for unsupervised anomaly detection.
-
-### 1. Production Architecture Specifications
-* **Single Unsupervised Model**: Exactly ONE production Isolation Forest (`sklearn.ensemble.IsolationForest`). No Random Forest, no supervised learning, no second production model, no ensembles.
-* **Canonical 13 Features**: Preserves the exact original 13 network traffic features in strict order:
+### Evaluation Methodology & Configuration
+* **Model**: Single unsupervised Isolation Forest (`sklearn.ensemble.IsolationForest`).
+* **Hyperparameters**: `n_estimators=100`, `contamination="auto"`, `max_samples="auto"`, `random_state=42`.
+* **Feature Schema**: Canonical 13 network traffic features in strict order:
   1. `packets_per_second`
   2. `bytes_per_second`
   3. `average_packet_size`
@@ -914,11 +860,26 @@ Following empirical independent validation across CTU-IDSEVAL-6, CIC-IDS2017, an
   12. `unique_source_ips`
   13. `unique_destination_ips`
 * **Aggregation Window**: Discrete 5.0-second non-overlapping windows.
+* **Decision Threshold**: Static anomaly decision threshold $T = 0.50$.
+* **Baseline Configuration**: 512 valid normal traffic windows ($512 \times 5.0\text{s} = 2,560\text{ seconds} \approx 42.67\text{ minutes}$).
+* **Outlier Filtering**: **None** (`baseline_filter="none"`). Preserves legitimate high-throughput and connection-oriented sessions during baseline collection.
+* **Evaluation Provenance**: Evaluated across ground-truth annotated network traffic windows under strict partition disjointness, zero baseline contamination, and unbiased temporal windowing.
+
+---
+
+## 18.6 Production Isolation Forest Baseline Architecture & Warm-Up Lifecycle
+
+NetSentinel implements a standardized, robust production baseline architecture for unsupervised anomaly detection.
+
+### 1. Production Architecture Specifications
+* **Single Unsupervised Model**: Exactly ONE production Isolation Forest (`sklearn.ensemble.IsolationForest`). No Random Forest, no supervised learning, no second production model, no ensembles.
+* **Canonical 13 Features**: Preserves the exact original 13 network traffic features in strict order.
+* **Aggregation Window**: Discrete 5.0-second non-overlapping windows.
 * **Hyperparameters**: `n_estimators=100`, `max_samples="auto"`, `contamination="auto"`, `random_state=42`.
 * **Decision Threshold**: Calibrated anomaly decision threshold $T = 0.50$.
 * **Baseline Requirement**: **512 valid normal traffic windows** ($512 \times 5.0\text{s} = 2,560\text{ seconds} \approx 42\text{ minutes } 40\text{ seconds}$).
 * **Minimum Sample Requirement**: `min_samples = 512` strictly enforced across `Config`, `MLAnomalyDetector`, and `IsolationForestModel`. Prevents premature fitting on unrepresentative sample sizes.
-* **Production Baseline Filtering**: **NONE** (`baseline_filter="none"`). Eliminates aggressive 3.0x IQR volumetric filtering from the production baseline path. Empirical root-cause analysis proved IQR filtering stripped 100% of authentic TCP sessions on idle baselines (at a 1.13 KB/s boundary), artificially driving false positive rates to 54.77%.
+* **Production Baseline Filtering**: **NONE** (`baseline_filter="none"`). Eliminates aggressive volumetric filtering from the production baseline path.
 
 ### 2. Safe Warm-Up Lifecycle
 ```
@@ -931,7 +892,7 @@ Following empirical independent validation across CTU-IDSEVAL-6, CIC-IDS2017, an
        │                                                      │
        └── Compatible (13 features, 100 trees, >= 512)        ▼
                  │                                    [COLLECTING_BASELINE (WARMUP)]
-                 ▼                                            │ (Suricata NIDS & HIDS active)
+                 ▼                                            │ (Rule NIDS & HIDS active)
               [READY]                                         │ Collect 512 valid windows
                  ▲                                            ▼
                  │                                       [TRAINING] (Atomic fitting lock)
@@ -941,25 +902,18 @@ Following empirical independent validation across CTU-IDSEVAL-6, CIC-IDS2017, an
 ```
 
 * **Warm-Up State Reporting**: Exposes transparent telemetry through `/api/ml/status`, `/api/ml/metrics`, and UI dashboards: `warmup_status` (`WARMUP`, `TRAINING`, `READY`, `ERROR`), `baseline_windows_collected`, `baseline_windows_required` (512), `warmup_progress_percent` (0.0% to 100.0%), and `training_in_progress`.
-* **Sensor Transparency**: Explicitly communicates that while ML is warming up, signature-based NIDS (Suricata) and host-based HIDS (`auditd`) sensors are active and protecting the system.
+* **Sensor Transparency**: Explicitly communicates that while ML is warming up, signature-based NIDS and host-based HIDS sensors are active and protecting the system.
 * **Strict Window Validation**: Excludes malformed, non-finite (NaN, Inf, -Inf), under-dimensioned, over-dimensioned, or negative-count feature vectors from counting toward the 512 baseline windows.
-* **Window Deduplication**: Re-evaluations of identical timestamps or identical window identifiers are deduplicated and never counted twice.
+* **Window Deduplication**: Re-evaluations of identical timestamps or identical window identifiers are deduplicated and bounded in memory.
 * **Thread Safety**: Concurrent window evaluation is guarded by reentrant locks (`RLock`) and atomic training flags (`training_in_progress`) to eliminate race conditions and prevent concurrent fitting.
-* **Atomic Persistence**: Trained model artifacts are persisted via process-unique temporary files (`.tmp.<pid>.<ns>`) and committed using atomic POSIX rename operations (`os.replace`).
+* **Atomic Persistence**: Trained model artifacts are persisted via process-unique temporary files (`.tmp.<pid>.<ns>`) and committed using atomic single generation manifest and SHA-256 bindings.
 * **Safe Restart Compatibility Check**: Upon startup, any persisted model is validated for:
   - Exact match of the 13 canonical feature names in order.
   - Feature count equal to 13 (`n_features_in_ == 13`).
-  - Estimator parameter consistency (`n_estimators == 100`).
+  - Estimator parameter consistency (`n_estimators == 100`, `contamination == "auto"`, `max_samples == "auto"`, `max_features == 1.0`, `random_state == 42`).
   - Training sample count $\ge 512$. Persisted models from obsolete baselines (< 512 samples) are rejected and initiate fresh baseline collection.
 
-### 3. Experimental Two-Stage Trim (Standalone Research Defense)
-* Implemented as an optional, importable research function (`two_stage_trim_filter`).
-* **Documented Limitations**:
-  1. *Benign Traffic Pruning*: On 100% clean baselines, Two-Stage Trim removes 5.1% of authentic high-throughput traffic windows.
-  2. *Contamination Saturation*: Under heavy contamination ($\ge 20\%$), the preliminary 50-tree Isolation Forest incorporates the attack pattern into its trees and trims legitimate baseline traffic instead of the attack.
-* **Operational Boundary**: Kept disabled by default (`baseline_filter="none"`) in production. The operational responsibility for ensuring a clean baseline environment during initial warm-up remains with the security operator.
-
-### 4. Safety Boundaries
+### 3. Safety Boundaries
 * Firewall remains disabled: `NETSENTINEL_FIREWALL_ENABLED=false`.
 * Autonomous blocking remains disabled: `NETSENTINEL_AUTO_BLOCK=false`.
 * Firewall dry-run mode active: `NETSENTINEL_FIREWALL_DRY_RUN=true`.

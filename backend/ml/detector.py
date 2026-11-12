@@ -110,10 +110,10 @@ def filter_baseline_outliers(
     """Filter extreme outlier windows from baseline samples before model fitting.
 
     HISTORICAL NOTE & CAUTION:
-    In historical evaluation (CTU-IDSEVAL-6), 3.0x IQR volumetric filtering stripped 100% of authentic
+    In baseline scaling evaluations, 3.0x IQR volumetric filtering stripped 100% of authentic
     TCP sessions during idle collection periods (imposing an artificial 1.13 KB/s upper bound),
     causing false positive rate to spike to 54.77%.
-    This function is preserved for diagnostic experiments, but is strictly EXCLUDED from the
+    This function is preserved for diagnostic analysis, but is strictly EXCLUDED from the
     default production baseline path.
     """
     if len(samples) < 8:
