@@ -73,6 +73,7 @@ export function Overview() {
 
   // Backend Data State
   const [readiness, setReadiness] = useState(null);
+  const [apiConnected, setApiConnected] = useState(null);
   const [socketConnected, setSocketConnected] = useState(socket?.connected || false);
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
@@ -116,10 +117,21 @@ export function Overview() {
         fetchTelemetryHistory(20),
       ]);
 
-      if (readyRes.status === 'fulfilled' && readyRes.value) {
+      // Evaluate API connectivity independently from readiness
+      // Backend /api/ready responds with HTTP 200 (healthy) or HTTP 503 (subsystems degraded)
+      // A network failure (no status) or proxy gateway failure (non-ready response) indicates API is unreachable
+      const hasHttpResponse = (
+        typeof readyRes.value?.status === 'number' &&
+        typeof readyRes.value?.ready === 'boolean'
+      );
+
+      if (hasHttpResponse) {
         setReadiness(readyRes.value);
-      } else if (readyRes.status === 'rejected') {
-        setReadiness({ ready: false, ok: false, error: readyRes.reason?.message || 'Readiness probe unreachable' });
+        setApiConnected(true);
+      } else {
+        // Network or request failure: no valid HTTP response from backend API
+        setReadiness(null);
+        setApiConnected(false);
       }
 
       if (trafficRes.status === 'fulfilled' && trafficRes.value) {
@@ -258,9 +270,26 @@ export function Overview() {
     : 'LOW';
 
   const isReady = readiness?.ready === true;
+  const isDegraded = readiness && !readiness.ready && typeof readiness.status === 'number';
   const isMlReady = mlStatus?.model_status === 'READY' || mlStatus?.model_ready === true;
   const isMlTraining = mlStatus?.model_status === 'TRAINING' || mlStatus?.warmup_status === 'TRAINING' || mlStatus?.training_in_progress === true;
   const isMlWarmup = mlStatus?.model_status === 'COLLECTING' || mlStatus?.model_status === 'COLLECTING_BASELINE' || mlStatus?.is_collecting === true || mlStatus?.warmup_status === 'WARMUP';
+
+  const systemHealthValue = isReady
+    ? 'OPERATIONAL'
+    : isDegraded
+    ? 'DEGRADED'
+    : apiConnected === false
+    ? 'DISCONNECTED'
+    : 'CHECKING';
+
+  const apiStatusText = apiConnected === true
+    ? 'Online'
+    : apiConnected === false
+    ? 'Offline'
+    : 'Checking';
+
+  const socketStatusText = socketConnected ? 'Online' : 'Offline';
 
   // Severity Distribution Data from Summary or Risk Stats
   const severityBreakdown = [
@@ -311,7 +340,7 @@ export function Overview() {
       {error && <ErrorState message={error} onRetry={loadOverviewData} />}
 
       {/* Readiness / Degradation Alert Banner */}
-      {readiness && !readiness.ready && (
+      {isDegraded && (
         <div className="safety-banner warning">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0 }} />
@@ -329,8 +358,8 @@ export function Overview() {
       <div className="metric-cards-grid">
         <MetricCard
           title="System Health"
-          value={isReady ? 'OPERATIONAL' : readiness ? 'DEGRADED' : 'CHECKING'}
-          subtext={`API: ${readiness ? 'Online' : 'Checking'} | Stream: ${socketConnected ? 'Online' : 'Offline'}`}
+          value={systemHealthValue}
+          subtext={`API: ${apiStatusText} | Stream: ${socketStatusText}`}
           icon={Server}
           onClick={() => navigate('/system')}
         />
