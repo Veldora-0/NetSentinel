@@ -19,6 +19,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { DashboardCard } from '../components/DashboardCard';
@@ -186,14 +187,15 @@ export default function History() {
         <DashboardCard title="Audit Event Severity Breakdown" icon={BarChart2}>
           <div style={{ height: '140px', width: '100%', marginTop: '4px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={severityChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={severityChartData} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
                 <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={35} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                   formatter={(val) => [`${val} events`, 'Total Recorded']}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                   {severityChartData.map((entry, index) => (
                     <Cell key={`hist-cell-${index}`} fill={entry.color} />
                   ))}

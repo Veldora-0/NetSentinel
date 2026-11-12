@@ -1,6 +1,6 @@
-# NetSentinel — Frontend Visual Review & UI Screenshot Inventory
+# NetSentinel — Frontend Visual Review & UI Redesign Inventory
 
-This document catalogs the visual audit screenshots captured from the live, running NetSentinel Security Operations Console frontend prior to any UI/UX or styling modifications.
+This document catalogs the visual audit screenshots captured from the live, running NetSentinel Security Operations Console frontend following the enterprise UI/UX visual redesign.
 
 All captures represent genuine application states running against the production Flask backend, React 18 / Vite single-page application, and active SQLite telemetry database.
 
@@ -12,7 +12,8 @@ All captures represent genuine application states running against the production
 - **Browser Engine:** Mozilla Firefox (Headless Mode via Selenium WebDriver)
 - **Zoom Level:** 100%
 - **Desktop Viewport:** 1920 × 1080 (Inner rendering: 1920 × 994)
-- **Responsive Viewport:** Mobile portrait viewport (~500 × 758, mobile breakpoint `< 768px`)
+- **Tablet Viewport:** 768 × 1024
+- **Responsive Mobile Viewport:** Mobile portrait viewport (~500 × 758, mobile breakpoint `< 768px`)
 - **Authentication Session:** Authenticated as primary operator (`admin`, Role: `ADMIN`)
 - **Safety Posture:** All authentication inputs masked; no credentials, secrets, session cookies, or private API keys exposed.
 
@@ -22,10 +23,10 @@ All captures represent genuine application states running against the production
 
 | Screenshot File | Page Route | Viewport | Description |
 |---|---|---|---|
-| [`01-login.png`](./screenshots/01-login.png) | `/login` | 1920 × 994 | Unauthenticated login portal showing NetSentinel brand identity, operator access form, and credential inputs. |
+| [`01-login.png`](./screenshots/01-login.png) | `/login` | 1920 × 994 | Redesigned enterprise authentication portal featuring obsidian slate card, refined typography, and credential inputs. |
 | [`01-login-error.png`](./screenshots/01-login-error.png) | `/login` | 1920 × 994 | Login form with authentication failure alert banner and validation feedback. |
-| [`02-dashboard-overview.png`](./screenshots/02-dashboard-overview.png) | `/overview` | 1920 × 994 | Main SOC Overview dashboard top section displaying KPI metric cards (active incidents, threat score, traffic throughput, engine status). |
-| [`02-dashboard-scrolled.png`](./screenshots/02-dashboard-scrolled.png) | `/overview` | 1920 × 994 | Main SOC Overview scrolled section showing real-time traffic volume area chart, incident severity breakdown, and live alert feeds. |
+| [`02-dashboard-overview.png`](./screenshots/02-dashboard-overview.png) | `/overview` | 1920 × 994 | Redesigned SOC Overview dashboard displaying KPI metric cards (active incidents, threat score, traffic throughput, engine status). |
+| [`02-dashboard-scrolled.png`](./screenshots/02-dashboard-scrolled.png) | `/overview` | 1920 × 994 | SOC Overview scrolled section showing real-time traffic volume area chart with subtle grid lines, incident severity breakdown, and live alert feeds. |
 | [`03-network-monitoring.png`](./screenshots/03-network-monitoring.png) | `/network` | 1920 × 994 | Real-time network telemetry view with bandwidth throughput area chart, packet counters, protocol distribution (TCP/UDP/ICMP), and active sessions. |
 | [`04-detection-and-risk.png`](./screenshots/04-detection-and-risk.png) | `/detection` | 1920 × 994 | Hybrid detection console showing unsupervised ML Isolation Forest model status (13 canonical features, baseline progress) and rule-based detector thresholds. |
 | [`05-host-security.png`](./screenshots/05-host-security.png) | `/host` | 1920 × 994 | Host security telemetry showing CPU/Memory/Disk utilization, File Integrity Monitoring (FIM) baseline hashes, and SSH brute force protection status. |
@@ -44,7 +45,15 @@ All captures represent genuine application states running against the production
 
 ---
 
-## 3. Responsive Mobile Screenshot Inventory (390 × 844)
+## 3. Tablet Screenshot Inventory (768 × 1024)
+
+| Screenshot File | Page Route | Viewport | Description |
+|---|---|---|---|
+| [`tablet-01-dashboard.png`](./screenshots/tablet-01-dashboard.png) | `/overview` | 768 × 1024 | Tablet portrait view of the SOC Overview dashboard with responsive 2-column metric cards and adapted chart sizing. |
+
+---
+
+## 4. Responsive Mobile Screenshot Inventory (390 × 844)
 
 | Screenshot File | Page Route | Viewport | Description |
 |---|---|---|---|
@@ -58,10 +67,11 @@ All captures represent genuine application states running against the production
 
 ---
 
-## 4. Coverage Summary
+## 5. Coverage & Redesign Verification Summary
 
-- **Total Screenshots Captured:** 26 (19 desktop + 7 responsive mobile).
-- **Pages Successfully Accessed (100%):**
+- **Total Screenshots Captured:** 27 (19 desktop + 1 tablet + 7 responsive mobile).
+- **Chart Preservation:** 100% of charts and graphs are preserved with live Recharts components (`ResponsiveContainer`, `AreaChart`, `BarChart`), enhanced with dark slate grids (`#1e293b`), custom dark tooltips (`.custom-chart-tooltip`), and readable axes.
+- **Pages Successfully Verified (100%):**
   - `/login` (Authentication portal)
   - `/overview` (Main SOC dashboard)
   - `/network` (Network traffic monitoring)
@@ -75,11 +85,3 @@ All captures represent genuine application states running against the production
   - `/system` (System status & telemetry)
   - `/users` (RBAC user & operator management)
   - `/not-found` (404 error state)
-- **Pages That Could Not Be Accessed:** None. All application routes were accessible with operator privileges.
-- **UI Components Captured:**
-  - Metric KPI cards & status badges
-  - Real-time Recharts visualizations (Area charts, Bar charts, Protocol distribution)
-  - Tabular data grids (Incidents, Security Events, Monitored Files, Active Operators)
-  - Interactive forms (Login, IP lookup, Manual quarantine, User provisioning)
-  - Inline modal actions (Password reset, Sidebar toggle, Mobile drawer menu)
-  - Error and alert banners (Authentication failure alert, Safe mode evaluation banner)

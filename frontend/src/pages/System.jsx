@@ -187,7 +187,7 @@ export default function System() {
       {/* System Runtime Configuration (Redacted) */}
       <div style={{ marginTop: '1rem' }}>
         <DashboardCard title="Runtime Environment & Parameters" icon={Server}>
-          <div className="host-sec-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+          <div className="dashboard-grid">
             <div className="host-section-block">
               <div className="host-block-title">Core Application</div>
               <div className="host-stat-row">

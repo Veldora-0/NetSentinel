@@ -52,6 +52,7 @@ export function AppLayout() {
       <Sidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(!collapsed)}
+        onNavigate={() => setMobileOpen(false)}
       />
       {mobileOpen && (
         <div className="mobile-overlay" onClick={() => setMobileOpen(false)} />
@@ -70,3 +71,5 @@ export function AppLayout() {
     </div>
   );
 }
+
+export default AppLayout;

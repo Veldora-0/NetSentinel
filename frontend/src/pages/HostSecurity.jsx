@@ -19,6 +19,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
@@ -260,7 +261,7 @@ export default function HostSecurity() {
       {/* Host Telemetry & Resource Trends */}
       {hostTelemetry && (
         <DashboardCard title="Host System Resources & Utilization History" icon={Cpu}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div className="dashboard-grid">
             {/* Real-time Time Series Chart */}
             <div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>
@@ -269,21 +270,22 @@ export default function HostSecurity() {
               {telemetryHistory.length > 0 ? (
                 <div style={{ height: '180px', width: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={telemetryHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={telemetryHistory} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="hostCpuGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.4} />
+                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
                         </linearGradient>
                         <linearGradient id="hostMemGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
+                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
                       <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={35} tickFormatter={(v) => `${v}%`} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                        contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                         formatter={(val, name) => [`${val}%`, name]}
                       />
                       <Area type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />

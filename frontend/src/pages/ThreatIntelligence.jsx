@@ -212,7 +212,7 @@ export default function ThreatIntelligence() {
       </div>
 
       {/* Threat Intelligence Architecture & Reputation Legend */}
-      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+      <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
         <DashboardCard
           title="Threat Intelligence Subsystem Configuration"
           subtitle="External provider enrichment pipeline and query queue status"

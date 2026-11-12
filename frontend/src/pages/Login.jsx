@@ -47,46 +47,46 @@ export function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#0b0f19',
+      backgroundColor: '#090d16',
       padding: '1.5rem',
-      backgroundImage: 'radial-gradient(ellipse at 50% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 60%)',
+      position: 'relative',
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '420px',
-        backgroundColor: '#131b2e',
+        maxWidth: '400px',
+        backgroundColor: '#0f172a',
         border: '1px solid #1e293b',
-        borderRadius: '12px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        padding: '2.5rem 2rem',
+        borderRadius: '8px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        padding: '2.25rem 2rem',
       }}>
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '56px',
-            height: '56px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            border: '1px solid rgba(6, 182, 212, 0.3)',
-            color: '#06b6d4',
-            marginBottom: '1rem',
+            width: '48px',
+            height: '48px',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+            border: '1px solid rgba(2, 132, 199, 0.3)',
+            color: '#38bdf8',
+            marginBottom: '0.85rem',
           }}>
-            <Shield size={32} />
+            <Shield size={26} />
           </div>
           <h1 style={{
-            fontSize: '1.5rem',
+            fontSize: '1.35rem',
             fontWeight: 700,
             color: '#f8fafc',
-            margin: '0 0 0.35rem 0',
+            margin: '0 0 0.25rem 0',
             letterSpacing: '-0.02em',
           }}>
             NetSentinel
           </h1>
           <p style={{
-            fontSize: '0.82rem',
+            fontSize: '0.78rem',
             color: '#94a3b8',
             margin: 0,
             lineHeight: 1.4,
@@ -100,30 +100,30 @@ export function Login() {
           <div style={{
             display: 'flex',
             alignItems: 'flex-start',
-            gap: '0.75rem',
-            padding: '0.75rem 1rem',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
+            gap: '0.65rem',
+            padding: '0.65rem 0.85rem',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
             color: '#fca5a5',
-            fontSize: '0.82rem',
-            marginBottom: '1.5rem',
+            fontSize: '0.8rem',
+            marginBottom: '1.25rem',
             lineHeight: 1.45,
           }}>
-            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '1px', color: '#ef4444' }} />
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
             <span>{error}</span>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
           <div>
             <label style={{
               display: 'block',
-              fontSize: '0.8rem',
+              fontSize: '0.75rem',
               fontWeight: 500,
               color: '#cbd5e1',
-              marginBottom: '0.4rem',
+              marginBottom: '0.35rem',
             }}>
               Operator Username
             </label>
@@ -138,7 +138,7 @@ export function Login() {
                 alignItems: 'center',
                 pointerEvents: 'none',
               }}>
-                <User size={16} />
+                <User size={15} />
               </div>
               <input
                 type="text"
@@ -150,18 +150,18 @@ export function Login() {
                 disabled={loading}
                 style={{
                   width: '100%',
-                  height: '42px',
-                  padding: '0 1rem 0 2.5rem',
-                  backgroundColor: '#0b0f19',
+                  height: '40px',
+                  padding: '0 0.85rem 0 2.4rem',
+                  backgroundColor: '#090d16',
                   border: '1px solid #1e293b',
                   borderRadius: '6px',
                   color: '#f8fafc',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8125rem',
                   outline: 'none',
-                  transition: 'border-color 0.2s',
+                  transition: 'border-color 0.15s ease',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#06b6d4')}
+                onFocus={(e) => (e.target.style.borderColor = '#0284c7')}
                 onBlur={(e) => (e.target.style.borderColor = '#1e293b')}
               />
             </div>
@@ -170,10 +170,10 @@ export function Login() {
           <div>
             <label style={{
               display: 'block',
-              fontSize: '0.8rem',
+              fontSize: '0.75rem',
               fontWeight: 500,
               color: '#cbd5e1',
-              marginBottom: '0.4rem',
+              marginBottom: '0.35rem',
             }}>
               Password
             </label>
@@ -188,7 +188,7 @@ export function Login() {
                 alignItems: 'center',
                 pointerEvents: 'none',
               }}>
-                <Lock size={16} />
+                <Lock size={15} />
               </div>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -199,18 +199,18 @@ export function Login() {
                 disabled={loading}
                 style={{
                   width: '100%',
-                  height: '42px',
-                  padding: '0 2.75rem 0 2.5rem',
-                  backgroundColor: '#0b0f19',
+                  height: '40px',
+                  padding: '0 2.5rem 0 2.4rem',
+                  backgroundColor: '#090d16',
                   border: '1px solid #1e293b',
                   borderRadius: '6px',
                   color: '#f8fafc',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8125rem',
                   outline: 'none',
-                  transition: 'border-color 0.2s',
+                  transition: 'border-color 0.15s ease',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#06b6d4')}
+                onFocus={(e) => (e.target.style.borderColor = '#0284c7')}
                 onBlur={(e) => (e.target.style.borderColor = '#1e293b')}
               />
               <button
@@ -218,7 +218,7 @@ export function Login() {
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
-                  right: '0.75rem',
+                  right: '0.65rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none',
@@ -231,7 +231,7 @@ export function Login() {
                 }}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
@@ -243,19 +243,19 @@ export function Login() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
+              gap: '0.45rem',
               width: '100%',
-              height: '42px',
-              marginTop: '0.5rem',
+              height: '40px',
+              marginTop: '0.35rem',
               backgroundColor: '#0284c7',
               color: '#ffffff',
               fontWeight: 600,
-              fontSize: '0.875rem',
+              fontSize: '0.8125rem',
               border: 'none',
               borderRadius: '6px',
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.75 : 1,
-              transition: 'background-color 0.2s',
+              transition: 'background-color 0.15s ease',
             }}
             onMouseOver={(e) => {
               if (!loading) e.currentTarget.style.backgroundColor = '#0369a1';
@@ -266,13 +266,13 @@ export function Login() {
           >
             {loading ? (
               <>
-                <Loader2 size={16} className="pulse" />
+                <Loader2 size={15} className="pulse" />
                 <span>Authenticating...</span>
               </>
             ) : (
               <>
                 <span>Sign In to Console</span>
-                <ArrowRight size={16} />
+                <ArrowRight size={15} />
               </>
             )}
           </button>
@@ -280,17 +280,17 @@ export function Login() {
 
         {/* Security Notice Footer */}
         <div style={{
-          marginTop: '2rem',
-          paddingTop: '1.25rem',
+          marginTop: '1.75rem',
+          paddingTop: '1.1rem',
           borderTop: '1px solid #1e293b',
           textAlign: 'center',
-          fontSize: '0.72rem',
+          fontSize: '0.7rem',
           color: '#64748b',
-          lineHeight: 1.5,
+          lineHeight: 1.45,
         }}>
-          Protected by NetSentinel RBAC &amp; Session Tokens.
+          Protected by NetSentinel RBAC &amp; Session Controls.
           <br />
-          Unauthorized access is strictly prohibited and audited.
+          Authorized operator access only.
         </div>
       </div>
     </div>

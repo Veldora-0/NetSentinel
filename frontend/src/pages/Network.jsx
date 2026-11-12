@@ -20,6 +20,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { DashboardCard } from '../components/DashboardCard';
@@ -255,23 +256,24 @@ export function Network() {
           {trafficHistory.length > 0 ? (
             <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={trafficHistory} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="netPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     labelStyle={{ color: '#94a3b8' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="pps"
-                    stroke="#06b6d4"
+                    stroke="#38bdf8"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#netPpsGrad)"
@@ -290,13 +292,14 @@ export function Network() {
             <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={protocolData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={45} tickFormatter={(v) => formatNumber(v)} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     formatter={(val) => [`${formatNumber(val)} frames (${((val / totalProtocolPackets) * 100).toFixed(1)}%)`, 'Volume']}
                   />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                     {protocolData.map((entry, index) => (
                       <Cell key={`proto-cell-${index}`} fill={entry.color} />
                     ))}

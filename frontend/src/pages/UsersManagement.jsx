@@ -190,11 +190,11 @@ export default function UsersManagement() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="user-management-grid">
         {/* User Directory */}
         <DashboardCard title={`Active Operators & Accounts (${users.length})`} icon={Users}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+          <div className="table-responsive">
+            <table className="soc-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color, #1e293b)', textAlign: 'left', color: '#94a3b8' }}>
                   <th style={{ padding: '8px 12px' }}>Username</th>
