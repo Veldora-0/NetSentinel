@@ -141,8 +141,8 @@ export default function UsersManagement() {
   return (
     <div className="page-container">
       <PageHeader
-        title="User & Access Management"
-        subtitle="Manage NetSentinel operator accounts, role boundaries, and credentials"
+        title="User Management"
+        subtitle="Manage NetSentinel user accounts, roles, and credentials"
         actions={
           <button className="btn-refresh" onClick={loadUsers} title="Refresh User List">
             <RotateCcw size={14} /> Refresh
@@ -190,11 +190,11 @@ export default function UsersManagement() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="user-management-grid">
         {/* User Directory */}
-        <DashboardCard title={`Active Operators & Accounts (${users.length})`} icon={Users}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+        <DashboardCard title={`Active User Accounts (${users.length})`} icon={Users}>
+          <div className="table-responsive">
+            <table className="soc-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color, #1e293b)', textAlign: 'left', color: '#94a3b8' }}>
                   <th style={{ padding: '8px 12px' }}>Username</th>
@@ -358,7 +358,7 @@ export default function UsersManagement() {
         </DashboardCard>
 
         {/* Create User Form */}
-        <DashboardCard title="Provision Operator" icon={UserPlus}>
+        <DashboardCard title="Add User Account" icon={UserPlus}>
           <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>

@@ -20,6 +20,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { DashboardCard } from '../components/DashboardCard';
@@ -191,8 +192,8 @@ export function Network() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Network Traffic & Threat Monitoring"
-        subtitle="Live kernel AF_PACKET frame ingestion, layer 2/3 protocol telemetry, and advanced ARP/ICMP detection"
+        title="Network Monitoring"
+        subtitle="Live frame ingestion, protocol telemetry, and ARP/ICMP anomaly detection"
         actions={
           <button className="btn-refresh" onClick={loadNetworkData} title="Refresh Network Telemetry">
             <RotateCcw size={14} /> Refresh
@@ -242,75 +243,126 @@ export function Network() {
           badge={
             (networkStatus?.arp?.conflicts_detected || 0) > 0 ? (
               <span className="badge badge-critical">CONFLICT</span>
-            ) : (
-              <span className="badge badge-success">HEALTHY</span>
-            )
+            ) : null
           }
         />
       </div>
 
       {/* Traffic Trend & Protocol Breakdown Grid */}
       <div className="dashboard-grid">
-        <DashboardCard title="Live Ingestion Rate (Packets / Second)" icon={Activity}>
-          {trafficHistory.length > 0 ? (
-            <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="netPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
-                    labelStyle={{ color: '#94a3b8' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="pps"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#netPpsGrad)"
-                    name="Packets/sec"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <LoadingState message="Collecting packet traffic samples..." compact />
-          )}
+        <DashboardCard
+          title="Live Ingestion Rate"
+          subtitle="Packets / second timeline"
+          icon={Activity}
+        >
+          <div style={{ height: '220px', width: '100%', marginTop: '6px', position: 'relative' }}>
+            {trafficHistory.length === 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                zIndex: 10,
+                fontSize: '0.6875rem',
+                color: isPermissionDenied ? '#fca5a5' : 'var(--text-muted)',
+                background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
+              }}>
+                {isPermissionDenied
+                  ? 'Packet capture unavailable: CAP_NET_RAW / elevated privileges required'
+                  : '0 packets captured — awaiting network activity'}
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={trafficHistory.length > 0 ? trafficHistory : [
+                  { time: 'T-20s', pps: 0 },
+                  { time: 'T-15s', pps: 0 },
+                  { time: 'T-10s', pps: 0 },
+                  { time: 'T-5s', pps: 0 },
+                  { time: 'Now', pps: 0 },
+                ]}
+                margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="netPpsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                  cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pps"
+                  stroke="#38bdf8"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#netPpsGrad)"
+                  name="Packets/sec"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </DashboardCard>
 
-        <DashboardCard title="Captured Protocol Volume Distribution" icon={Wifi}>
-          {totalProtocolPackets > 0 ? (
-            <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={protocolData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={45} tickFormatter={(v) => formatNumber(v)} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
-                    formatter={(val) => [`${formatNumber(val)} frames (${((val / totalProtocolPackets) * 100).toFixed(1)}%)`, 'Volume']}
-                  />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {protocolData.map((entry, index) => (
-                      <Cell key={`proto-cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <EmptyState
-              title="No Protocol Data"
-              message="No packet frames have been captured yet to compute protocol distribution."
-              icon={Wifi}
-            />
-          )}
+        <DashboardCard
+          title="Captured Protocol Volume"
+          subtitle="Layer 2/3 protocol breakdown"
+          icon={Wifi}
+        >
+          <div style={{ height: '220px', width: '100%', marginTop: '6px', position: 'relative' }}>
+            {totalProtocolPackets === 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                zIndex: 10,
+                fontSize: '0.6875rem',
+                color: isPermissionDenied ? '#fca5a5' : 'var(--text-muted)',
+                background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
+              }}>
+                {isPermissionDenied
+                  ? 'Packet capture unavailable until required privileges are granted'
+                  : '0 frames captured — awaiting traffic'}
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={protocolData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} tickFormatter={(v) => formatNumber(v)} domain={[0, totalProtocolPackets > 0 ? 'auto' : 10]} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  formatter={(val) => [
+                    totalProtocolPackets > 0
+                      ? `${formatNumber(val)} frames (${((val / totalProtocolPackets) * 100).toFixed(1)}%)`
+                      : '0 frames',
+                    'Volume',
+                  ]}
+                  cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
+                />
+                <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                  {protocolData.map((entry, index) => (
+                    <Cell key={`proto-cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </DashboardCard>
       </div>
 

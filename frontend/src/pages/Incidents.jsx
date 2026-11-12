@@ -150,8 +150,8 @@ export default function Incidents() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Security Incidents & Investigations"
-        subtitle="Correlated multi-vector security incidents tracking network attacks, host compromises, and mitigation lifecycles"
+        title="Incidents"
+        subtitle="Correlated security incidents and investigation workflow"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh Incidents">
             <RotateCcw size={14} /> Refresh
@@ -172,21 +172,20 @@ export default function Incidents() {
           value={formatNumber(openCount)}
           subtext="Awaiting operator triage"
           icon={Clock}
-          badge={<span className={`badge ${openCount > 0 ? 'badge-warning' : 'badge-success'}`}>{openCount > 0 ? 'ACTIVE' : 'CLEAR'}</span>}
+          badge={openCount > 0 ? <span className="badge badge-warning">ACTIVE</span> : null}
         />
         <MetricCard
           title="Acknowledged"
           value={formatNumber(ackCount)}
           subtext="Under active investigation"
           icon={Layers}
-          badge={<span className="badge badge-info">{ackCount} ACK</span>}
         />
         <MetricCard
           title="Critical Severity"
           value={formatNumber(critCount)}
           subtext="Immediate mitigation priority"
           icon={ShieldAlert}
-          badge={<span className={`badge ${critCount > 0 ? 'badge-critical' : 'badge-neutral'}`}>{critCount > 0 ? 'CRITICAL' : 'ZERO'}</span>}
+          badge={critCount > 0 ? <span className="badge badge-critical">CRITICAL</span> : null}
         />
       </div>
 

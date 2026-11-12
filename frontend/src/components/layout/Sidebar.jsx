@@ -29,13 +29,13 @@ const NAV_ITEMS = [
   { path: '/users', label: 'Users', icon: Users, role: 'ADMIN' },
 ];
 
-export function Sidebar({ collapsed, onToggleCollapse }) {
-  const { user, hasRole } = useAuth();
+export function Sidebar({ collapsed, onToggleCollapse, onNavigate }) {
+  const { hasRole } = useAuth();
 
   return (
     <aside className={`app-sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-brand">
-        <Shield className="sidebar-brand-icon" size={24} />
+        <Shield className="sidebar-brand-icon" size={22} />
         {!collapsed && (
           <div className="sidebar-brand-text">
             <span className="brand-name">NetSentinel</span>
@@ -51,12 +51,13 @@ export function Sidebar({ collapsed, onToggleCollapse }) {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 `sidebar-nav-item ${isActive ? 'active' : ''}`
               }
               title={collapsed ? item.label : undefined}
             >
-              <Icon size={18} className="nav-icon" />
+              <Icon size={17} className="nav-icon" />
               {!collapsed && <span className="nav-label">{item.label}</span>}
             </NavLink>
           );
@@ -70,10 +71,12 @@ export function Sidebar({ collapsed, onToggleCollapse }) {
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          {!collapsed && <span>Collapse</span>}
+          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          {!collapsed && <span>Collapse Sidebar</span>}
         </button>
       </div>
     </aside>
   );
 }
+
+export default Sidebar;

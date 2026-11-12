@@ -19,6 +19,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
@@ -208,8 +209,8 @@ export default function HostSecurity() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Host Security & Integrity (HIDS)"
-        subtitle="Host-level intrusion detection, SSH brute-force defense, process monitoring, and cryptographic File Integrity Monitoring"
+        title="Host Security"
+        subtitle="Host-level intrusion detection, SSH monitoring, process tracking, and File Integrity Monitoring"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh Host Telemetry">
             <RotateCcw size={14} /> Refresh
@@ -224,14 +225,13 @@ export default function HostSecurity() {
           value={formatNumber(fimStatus?.baseline_file_count, 0, '—')}
           subtext={`${formatNumber(fimStatus?.monitored_path_count, 0, '0')} directory paths`}
           icon={FileText}
-          badge={<StatusBadge status={isFimActive ? 'HEALTHY' : 'DISABLED'} text={isFimActive ? 'FIM ACTIVE' : 'FIM OFF'} />}
         />
         <MetricCard
           title="SSH Auth Failures"
           value={formatNumber(sshDetector.total_failures, 0, '0')}
           subtext={`${formatNumber(sshDetector.total_brute_force_detected, 0, '0')} brute-force alerts`}
           icon={Terminal}
-          badge={<span className={`badge ${sshBadgeClass}`}>{sshBadgeText}</span>}
+          badge={sshDetector.total_brute_force_detected > 0 ? <span className="badge badge-critical">{sshDetector.total_brute_force_detected} ALERTS</span> : null}
         />
         <MetricCard
           title="Suspicious Processes"
@@ -241,11 +241,7 @@ export default function HostSecurity() {
           badge={
             (procMonitor.suspicious_processes_detected || 0) > 0 ? (
               <span className="badge badge-critical">ACTION REQ</span>
-            ) : procMonitor.status === 'RUNNING' ? (
-              <span className="badge badge-success">CLEAN</span>
-            ) : (
-              <span className="badge badge-info">STANDBY</span>
-            )
+            ) : null
           }
         />
         <MetricCard
@@ -253,14 +249,18 @@ export default function HostSecurity() {
           value={formatNumber(fimStatus?.changed_count, 0, '0')}
           subtext={`${formatNumber(fimStatus?.missing_count, 0, '0')} deletions recorded`}
           icon={AlertTriangle}
-          badge={<span className={`badge ${fimBadgeClass}`}>{fimBadgeText}</span>}
+          badge={
+            (fimStatus?.changed_count || 0) > 0 ? (
+              <span className="badge badge-critical">{fimStatus.changed_count} CHANGED</span>
+            ) : null
+          }
         />
       </div>
 
       {/* Host Telemetry & Resource Trends */}
       {hostTelemetry && (
         <DashboardCard title="Host System Resources & Utilization History" icon={Cpu}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div className="dashboard-grid">
             {/* Real-time Time Series Chart */}
             <div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>
@@ -269,22 +269,24 @@ export default function HostSecurity() {
               {telemetryHistory.length > 0 ? (
                 <div style={{ height: '180px', width: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={telemetryHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="hostCpuGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.4} />
+                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
                         </linearGradient>
                         <linearGradient id="hostMemGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
+                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={35} tickFormatter={(v) => `${v}%`} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={36} tickFormatter={(v) => `${v}%`} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                        contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                         formatter={(val, name) => [`${val}%`, name]}
+                        cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
                       />
                       <Area type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />
                       <Area type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#hostMemGrad)" name="RAM %" />

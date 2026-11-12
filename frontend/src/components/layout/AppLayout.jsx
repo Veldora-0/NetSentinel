@@ -15,7 +15,6 @@ export function AppLayout() {
   useEffect(() => {
     let isMounted = true;
 
-    // Fast initial health and readiness check
     const checkStatus = async () => {
       try {
         const health = await checkBackendHealth();
@@ -52,21 +51,21 @@ export function AppLayout() {
       <Sidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(!collapsed)}
+        onNavigate={() => setMobileOpen(false)}
       />
       {mobileOpen && (
         <div className="mobile-overlay" onClick={() => setMobileOpen(false)} />
       )}
       <div className="app-main-wrapper">
         <Topbar
-          apiConnected={apiConnected}
-          socketConnected={socketConnected}
-          readiness={readiness}
           onMenuClick={() => setMobileOpen(!mobileOpen)}
         />
         <main className="app-main-content">
-          <Outlet />
+          <Outlet context={{ apiConnected, socketConnected, readiness }} />
         </main>
       </div>
     </div>
   );
 }
+
+export default AppLayout;

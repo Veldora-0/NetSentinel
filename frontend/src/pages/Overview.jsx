@@ -27,6 +27,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
@@ -37,6 +38,7 @@ import { LoadingState } from '../components/common/LoadingState';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { useSocketEvent } from '../hooks/useSocketEvent';
+import { socket } from '../services/socket';
 import {
   fetchReadiness,
   fetchTrafficMetrics,
@@ -71,6 +73,8 @@ export function Overview() {
 
   // Backend Data State
   const [readiness, setReadiness] = useState(null);
+  const [apiConnected, setApiConnected] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(socket?.connected || false);
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -88,6 +92,7 @@ export function Overview() {
     setError(null);
     try {
       const [
+        readyRes,
         trafficRes,
         sumRes,
         incRes,
@@ -99,6 +104,7 @@ export function Overview() {
         telemRes,
         telemHistRes,
       ] = await Promise.allSettled([
+        fetchReadiness(),
         fetchTrafficMetrics(),
         fetchSecuritySummary(),
         fetchIncidents({ limit: 5 }),
@@ -110,6 +116,23 @@ export function Overview() {
         fetchTelemetryCurrent(),
         fetchTelemetryHistory(20),
       ]);
+
+      // Evaluate API connectivity independently from readiness
+      // Backend /api/ready responds with HTTP 200 (healthy) or HTTP 503 (subsystems degraded)
+      // A network failure (no status) or proxy gateway failure (non-ready response) indicates API is unreachable
+      const hasHttpResponse = (
+        typeof readyRes.value?.status === 'number' &&
+        typeof readyRes.value?.ready === 'boolean'
+      );
+
+      if (hasHttpResponse) {
+        setReadiness(readyRes.value);
+        setApiConnected(true);
+      } else {
+        // Network or request failure: no valid HTTP response from backend API
+        setReadiness(null);
+        setApiConnected(false);
+      }
 
       if (trafficRes.status === 'fulfilled' && trafficRes.value) {
         setTrafficMetrics(trafficRes.value);
@@ -155,6 +178,19 @@ export function Overview() {
     const interval = setInterval(loadOverviewData, 20000);
     return () => clearInterval(interval);
   }, [loadOverviewData]);
+
+  // Track live WebSocket connection state
+  useEffect(() => {
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    setSocketConnected(socket.connected || false);
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, []);
 
   // Real-Time Socket Stream Handlers
   useSocketEvent('traffic_metrics', (data) => {
@@ -234,9 +270,26 @@ export function Overview() {
     : 'LOW';
 
   const isReady = readiness?.ready === true;
+  const isDegraded = readiness && !readiness.ready && typeof readiness.status === 'number';
   const isMlReady = mlStatus?.model_status === 'READY' || mlStatus?.model_ready === true;
   const isMlTraining = mlStatus?.model_status === 'TRAINING' || mlStatus?.warmup_status === 'TRAINING' || mlStatus?.training_in_progress === true;
   const isMlWarmup = mlStatus?.model_status === 'COLLECTING' || mlStatus?.model_status === 'COLLECTING_BASELINE' || mlStatus?.is_collecting === true || mlStatus?.warmup_status === 'WARMUP';
+
+  const systemHealthValue = isReady
+    ? 'OPERATIONAL'
+    : isDegraded
+    ? 'DEGRADED'
+    : apiConnected === false
+    ? 'DISCONNECTED'
+    : 'CHECKING';
+
+  const apiStatusText = apiConnected === true
+    ? 'Online'
+    : apiConnected === false
+    ? 'Offline'
+    : 'Checking';
+
+  const socketStatusText = socketConnected ? 'Online' : 'Offline';
 
   // Severity Distribution Data from Summary or Risk Stats
   const severityBreakdown = [
@@ -267,14 +320,14 @@ export function Overview() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Security Operations Overview"
-        subtitle="Real-time situational awareness across packet capture, hybrid detection rules, ML anomalies, and correlated incidents"
+        title="Overview"
+        subtitle="Real-time intrusion detection, network traffic telemetry, and threat response"
         actions={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               Updated: {lastUpdated.toLocaleTimeString()}
             </span>
-            <button className="btn-refresh" onClick={loadOverviewData} title="Refresh Operations Posture">
+            <button className="btn-refresh" onClick={loadOverviewData} title="Refresh Overview">
               <RotateCcw size={14} /> Refresh
             </button>
             <Link to="/incidents" className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', textDecoration: 'none' }}>
@@ -287,7 +340,7 @@ export function Overview() {
       {error && <ErrorState message={error} onRetry={loadOverviewData} />}
 
       {/* Readiness / Degradation Alert Banner */}
-      {readiness && !readiness.ready && (
+      {isDegraded && (
         <div className="safety-banner warning">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0 }} />
@@ -305,10 +358,9 @@ export function Overview() {
       <div className="metric-cards-grid">
         <MetricCard
           title="System Health"
-          value={isReady ? 'OPERATIONAL' : readiness ? 'DEGRADED' : 'CHECKING'}
-          subtext={`API: Online | Socket: Live`}
+          value={systemHealthValue}
+          subtext={`API: ${apiStatusText} | Stream: ${socketStatusText}`}
           icon={Server}
-          badge={<StatusBadge status={isReady ? 'HEALTHY' : 'WARNING'} text={isReady ? 'HEALTHY' : 'DEGRADED'} />}
           onClick={() => navigate('/system')}
         />
         <MetricCard
@@ -316,7 +368,6 @@ export function Overview() {
           value={`${formatNumber(trafficMetrics?.current_pps ?? trafficMetrics?.packets_per_sec ?? 0, 0)} pps`}
           subtext={formatRate(trafficMetrics?.current_bps ?? trafficMetrics?.bytes_per_sec ?? 0, 'bps')}
           icon={Radio}
-          badge={<span className={`badge ${trafficMetrics?.status === 'running' ? 'badge-success' : 'badge-neutral'}`}>{trafficMetrics?.status?.toUpperCase() || 'STANDBY'}</span>}
           onClick={() => navigate('/network')}
         />
         <MetricCard
@@ -327,18 +378,20 @@ export function Overview() {
           badge={
             (incidentStats?.critical_incidents || 0) > 0 ? (
               <span className="badge badge-critical">CRITICAL</span>
-            ) : (
-              <span className="badge badge-success">STABLE</span>
-            )
+            ) : null
           }
           onClick={() => navigate('/incidents')}
         />
         <MetricCard
           title="Highest Threat Risk"
           value={formatScore(highestRiskScore)}
-          subtext={`Current level: ${highestRiskLevel}`}
+          subtext={`Level: ${highestRiskLevel}`}
           icon={ShieldCheck}
-          badge={<span className={`badge ${getRiskBadgeClass(highestRiskLevel)}`}>{highestRiskLevel}</span>}
+          badge={
+            highestRiskLevel !== 'LOW' ? (
+              <span className={`badge ${getRiskBadgeClass(highestRiskLevel)}`}>{highestRiskLevel}</span>
+            ) : null
+          }
           onClick={() => navigate('/detection')}
         />
         <MetricCard
@@ -354,86 +407,107 @@ export function Overview() {
           }
           subtext={
             isMlReady
-              ? `Baseline: ${mlStatus?.training_sample_count ?? 512} / ${mlStatus?.baseline_windows_required ?? 512} windows (Active)`
-              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows (NIDS/HIDS Active)`
+              ? `Baseline: ${mlStatus?.training_sample_count ?? 512} / ${mlStatus?.baseline_windows_required ?? 512} windows`
+              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows`
           }
           icon={Brain}
-          badge={
-            <StatusBadge
-              status={isMlReady ? 'HEALTHY' : 'INITIALIZING'}
-              text={isMlReady ? 'ONLINE' : isMlTraining ? 'TRAINING' : 'WARMUP'}
-            />
-          }
           onClick={() => navigate('/detection')}
         />
       </div>
 
-      {/* Main Visualization Grid */}
-      <div className="dashboard-grid">
+      {/* Main Visualization Grid - 3 Charts Evenly Distributed */}
+      <div className="overview-charts-grid">
         {/* Network Traffic Trend */}
         <DashboardCard
-          title="Network Traffic Rate (Packets / Second)"
+          title="Network Traffic Rate"
+          subtitle="Packets / second live trend"
           icon={Activity}
           headerRight={
-            <Link to="/network" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/network" className="card-header-link">
               Network Workspace <ArrowRight size={13} />
             </Link>
           }
         >
-          {trafficHistory.length > 0 ? (
-            <div style={{ height: '200px', width: '100%', marginTop: '6px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trafficHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="overviewPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
-                    labelStyle={{ color: '#94a3b8' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="pps"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#overviewPpsGrad)"
-                    name="Packets/sec"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <LoadingState message="Awaiting live traffic telemetry..." compact />
-          )}
+          <div style={{ height: '210px', width: '100%', marginTop: '6px', position: 'relative' }}>
+            {trafficHistory.length === 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                zIndex: 10,
+                fontSize: '0.6875rem',
+                color: 'var(--text-muted)',
+                background: 'rgba(15, 23, 42, 0.85)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid #1e293b',
+              }}>
+                0 pps · Awaiting traffic
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={trafficHistory.length > 0 ? trafficHistory : [
+                  { time: 'T-20s', pps: 0 },
+                  { time: 'T-15s', pps: 0 },
+                  { time: 'T-10s', pps: 0 },
+                  { time: 'T-5s', pps: 0 },
+                  { time: 'Now', pps: 0 },
+                ]}
+                margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="overviewPpsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                  cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="pps"
+                  stroke="#38bdf8"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#overviewPpsGrad)"
+                  name="Packets/sec"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </DashboardCard>
 
         {/* Threat Severity Distribution */}
         <DashboardCard
-          title="Security Event Severity Distribution"
+          title="Security Event Severity"
+          subtitle="Severity distribution breakdown"
           icon={ShieldCheck}
           headerRight={
-            <Link to="/detection" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/detection" className="card-header-link">
               Detection Engine <ArrowRight size={13} />
             </Link>
           }
         >
           {totalSeverityCount > 0 ? (
-            <div style={{ height: '200px', width: '100%', marginTop: '6px' }}>
+            <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={35} allowDecimals={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     formatter={(val) => [`${val} events`, 'Count']}
+                    cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                   />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                     {severityBreakdown.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
@@ -452,23 +526,26 @@ export function Overview() {
 
         {/* Host Resource Trend */}
         <DashboardCard
-          title="Host Resources & Utilization History"
+          title="Host Resources"
+          subtitle="CPU & memory telemetry history"
           icon={Cpu}
           headerRight={
-            <Link to="/host" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+            <Link to="/host" className="card-header-link">
               Host Security <ArrowRight size={13} />
             </Link>
           }
         >
           {telemetryHistory.length > 0 ? (
-            <div style={{ height: '200px', width: '100%', marginTop: '6px' }}>
+            <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={telemetryHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <LineChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={40} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     formatter={(val, name) => [`${val}%`, name]}
+                    cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
                   <Line type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} dot={false} name="CPU %" />
                   <Line type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} dot={false} name="Memory %" />
@@ -490,12 +567,13 @@ export function Overview() {
             <LoadingState message="Collecting host telemetry samples..." compact />
           )}
         </DashboardCard>
+      </div>
 
-        {/* Active Incident Queue - Full Width across columns */}
+      {/* Active Incident Queue - Full Width */}
+      <div style={{ marginTop: '1rem' }}>
         <DashboardCard
           title="Active Correlated Incidents"
           icon={AlertOctagon}
-          style={{ gridColumn: '1 / -1' }}
           headerRight={
             <Link to="/incidents" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
               All Incidents ({incidents.length}) <ArrowRight size={13} />
@@ -558,7 +636,7 @@ export function Overview() {
       </div>
 
       {/* Recent Activity & Mitigation Posture Grid */}
-      <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
+      <div className="overview-bottom-grid">
         {/* Recent Risk Assessments Feed */}
         <DashboardCard
           title="Recent Evaluated Threat Assessments"

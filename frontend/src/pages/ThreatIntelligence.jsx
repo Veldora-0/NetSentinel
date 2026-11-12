@@ -170,8 +170,8 @@ export default function ThreatIntelligence() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Threat Intelligence & Reputation"
-        subtitle="External indicator reputation correlation, asynchronous provider lookups, and multi-source consensus"
+        title="Threat Intelligence"
+        subtitle="External indicator reputation correlation, provider lookups, and cached threat telemetry"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh TI Status">
             <RotateCcw size={14} /> Refresh
@@ -186,33 +186,29 @@ export default function ThreatIntelligence() {
           value={isEnabled ? 'ACTIVE' : 'STANDBY'}
           subtext={isEnabled ? 'Asynchronous enrichment online' : 'Offline / Local detection only'}
           icon={Globe}
-          badge={<StatusBadge status={isEnabled ? 'HEALTHY' : 'DISABLED'} text={isEnabled ? 'ENRICHING' : 'DISABLED'} />}
         />
         <MetricCard
           title="Providers Ready"
           value={`${availableProviders.length} / ${configuredProviders.length}`}
           subtext={configuredProviders.join(', ') || 'No external APIs configured'}
           icon={CheckCircle2}
-          badge={<span className="badge badge-info">{configuredProviders.length} CONFIGURED</span>}
         />
         <MetricCard
           title="Reputation Cache"
           value={formatNumber(status?.cache_entries ?? 0)}
           subtext={`${status?.fresh_cache_entries ?? 0} fresh cached indicators`}
           icon={Layers}
-          badge={<span className="badge badge-success">ACTIVE CACHE</span>}
         />
         <MetricCard
           title="Lookup Queries"
           value={formatNumber((status?.successful_lookups ?? 0) + (status?.failed_lookups ?? 0))}
           subtext={`${status?.successful_lookups ?? 0} resolved, ${status?.failed_lookups ?? 0} errors`}
           icon={Search}
-          badge={<span className="badge badge-neutral">QUEUE: {status?.queue_size ?? 0}</span>}
         />
       </div>
 
       {/* Threat Intelligence Architecture & Reputation Legend */}
-      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+      <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
         <DashboardCard
           title="Threat Intelligence Subsystem Configuration"
           subtitle="External provider enrichment pipeline and query queue status"

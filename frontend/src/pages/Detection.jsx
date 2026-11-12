@@ -21,6 +21,7 @@ import {
   Tooltip,
   Cell,
   ReferenceLine,
+  CartesianGrid,
 } from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { DashboardCard } from '../components/DashboardCard';
@@ -172,8 +173,8 @@ export function Detection() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Intrusion Detection & Composite Risk Engine"
-        subtitle="Dual-engine pipeline combining signature rule inspection and unsupervised Isolation Forest anomaly scoring"
+        title="Detection & Risk"
+        subtitle="Dual-engine pipeline combining signature rule inspection and Isolation Forest anomaly scoring"
         actions={
           <button className="btn-refresh" onClick={loadDetectionData} title="Refresh Detection Telemetry">
             <RotateCcw size={14} /> Refresh
@@ -296,19 +297,21 @@ export function Detection() {
           {chartData.length > 0 ? (
             <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="anomalyScoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
                       <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 1]} width={35} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 1]} width={36} tickFormatter={(v) => v.toFixed(1)} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                     labelStyle={{ color: '#94a3b8' }}
                     formatter={(val) => [formatScore(val, 3), 'Anomaly Score']}
+                    cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
                   <ReferenceLine
                     y={0.5}
@@ -360,15 +363,25 @@ export function Detection() {
                 <BarChart
                   data={detectionTypeData.slice(0, 8)}
                   layout="vertical"
-                  margin={{ top: 5, right: 20, left: 20, bottom: 0 }}
+                  margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
                 >
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} width={100} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
-                    formatter={(val) => [`${val} occurrences`, 'Frequency']}
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="#64748b"
+                    fontSize={10}
+                    tickLine={false}
+                    width={130}
+                    tickFormatter={(name) => (name && name.length > 18 ? `${name.slice(0, 16)}…` : name)}
                   />
-                  <Bar dataKey="count" fill="#06b6d4" radius={[0, 4, 4, 0]} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                    formatter={(val) => [`${val} occurrences`, 'Frequency']}
+                    cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
+                  />
+                  <Bar dataKey="count" fill="#38bdf8" radius={[0, 3, 3, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -384,14 +397,16 @@ export function Detection() {
         <DashboardCard title="Composite Risk Severity Distribution" icon={ShieldAlert}>
           <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={35} allowDecimals={false} />
+                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
                   formatter={(val) => [`${val} assessments`, 'Count']}
+                  cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                   {severityBreakdown.map((entry, index) => (
                     <Cell key={`sev-cell-${index}`} fill={entry.color} />
                   ))}
@@ -404,7 +419,7 @@ export function Detection() {
 
       {/* Composite Risk Engine Formula Breakdown */}
       <DashboardCard title="Composite Risk Scoring Formula & Evidence Model" icon={ShieldCheck}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', background: 'var(--bg-dark)', padding: '14px', borderRadius: '6px' }}>
+        <div className="dashboard-grid" style={{ background: 'var(--bg-dark)', padding: '14px', borderRadius: '6px' }}>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
               Formula Specification
