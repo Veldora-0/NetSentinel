@@ -92,34 +92,9 @@ export default function System() {
         title="System Status"
         subtitle="Runtime subsystem health, background workers, and service connectivity"
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="system-status-pills-bar">
-              <div className="status-pill" title="Readiness probe (/api/ready)">
-                <span className="status-label">Engine:</span>
-                <span className={`status-indicator ${isReady ? 'connected' : readiness ? 'warning' : 'disconnected'}`}>
-                  <span className="status-dot"></span>
-                  {isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
-                </span>
-              </div>
-              <div className="status-pill" title="Backend REST API connectivity (/api/health)">
-                <span className="status-label">API:</span>
-                <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-                  <span className="status-dot"></span>
-                  {isConnected ? 'LIVE' : 'OFFLINE'}
-                </span>
-              </div>
-              <div className="status-pill" title="Real-time WebSocket event stream">
-                <span className="status-label">Stream:</span>
-                <span className={`status-indicator ${socketConnected ? 'connected' : 'disconnected'}`}>
-                  <span className="status-dot"></span>
-                  {socketConnected ? 'ONLINE' : 'OFFLINE'}
-                </span>
-              </div>
-            </div>
-            <button className="btn-refresh" onClick={loadData} title="Run Diagnostic Probes">
-              <RotateCcw size={14} /> Refresh
-            </button>
-          </div>
+          <button className="btn-refresh" onClick={loadData} title="Run Diagnostic Probes">
+            <RotateCcw size={14} /> Refresh
+          </button>
         }
       />
 

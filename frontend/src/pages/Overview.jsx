@@ -363,8 +363,8 @@ export function Overview() {
         />
       </div>
 
-      {/* Main Visualization Grid */}
-      <div className="dashboard-grid">
+      {/* Main Visualization Grid - 3 Charts Evenly Distributed */}
+      <div className="overview-charts-grid">
         {/* Network Traffic Trend */}
         <DashboardCard
           title="Network Traffic Rate"
@@ -515,12 +515,13 @@ export function Overview() {
             <LoadingState message="Collecting host telemetry samples..." compact />
           )}
         </DashboardCard>
+      </div>
 
-        {/* Active Incident Queue - Full Width across columns */}
+      {/* Active Incident Queue - Full Width */}
+      <div style={{ marginTop: '1rem' }}>
         <DashboardCard
           title="Active Correlated Incidents"
           icon={AlertOctagon}
-          style={{ gridColumn: '1 / -1' }}
           headerRight={
             <Link to="/incidents" style={{ fontSize: '0.76rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
               All Incidents ({incidents.length}) <ArrowRight size={13} />
@@ -583,7 +584,7 @@ export function Overview() {
       </div>
 
       {/* Recent Activity & Mitigation Posture Grid */}
-      <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
+      <div className="overview-bottom-grid">
         {/* Recent Risk Assessments Feed */}
         <DashboardCard
           title="Recent Evaluated Threat Assessments"

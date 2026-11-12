@@ -61,10 +61,6 @@ export function Topbar({ onMenuClick }) {
         >
           <Activity size={18} />
         </button>
-        <div className="topbar-title-group">
-          <span className="topbar-title">NetSentinel</span>
-          <span className="topbar-subtitle">Network Security Monitoring &amp; Defense</span>
-        </div>
       </div>
 
       {/* Desktop User Controls */}

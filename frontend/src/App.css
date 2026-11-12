@@ -883,12 +883,39 @@ select option {
   white-space: nowrap;
 }
 
-/* Dashboard Grid */
+/* Dashboard Grids */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1rem;
   width: 100%;
+}
+
+.overview-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .overview-charts-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+.overview-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .overview-bottom-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .card-header {
