@@ -300,58 +300,64 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
               {timeline.length === 0 ? (
                 <EmptyState message="No timeline events registered for this incident." icon={Clock} />
               ) : (
-                timeline.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`timeline-item ${item.type === 'MILESTONE' ? 'milestone' : item.type === 'FIREWALL_ACTION' ? 'firewall' : ''}`}
-                    style={
-                      item.severity === 'CRITICAL' ? { borderLeftColor: 'var(--status-red)' } :
-                      item.severity === 'HIGH' ? { borderLeftColor: 'var(--status-orange)' } :
-                      item.severity === 'MEDIUM' ? { borderLeftColor: 'var(--status-yellow)' } :
-                      item.type === 'FIREWALL_ACTION' ? { borderLeftColor: 'var(--status-red)' } :
-                      item.type === 'MILESTONE' ? { borderLeftColor: 'var(--accent-blue)' } :
-                      { borderLeftColor: 'var(--accent-cyan)' }
-                    }
-                  >
-                    <div className="timeline-top-row">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {item.severity && (
-                          <span className={getRiskBadgeClass(item.severity)} style={{ fontSize: '0.65rem' }}>
-                            {item.severity}
-                          </span>
-                        )}
-                        <span className="timeline-title">{item.title}</span>
-                      </div>
-                      <span className="timeline-time">
-                        <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#64748b' }} />
-                        {formatFullTime(item.timestamp)}
-                      </span>
-                    </div>
-                    <div className="timeline-desc">{item.description}</div>
-                    {item.metadata?.change_type ? (
-                      <div className="fim-timeline-evidence-box">
-                        <div style={{ color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.75rem' }}>Path: {item.metadata.path}</div>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.3rem', flexWrap: 'wrap' }}>
-                          <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>{item.metadata.change_type}</span>
-                          {item.metadata.previous_sha256 && (
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                              Hash: <code>{item.metadata.previous_sha256.substring(0, 10)}...</code> &rarr; <code>{(item.metadata.current_sha256 || 'None').substring(0, 10)}...</code>
+                timeline.map((item, idx) => {
+                  const sev = (item.severity || '').toUpperCase();
+                  const borderLeftColor =
+                    sev === 'CRITICAL' ? '#ef4444' :
+                    sev === 'HIGH' ? '#f97316' :
+                    sev === 'MEDIUM' ? '#fbbf24' :
+                    sev === 'LOW' ? '#38bdf8' :
+                    sev === 'INFO' ? '#94a3b8' :
+                    item.type === 'FIREWALL_ACTION' ? '#ef4444' :
+                    item.type === 'MILESTONE' ? 'var(--accent-blue)' :
+                    'var(--accent-cyan)';
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`timeline-item ${item.type === 'MILESTONE' ? 'milestone' : item.type === 'FIREWALL_ACTION' ? 'firewall' : ''}`}
+                      style={{ borderLeftColor }}
+                    >
+                      <div className="timeline-top-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {item.severity && (
+                            <span className={getRiskBadgeClass(item.severity)} style={{ fontSize: '0.65rem' }}>
+                              {item.severity}
                             </span>
                           )}
+                          <span className="timeline-title">{item.title}</span>
                         </div>
+                        <span className="timeline-time">
+                          <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#64748b' }} />
+                          {formatFullTime(item.timestamp)}
+                        </span>
                       </div>
-                    ) : item.metadata && Object.keys(item.metadata).length > 0 && (
-                      <div style={{ marginTop: '0.35rem' }}>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-                          Evidence Metadata Attributes
+                      <div className="timeline-desc">{item.description}</div>
+                      {item.metadata?.change_type ? (
+                        <div className="fim-timeline-evidence-box">
+                          <div style={{ color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.78rem' }}>Path: {item.metadata.path}</div>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                            <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>{item.metadata.change_type}</span>
+                            {item.metadata.previous_sha256 && (
+                              <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>
+                                Hash: <code>{item.metadata.previous_sha256.substring(0, 10)}...</code> &rarr; <code>{(item.metadata.current_sha256 || 'None').substring(0, 10)}...</code>
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <pre className="evidence-meta-pre">
-                          {JSON.stringify(item.metadata, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                ))
+                      ) : item.metadata && Object.keys(item.metadata).length > 0 && (
+                        <div style={{ marginTop: '0.35rem' }}>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                            Evidence Metadata Attributes
+                          </div>
+                          <pre className="evidence-meta-pre">
+                            {JSON.stringify(item.metadata, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </DashboardCard>

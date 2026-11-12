@@ -96,3 +96,8 @@ All captures represent genuine application states running against the production
    - **Detection & Risk (`/detection`):** Formatted model lifecycle metrics list with clear row borders and label/value separation; neutralized chart hover tooltips during screenshot capture for clean graph presentation.
    - **System Status (`/system`):** Formatted Runtime Environment & Parameters section with clean cards, distinct label/value rows, and readable path strings.
    - **Network Monitoring (`/network`):** Clarified 0-packet state banner (`"0 packets captured — awaiting network activity or elevated privileges"`) while keeping both live charts active with genuine zero-count telemetry.
+7. **Final UI Review Precision Polish:**
+   - **Incidents List (`/incidents`):** Styled `.btn-investigate` controls with dark obsidian backgrounds, subtle sky-blue borders, and compact proportions to match adjacent `.btn-action-ack` controls.
+   - **Incident Detail Timeline Colors (`/incidents/:id`):** Aligned MEDIUM event timeline card left-border color to `#fbbf24` (exact amber-gold of `.badge-medium`), eliminating visual confusion with HIGH events (`#f97316`).
+   - **Evidence Text Readability:** Boosted contrast and sizing for evidence metadata (`0.78rem`, `#cbd5e1`, `line-height: 1.5`) while maintaining compact panel bounding and native scrollability.
+   - **Network Status Clarity (`/network`):** Replaced generic "awaiting traffic" message when packet capture status is `PERMISSION_DENIED` with explicit notification that capture is unavailable until elevated privileges are granted.

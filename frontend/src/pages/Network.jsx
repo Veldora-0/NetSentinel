@@ -265,13 +265,15 @@ export function Network() {
                 right: '8px',
                 zIndex: 10,
                 fontSize: '0.6875rem',
-                color: 'var(--text-muted)',
-                background: 'rgba(15, 23, 42, 0.85)',
+                color: isPermissionDenied ? '#fca5a5' : 'var(--text-muted)',
+                background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
                 padding: '2px 8px',
                 borderRadius: '4px',
-                border: '1px solid #1e293b',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
               }}>
-                0 packets captured — awaiting network activity or elevated privileges
+                {isPermissionDenied
+                  ? 'Packet capture unavailable: CAP_NET_RAW / elevated privileges required'
+                  : '0 packets captured — awaiting network activity'}
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
@@ -326,13 +328,15 @@ export function Network() {
                 right: '8px',
                 zIndex: 10,
                 fontSize: '0.6875rem',
-                color: 'var(--text-muted)',
-                background: 'rgba(15, 23, 42, 0.85)',
+                color: isPermissionDenied ? '#fca5a5' : 'var(--text-muted)',
+                background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
                 padding: '2px 8px',
                 borderRadius: '4px',
-                border: '1px solid #1e293b',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
               }}>
-                0 frames captured — awaiting traffic
+                {isPermissionDenied
+                  ? 'Packet capture unavailable until required privileges are granted'
+                  : '0 frames captured — awaiting traffic'}
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
