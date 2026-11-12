@@ -88,3 +88,11 @@ All captures represent genuine application states running against the production
    - Evaluated `document.documentElement.scrollWidth` directly against `window.innerWidth` for both target mobile viewports:
      - **390 × 844:** `innerWidth = 390px`, `scrollWidth = 378px` (`≤ 390px`) → **Horizontal Overflow: False**
      - **500 × 758:** `innerWidth = 500px`, `scrollWidth = 488px` (`≤ 500px`) → **Horizontal Overflow: False**
+6. **Desktop & Laptop Experience Polish (Final Hardening):**
+   - **Incident Detail Workspace (`/incidents/:id`):** Styled investigation tabs with dark obsidian pills and sky-blue active indicator; restructured chronological attack timeline into distinct cards with colored severity borders, clear timestamp hierarchy, and bounded, wrapped evidence code panels; styled operator action inputs and state transition controls.
+   - **Host Security (`/host`):** Styled telemetry resource gauges (CPU, RAM, Disk, Load) with dedicated labels and percentage bars; separated SSH authentication tracker and Process integrity observer into structured metric rows; formatted FIM monitored paths as individual monospace pills (`/etc/passwd`, `/etc/group`, `/etc/ssh/sshd_config`).
+   - **Uniform Dark Form Controls:** Styled all native `<select>`, `<input>`, and `<textarea>` elements across Incidents, History, Firewall, and Threat Intelligence using consistent dark slate backgrounds (`#0b1120`), subtle borders (`#1e293b`), and sky-blue focus rings.
+   - **Global Custom Dark Scrollbars:** Styled `::-webkit-scrollbar` application-wide with obsidian tracks (`#090d16`) and slate thumbs (`#1e293b`), eliminating native bright white browser scrollbars on tables and panels.
+   - **Detection & Risk (`/detection`):** Formatted model lifecycle metrics list with clear row borders and label/value separation; neutralized chart hover tooltips during screenshot capture for clean graph presentation.
+   - **System Status (`/system`):** Formatted Runtime Environment & Parameters section with clean cards, distinct label/value rows, and readable path strings.
+   - **Network Monitoring (`/network`):** Clarified 0-packet state banner (`"0 packets captured — awaiting network activity or elevated privileges"`) while keeping both live charts active with genuine zero-count telemetry.

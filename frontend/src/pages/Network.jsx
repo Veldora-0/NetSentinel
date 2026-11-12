@@ -271,7 +271,7 @@ export function Network() {
                 borderRadius: '4px',
                 border: '1px solid #1e293b',
               }}>
-                0 pps · Capture idle / awaiting packets
+                0 packets captured — awaiting network activity or elevated privileges
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
@@ -332,7 +332,7 @@ export function Network() {
                 borderRadius: '4px',
                 border: '1px solid #1e293b',
               }}>
-                0 frames captured
+                0 frames captured — awaiting traffic
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
