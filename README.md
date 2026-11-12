@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (323 tests)
+* **pytest** - Automated test suite (454 tests)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -29,7 +29,7 @@
 * **Vite** - High-performance frontend build tool & proxy server
 * **JavaScript (ES6+ / JSX)** - Core frontend scripting
 * **Recharts** - Real-time traffic rate, anomaly score trend, and CPU/RAM resource trend charts
-* **Lucide React** - Modern SOC-style UI iconography
+* **Lucide React** - UI iconography
 
 ---
 
@@ -86,19 +86,24 @@ NetSentinel/
 │   │   │   ├── layout/  # Persistent AppLayout, NavLink Sidebar, Topbar, and PageHeader
 │   │   │   └── common/  # Reusable MetricCard, SeverityBadge, StatusBadge, LoadingState, EmptyState, ErrorState
 │   │   ├── hooks/       # Custom React hooks (useSocketEvent with lifecycle auto-cleanup)
-│   │   ├── pages/       # Dedicated routed workspaces (Overview, Network, Detection, HostSecurity, Incidents, IncidentDetail, ThreatIntelligence, Firewall, History, System, NotFound)
+│   │   ├── pages/       # Dedicated routed workspaces (Overview, Network, Detection, HostSecurity, Incidents, IncidentDetail, ThreatIntelligence, Firewall, History, System, UsersManagement, Login, NotFound)
 │   │   ├── services/    # REST API & Socket.IO client connections (Incidents, Events, Host, History, Telemetry, Risk & Firewall)
 │   │   ├── utils/       # Safe formatting utilities (formatBytes, formatNumber, formatPercent, formatAlertTime)
 │   │   ├── App.jsx      # Root routing controller with BrowserRouter, AppLayout, and workspace routes
-│   │   ├── App.css      # SOC dark theme styling with responsive sidebar, topbar, incident tables, and workspace layouts
+│   │   ├── App.css      # Dark theme styling with responsive sidebar, topbar, incident tables, and workspace layouts
 │   │   └── main.jsx     # React entry point
 │   ├── index.html       # HTML entry point
 │   ├── package.json     # Node dependencies and scripts
 │   └── vite.config.js   # Vite server setup & backend API proxy configuration
 │
+├── docs/
+│   └── ui-review/       # Visual review documentation and UI inventory (27 screenshots)
+│       ├── README.md    # UI audit catalog, rendered viewports, and verification log
+│       └── screenshots/ # Desktop, tablet, and responsive mobile screenshot captures
+│
 ├── reports/             # Security validation execution reports
 │   ├── validation_report.json    # Machine-readable validation report
-│   └── validation_report.md      # SOC executive validation markdown report
+│   └── validation_report.md      # Security validation markdown report
 │
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
@@ -179,7 +184,7 @@ Structured SecurityEvent         Structured MLAnomalyEvent
 SQLite Database                  Flask-SocketIO & REST APIs
 (RiskAssessmentRecord)           (/api/risk/*, /api/firewall/*)
                                           ↓
-                             React SOC Dashboard
+                             React Dashboard Console
                   (Composite Risk & Firewall Mitigation Cards)
 ```
 
@@ -210,7 +215,7 @@ $$\text{combined\_score} = \begin{cases}
 |---|---|---|---|
 | `0.00 – 0.29` | **`LOW`** | `monitor` | Normal/benign traffic; observation only |
 | `0.30 – 0.59` | **`MEDIUM`** | `log` | Minor anomaly or single low-severity probe; logged |
-| `0.60 – 0.79` | **`HIGH`** | `alert` | High-confidence intrusion attempt; active SOC alert |
+| `0.60 – 0.79` | **`HIGH`** | `alert` | High-confidence intrusion attempt; active security alert |
 | `0.80 – 1.00` | **`CRITICAL`** | `block` | Severe attack pattern; candidate for automated blocking |
 
 ---
@@ -286,6 +291,13 @@ sudo iptables -X NETSENTINEL
 | `RISK_MAX_REPEAT_BOOST` | `0.20` | Maximum cumulative repeat detection boost |
 | `RISK_HISTORY_WINDOW_SEC` | `60.0` | Time window for tracking repeated source IP detections |
 | `RISK_AUTO_BLOCK_THRESHOLD`| `0.80` | Composite risk score threshold required for auto-block |
+| `ML_ENABLED` | `true` | Enable/disable machine learning anomaly detection |
+| `ML_WINDOW_SECONDS` | `5.0` | Duration of each traffic aggregation window in seconds |
+| `ML_BASELINE_WINDOWS` | `512` | Normal traffic baseline windows required before model readiness |
+| `ML_MIN_SAMPLES` | `512` | Minimum baseline samples strictly required before training |
+| `ML_BASELINE_FILTER` | `none` | Production baseline outlier filtering strategy (`none` or `two_stage_trim`) |
+| `ML_ANOMALY_THRESHOLD` | `0.50` | Calibrated anomaly decision threshold (0.0 to 1.0) |
+| `ML_ALERT_COOLDOWN_SEC` | `15.0` | Anomaly alert suppression cooldown in seconds |
 
 ---
 
@@ -324,7 +336,7 @@ sudo iptables -X NETSENTINEL
 * `GET /api/incidents`: Retrieve paginated and filtered security incidents (`limit`, `offset`, `status`, `severity`, `source_ip`, `correlation_key`, `since`, `until`).
 * `GET /api/incidents/<id>`: Retrieve comprehensive incident detail with correlated evidence items.
 * `GET /api/incidents/<id>/timeline`: Unified chronological timeline of all events, assessments, mitigations, and milestones.
-* `GET /api/incidents/<id>/summary`: SOC-ready executive report summary with ISO timestamps, duration, and mitigations.
+* `GET /api/incidents/<id>/summary`: Incident summary report with ISO timestamps, duration, and mitigations.
 * `GET /api/incidents/stats`: High-level incident metrics (open/resolved counts, severity breakdown, top incident sources).
 * `POST /api/incidents/<id>/status`: Generic workflow transition endpoint (`{"status": "...", "analyst_note": "...", "resolution": "..."}`).
 * `POST /api/incidents/<id>/acknowledge`: Operator shortcut to acknowledge an incident.
@@ -377,9 +389,9 @@ NetSentinel's **Incident Correlation and Investigation Layer** transforms isolat
    * `correlation_reason` provides transparent audit justifications for operators and viva presentation.
 
 5. **Operator Status Workflow & Deep Investigation**:
-   * Supports standard SOC lifecycle states: `OPEN` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `RESOLVED` $\rightarrow$ `CLOSED` with operator notes, resolution rationales, and reopen capabilities.
+   * Supports standard incident lifecycle states: `OPEN` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `RESOLVED` $\rightarrow$ `CLOSED` with operator notes, resolution rationales, and reopen capabilities.
    * `build_incident_timeline` compiles a unified chronological flow of milestones, detections, and firewall mitigations.
-   * React SOC Dashboard features an interactive incidents table, severity/status filters, and dedicated routed Investigation Workspace (`/incidents/:incidentId`) with visual timelines, report export, and operator action controls.
+   * React Dashboard Console features an interactive incidents table, severity/status filters, and dedicated routed Investigation Workspace (`/incidents/:incidentId`) with visual timelines, report export, and operator action controls.
 
 ---
 
@@ -427,7 +439,7 @@ NetSentinel implements a bounded, secure, non-destructive File Integrity Monitor
 
 ## 12. Threat Intelligence Enrichment & Reputation Correlation (Phase 11)
 
-NetSentinel provides an optional, privacy-preserving threat intelligence enrichment layer for externally observed public source IP addresses. It aggregates reputation evidence from multiple intelligence feeds to provide context during SOC triage and incident investigation.
+NetSentinel provides an optional, privacy-preserving threat intelligence enrichment layer for externally observed public source IP addresses. It aggregates reputation evidence from multiple intelligence feeds to provide context during security triage and incident investigation.
 
 ```
 Security Event (Public Source IP)
@@ -448,7 +460,7 @@ Security Event (Public Source IP)
      ├── Risk Engine Bounded Modifier (+0.15 MALICIOUS, halved if stale)
      │   *TI alone NEVER causes CRITICAL risk or firewall blocks*
      ├── Incident Correlation (THREAT_INTELLIGENCE evidence attachment)
-     └── Real-Time WebSocket (`threat_intel_update`) & SOC Dashboard
+     └── Real-Time WebSocket (`threat_intel_update`) & Dashboard Console
 ```
 
 ### Key Architectural Design & Privacy Guardrails
@@ -593,7 +605,7 @@ sudo journalctl -u netsentinel -f -o cat
 
 ## 15. Authentication & Role-Based Access Control (Phase 13)
 
-NetSentinel provides a native, zero-external-bloat authentication and authorization layer designed for SOC environments and management plane protection.
+NetSentinel provides a native, zero-external-bloat authentication and authorization layer designed for security monitoring and management plane protection.
 
 ### 1. Architectural Highlights
 * **Zero Heavy Dependencies**: Implemented natively using Flask, SQLAlchemy, and standard `werkzeug.security`. Avoids heavy enterprise dependencies (OAuth, Keycloak, LDAP, Redis) while maintaining production security standards.
@@ -608,7 +620,7 @@ NetSentinel enforces a three-tier role hierarchy across the entire REST API:
 
 | Role | Permissions | Accessible Actions |
 |---|---|---|
-| **`VIEWER`** | `read:security` | Read-only SOC observation: Overview, Network metrics, Security events, Host telemetry, FIM status, Threat intelligence indicators, Incident details. All mutations rejected (HTTP 403). |
+| **`VIEWER`** | `read:security` | Read-only monitoring observation: Overview, Network metrics, Security events, Host telemetry, FIM status, Threat intelligence indicators, Incident details. All mutations rejected (HTTP 403). |
 | **`ANALYST`** | `read:security`, `manage:incidents`, `query:threat_intel` | Full viewer access + Incident triage (Acknowledge, Resolve, Close, Reopen, Analyst notes) + On-demand external threat intelligence indicator lookups. Firewall controls, FIM rebaselining, and user management rejected (HTTP 403). |
 | **`ADMIN`** | `read:security`, `manage:incidents`, `query:threat_intel`, `manage:firewall`, `manage:fim`, `manage:users`, `system:admin` | Full operational access: Manual firewall blocking/unblocking, FIM baseline recalculation, user provisioning, role assignments, and password resets. |
 
@@ -635,7 +647,7 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 323 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
+All 454 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
@@ -652,8 +664,11 @@ Test coverage:
 * `tests/test_e2e_validation_harness.py`: Automated programmatic execution of the 13-scenario validation harness.
 * `tests/test_auth.py`: Password validation, scrypt hashing, to_dict secret redaction, token creation/verification/revocation, login/logout workflows, disabled user rejection, self-service password change, admin user management lifecycle, last-admin safeguards, and administrator bootstrap.
 * `tests/test_rbac.py`: Public endpoint access (`/api/health`, `/api/ready`), unauthenticated 401 rejection across all protected endpoints, malformed header rejection, VIEWER read-only enforcement and 403 mutation blocks, ANALYST incident triage and threat intel queries, and ADMIN full operational control.
+* `tests/test_rbac_hardening.py`: Granular RBAC boundary hardening, permission matrix edge cases, token revocation safety, and privilege escalation guards.
+* `tests/test_frontend_auth_integration.py`: Frontend authentication flow integration, session storage token synchronization, and protected route redirection validation.
 * `tests/test_config_validation.py`: Central configuration validator, host/port checks, interval bounds, risk threshold clamping, CIDR/IP allowlists, CORS parsing, and secret redaction.
 * `tests/test_security_ops.py`: Structured logging secret sanitization, request correlation ID propagation, defensive security headers, normalized JSON errors, sliding-window rate limiting, liveness probe (`/api/health`), readiness probe (`/api/ready`), runtime diagnostics (`/api/system/status`), worker watchdog lifecycle, database latency probe, and firewall capability checks.
+* `tests/test_worker_lifecycle_health.py`: Subsystem worker lifecycle watchdog, thread registration, status checks, and graceful shutdown sequencing.
 * `tests/test_ti_eligibility.py`: Public vs private, loopback, multicast, link-local, broadcast, unspecified, and local identifier rejection.
 * `tests/test_ti_providers.py`: AbuseIPDB and VirusTotal adapter responses (clean, malicious, 404, 429 rate limit backoff, timeout, private IP rejection).
 * `tests/test_ti_cache.py`: In-memory LRU capacity eviction, TTL expiration, in-flight deduplication locks, and SQLite persistence hooks.
@@ -666,8 +681,12 @@ Test coverage:
 * `tests/test_icmp_detector.py`: ICMP sweep detection, unique destination counting, duplicate probe deduplication, time window expiration, alert cooldown, and edge-case filtering.
 * `tests/test_network_api.py`: Advanced network REST endpoints (`/api/network/status`, `/api/network/arp`), pipeline persistence, and RiskEngine domain classification.
 * `tests/test_capture.py`: Raw socket lifecycle, error handling, unprivileged fallbacks, and rolling metrics (including ARP frames).
+* `tests/test_capture_interface_status.py`: Raw socket capture interface discovery, status reporting, promiscuous mode checks, and unprivileged permission-denied fallback states.
 * `tests/test_detector.py`: Port scan, SYN flood, NULL scan, XMAS scan, window expiration, alert cooldowns, and memory bounds.
 * `tests/test_ml.py`: 13-feature window extraction, zero-division safety, IsolationForest lifecycle, persistence, corrupted file safety, and anomaly detection.
+* `tests/test_ml_hardening_audit.py`: ML pipeline hardening, baseline validation, model corruption recovery, and atomic persistence integrity.
+* `tests/test_ml_pipeline_diagnostics.py`: ML diagnostics API, sliding window buffer bounds, and memory profile diagnostics.
+* `tests/test_production_baseline_lifecycle.py`: 512-window baseline lifecycle, warm-up state transitions, and restart sample compatibility.
 * `tests/test_risk.py`: Severity scores, ML weighting, score clamping, boundary mapping, repeat frequency boost, and state pruning.
 * `tests/test_firewall.py`: IP validation, localhost/broadcast/multicast protection, allowlists, argument security (no shell=True), expiration, and isolated chain flushing.
 * `tests/test_database.py`: SQLAlchemy persistence models, queries, filtering, pagination, and automated retention cleanup.
@@ -680,7 +699,7 @@ Test coverage:
 * `tests/test_host_api.py`: HIDS REST endpoints (`/api/host/status`, `/api/host/events`), and end-to-end pipeline persistence.
 * `tests/test_incidents_db.py`: Incident & evidence models, cascading deletion, filtering, pagination, incident statistics, and selective retention cleanup (protecting active incidents).
 * `tests/test_incident_correlator.py`: Correlation key resolution, time window expiration, cross-domain boost (+0.10), multi-vector boost (+0.05), monotonic severity clamping, host process identity isolation, firewall action correlation, and bounded memory eviction.
-* `tests/test_incident_workflow.py`: Status transitions (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), invalid transition rejection, reopening, chronological timeline generation, and SOC executive report generation.
+* `tests/test_incident_workflow.py`: Status transitions (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED`), invalid transition rejection, reopening, chronological timeline generation, and incident executive report generation.
 * `tests/test_incident_api.py`: Incident REST endpoints (`/api/incidents/*`, `/api/incidents/stats`, `/api/incidents/<id>/timeline`, `/api/incidents/<id>/summary`), action shortcuts, and Socket.IO live emissions.
 * `tests/test_fim_scanner.py`: Baseline creation, persistence callbacks, restart with existing baseline, chunked SHA-256 hashing, size bounds, symlink safety, change detection (created, deleted, modified, replaced, metadata), and duplicate suppression.
 * `tests/test_fim_database.py`: FIM baseline record CRUD, filtering, pagination, stats aggregation, event queries, and retention cleanup survival.
@@ -731,7 +750,7 @@ Execute the validation harness directly in the CLI environment:
 
 The harness generates structured execution artifacts in the `reports/` directory:
 * `reports/validation_report.json`: Machine-readable results with timestamps, scenario durations, and metrics.
-* `reports/validation_report.md`: SOC executive validation report detailing scenario outcomes and security invariants.
+* `reports/validation_report.md`: Security validation report detailing scenario outcomes and security invariants.
 
 ---
 
@@ -771,7 +790,10 @@ Monitored via `psutil` during the full canonical execution:
 * **Final CPU Utilization**: `99.3%` (The benchmark evaluation loop runs sequentially in a single Python thread, while internal Scikit-learn/NumPy routines utilize multi-core CPU capabilities when available)
 * **Execution Duration**: `17.92 seconds` total wall-clock time across all 7 benchmark suites and ML evaluation.
 
-### 4. Machine Learning Evaluation (Held-Out Test Set)
+### 4. Synthetic Micro-Benchmark Evaluation (Deterministic Synthetic Dataset)
+
+> [!NOTE]
+> **Synthetic Micro-Benchmark Context**: The evaluation below represents a deterministic offline micro-benchmark conducted using NetSentinel's internal synthetic traffic generator (`backend/evaluation/data_generator.py`) with 50 normal baseline windows and 200 synthetic test windows (100 normal, 100 synthetic attacks; random seed 1337). This test serves as an unprivileged developer regression check, throughput profile, and threshold sensitivity test. It is **completely separate from the authoritative production evaluation on real network captures (CTU-IDSEVAL-6)** detailed in Section 18.5.
 
 The unsupervised Isolation Forest model (trained on 50 normal baseline windows, random seed 42) was evaluated against a held-out test dataset of 200 windows (100 normal, 100 synthetic attacks; random seed 1337):
 
@@ -825,7 +847,30 @@ Evaluation framework CLI options:
 
 ## 18.5 Production Machine Learning Anomaly Detection Evaluation
 
-NetSentinel includes an offline evaluation framework for evaluating the production unsupervised Isolation Forest pipeline against ground-truth labeled network traffic windows.
+NetSentinel evaluates its production unsupervised Isolation Forest pipeline against real-world labeled network traffic captures to verify anomaly detection efficacy under authentic network conditions.
+
+### Dataset Used for Production ML Evaluation
+
+The authoritative production evaluation was performed using the **CTU-IDSEVAL-6** intrusion detection evaluation dataset:
+
+* **Dataset Name**: CTU-IDSEVAL-6
+* **Dataset Title**: *"CTU-IDSEVAL-6: A Labeled Network Dataset for the Evaluation of Intrusion Detection Systems"*
+* **Original Publication**: Published on Zenodo  
+  **DOI / URL**: [https://doi.org/10.5281/zenodo.21027042](https://doi.org/10.5281/zenodo.21027042)
+* **Kaggle Dataset Identifier**: `veldora0/ctu-idseval-6`
+* **Dataset Composition & Traffic Profiles**:
+  * **Benign User Traffic**: Background enterprise and workstation traffic, web browsing, DNS queries, and benign network protocol interactions.
+  * **Malware Traffic**: Real malware execution traces capturing botnet command-and-control, data exfiltration, and malicious network flows.
+  * **Port-Scan Traffic**: Active network reconnaissance, horizontal and vertical port scanning, and stealth probes.
+
+#### Unsupervised Baseline Formulation & Evaluation Methodology
+* **Unsupervised Learning Paradigm**: NetSentinel's Isolation Forest is strictly an **unsupervised anomaly detection algorithm**. The model is trained exclusively on unlabelled normal network traffic without exposure to attack samples or labels during fitting. Ground-truth labels are used exclusively for offline, post-inference performance measurement (accuracy, precision, recall, F1, ROC-AUC, PR-AUC). The model is **not** a supervised classifier.
+* **Benign Baseline Profile**: The baseline was fitted using **512 consecutive benign traffic windows** ($512 \times 5.0\text{s} = 2,560\text{ seconds} \approx 42.67\text{ minutes}$) sampled from the benign user traffic captures.
+* **No Baseline Outlier Filtering**: The production evaluation used clean, unfiltered baseline windows (`baseline_filter="none"`). Empirical hardening demonstrated that volumetric outlier filtering trims valid high-throughput benign traffic (such as legitimate file transfers or active sessions), whereas an unfiltered 512-window baseline reliably captures authentic network variance.
+* **Evaluation on Held-Out Traffic**: The fitted baseline model was evaluated against held-out, non-overlapping evaluation captures containing benign user traffic, malware executions, and port scans.
+* **Feature Schema**: All evaluations strictly used the canonical 13 network traffic features in exact order.
+* **Decision Threshold**: Operating decision threshold $T = 0.50$.
+* **Discrete Windowing**: Non-overlapping 5.0-second aggregation windows across both baseline profiling and test evaluation.
 
 ### Authoritative Evaluation Results
 
@@ -863,7 +908,7 @@ Evaluated with the approved production single Isolation Forest configuration usi
 * **Decision Threshold**: Static anomaly decision threshold $T = 0.50$.
 * **Baseline Configuration**: 512 valid normal traffic windows ($512 \times 5.0\text{s} = 2,560\text{ seconds} \approx 42.67\text{ minutes}$).
 * **Outlier Filtering**: **None** (`baseline_filter="none"`). Preserves legitimate high-throughput and connection-oriented sessions during baseline collection.
-* **Evaluation Provenance**: Evaluated across ground-truth annotated network traffic windows under strict partition disjointness, zero baseline contamination, and unbiased temporal windowing.
+* **Evaluation Provenance**: Evaluated across ground-truth annotated network traffic windows from CTU-IDSEVAL-6 under strict partition disjointness, zero baseline contamination, and unbiased temporal windowing.
 
 ---
 

@@ -71,9 +71,10 @@ All captures represent genuine application states running against the production
 
 ## 5. UI Review Corrections & Verification Log
 
-1. **Mobile Topbar Overhaul:**
-   - Redesigned topbar navigation for mobile screens (`<= 768px`). Replaced bulky multi-pill layout with a compact health badge and an accessible operator profile popover menu.
-   - All branding, hamburger drawer trigger, operator username, role badge, telemetry status indicators, and sign-out actions remain accessible without visual overlap or text collisions.
+1. **Topbar Navigation Streamlining & Status Relocation:**
+   - Streamlined topbar navigation across desktop, tablet, and mobile viewports. Removed secondary telemetry indicators (`Engine`, `API`, `Stream`) from the global topbar and consolidated runtime health reporting onto the System Status page (`/system`).
+   - Removed redundant NetSentinel logo and tagline branding from the desktop topbar (already anchored in the persistent sidebar), dedicating the topbar cleanly to operator identity, role badge, and sign-out actions.
+   - For mobile screens (`<= 768px`), replaced multi-pill layouts with an accessible operator profile menu. All navigation controls, hamburger menu triggers, and user controls remain collision-free.
 2. **Dashboard Chart Header Alignment:**
    - Resolved heading and action link collision on the Network Traffic Rate card by introducing a flex-wrapping card header with distinct title and subtitle hierarchy.
    - Verified across desktop (1920×1080), laptop (1366×768), and tablet (768×1024) viewports.
@@ -95,12 +96,12 @@ All captures represent genuine application states running against the production
    - **Global Custom Dark Scrollbars:** Styled `::-webkit-scrollbar` application-wide with obsidian tracks (`#090d16`) and slate thumbs (`#1e293b`), eliminating native bright white browser scrollbars on tables and panels.
    - **Detection & Risk (`/detection`):** Formatted model lifecycle metrics list with clear row borders and label/value separation; neutralized chart hover tooltips during screenshot capture for clean graph presentation.
    - **System Status (`/system`):** Formatted Runtime Environment & Parameters section with clean cards, distinct label/value rows, and readable path strings.
-   - **Network Monitoring (`/network`):** Clarified 0-packet state banner (`"0 packets captured — awaiting network activity or elevated privileges"`) while keeping both live charts active with genuine zero-count telemetry.
+   - **Network Monitoring (`/network`):** Clarified zero-frame idle states (`"0 frames captured — awaiting traffic"`) while keeping both live throughput and protocol distribution charts active with genuine zero-count telemetry.
 7. **UI Review Precision Polish:**
    - **Incidents List (`/incidents`):** Styled `.btn-investigate` controls with dark obsidian backgrounds, subtle sky-blue borders, and compact proportions to match adjacent `.btn-action-ack` controls.
    - **Incident Detail Timeline Colors (`/incidents/:id`):** Aligned MEDIUM event timeline card left-border color to `#fbbf24` (exact amber-gold of `.badge-medium`), eliminating visual confusion with HIGH events (`#f97316`).
    - **Evidence Text Readability:** Boosted contrast and sizing for evidence metadata (`0.78rem`, `#cbd5e1`, `line-height: 1.5`) while maintaining compact panel bounding and native scrollability.
-   - **Network Status Clarity (`/network`):** Replaced generic "awaiting traffic" message when packet capture status is `PERMISSION_DENIED` with explicit notification that capture is unavailable until elevated privileges are granted.
+   - **Network Privilege Messaging (`/network`):** When packet capture status is `PERMISSION_DENIED` (running unprivileged without `CAP_NET_RAW`), explicitly notifies the operator (`"Packet capture unavailable until required privileges are granted"`) rather than displaying a generic idle state.
 8. **Final Design Refinement & Layout Balancing:**
    - **Removed Duplicated Status Indicators:** Removed the compact status-pills row on `/system`. Subsystem health is now cleanly represented solely in the 5 comprehensive metric cards (Detection Engine, REST API, WebSocket Stream, Database, and Firewall Netfilter), preserving real backend probe sources without redundancy.
    - **Removed Redundant Topbar Branding:** The desktop topbar no longer duplicates the NetSentinel logo and tagline already present in the primary sidebar navigation. Desktop topbar cleanly hosts user identity, role badge, and sign-out controls.
