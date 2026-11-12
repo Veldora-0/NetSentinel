@@ -15,7 +15,6 @@ export function AppLayout() {
   useEffect(() => {
     let isMounted = true;
 
-    // Fast initial health and readiness check
     const checkStatus = async () => {
       try {
         const health = await checkBackendHealth();
@@ -59,13 +58,10 @@ export function AppLayout() {
       )}
       <div className="app-main-wrapper">
         <Topbar
-          apiConnected={apiConnected}
-          socketConnected={socketConnected}
-          readiness={readiness}
           onMenuClick={() => setMobileOpen(!mobileOpen)}
         />
         <main className="app-main-content">
-          <Outlet />
+          <Outlet context={{ apiConnected, socketConnected, readiness }} />
         </main>
       </div>
     </div>

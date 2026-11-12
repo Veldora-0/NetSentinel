@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, User, LogOut, ChevronDown, Radio, Wifi, Shield } from 'lucide-react';
+import { Activity, User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export function Topbar({ apiConnected, socketConnected, readiness, onMenuClick }) {
-  const isReady = readiness?.ready === true;
+export function Topbar({ onMenuClick }) {
   const { user, logout, isAuthenticated } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -52,8 +51,6 @@ export function Topbar({ apiConnected, socketConnected, readiness, onMenuClick }
     }
   };
 
-  const isSystemNominal = isReady && apiConnected && socketConnected;
-
   return (
     <header className="app-topbar">
       <div className="topbar-left">
@@ -65,38 +62,13 @@ export function Topbar({ apiConnected, socketConnected, readiness, onMenuClick }
           <Activity size={18} />
         </button>
         <div className="topbar-title-group">
-          <span className="topbar-title desktop-only-text">SOC Operations Console</span>
-          <span className="topbar-title mobile-only-text">NetSentinel SOC</span>
-          <span className="topbar-subtitle">Real-time Hybrid Intrusion Detection &amp; Prevention</span>
+          <span className="topbar-title">NetSentinel</span>
+          <span className="topbar-subtitle">Network Security Monitoring &amp; Defense</span>
         </div>
       </div>
 
-      {/* Desktop Navigation Status & Profile */}
+      {/* Desktop User Controls */}
       <div className="topbar-status-group desktop-topbar-controls">
-        <div className="status-pill" title="Readiness probe (/api/ready)">
-          <span className="status-label">Engine:</span>
-          <span className={`status-indicator ${isReady ? 'connected' : readiness ? 'warning' : 'disconnected'}`}>
-            <span className="status-dot"></span>
-            {isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
-          </span>
-        </div>
-
-        <div className="status-pill" title="Backend REST API connectivity">
-          <span className="status-label">API:</span>
-          <span className={`status-indicator ${apiConnected ? 'connected' : 'disconnected'}`}>
-            <span className="status-dot"></span>
-            {apiConnected ? 'Live' : 'Offline'}
-          </span>
-        </div>
-
-        <div className="status-pill" title="Real-time WebSocket event stream">
-          <span className="status-label">Stream:</span>
-          <span className={`status-indicator ${socketConnected ? 'connected' : 'disconnected'}`}>
-            <span className="status-dot"></span>
-            {socketConnected ? 'Online' : 'Offline'}
-          </span>
-        </div>
-
         {isAuthenticated && user && (
           <div className="topbar-user-block">
             <div className="user-profile-tag">
@@ -119,22 +91,14 @@ export function Topbar({ apiConnected, socketConnected, readiness, onMenuClick }
         )}
       </div>
 
-      {/* Mobile-Optimized Status & Profile Trigger */}
+      {/* Mobile-Optimized Profile Trigger */}
       <div className="mobile-topbar-controls" ref={dropdownRef}>
-        <div
-          className={`compact-sys-badge ${isSystemNominal ? 'connected' : 'warning'}`}
-          title={`System Health: Engine=${isReady ? 'READY' : 'DEGRADED'}, API=${apiConnected ? 'Live' : 'Offline'}, Stream=${socketConnected ? 'Online' : 'Offline'}`}
-        >
-          <span className="status-dot"></span>
-          <span>{isSystemNominal ? 'READY' : 'DEGRADED'}</span>
-        </div>
-
         {isAuthenticated && user && (
           <div className="mobile-profile-wrapper">
             <button
               className={`mobile-profile-btn ${profileOpen ? 'active' : ''}`}
               onClick={() => setProfileOpen(!profileOpen)}
-              aria-label="Operator Profile Menu"
+              aria-label="User Profile Menu"
               aria-expanded={profileOpen}
             >
               <User size={14} />
@@ -150,42 +114,9 @@ export function Topbar({ apiConnected, socketConnected, readiness, onMenuClick }
                     <div>
                       <div className="dropdown-username">{user.username}</div>
                       <span className="user-role-badge" style={getRoleBadgeStyle(user.role)}>
-                        {user.role} OPERATOR
+                        {user.role}
                       </span>
                     </div>
-                  </div>
-                </div>
-
-                <div className="dropdown-divider" />
-
-                <div className="dropdown-status-section">
-                  <div className="dropdown-section-title">Telemetry Status</div>
-                  <div className="dropdown-status-row">
-                    <span className="dropdown-status-label">
-                      <Shield size={12} /> Engine
-                    </span>
-                    <span className={`status-indicator ${isReady ? 'connected' : 'warning'}`}>
-                      <span className="status-dot"></span>
-                      {isReady ? 'READY' : 'DEGRADED'}
-                    </span>
-                  </div>
-                  <div className="dropdown-status-row">
-                    <span className="dropdown-status-label">
-                      <Radio size={12} /> REST API
-                    </span>
-                    <span className={`status-indicator ${apiConnected ? 'connected' : 'disconnected'}`}>
-                      <span className="status-dot"></span>
-                      {apiConnected ? 'LIVE' : 'OFFLINE'}
-                    </span>
-                  </div>
-                  <div className="dropdown-status-row">
-                    <span className="dropdown-status-label">
-                      <Wifi size={12} /> Stream
-                    </span>
-                    <span className={`status-indicator ${socketConnected ? 'connected' : 'disconnected'}`}>
-                      <span className="status-dot"></span>
-                      {socketConnected ? 'ONLINE' : 'OFFLINE'}
-                    </span>
                   </div>
                 </div>
 

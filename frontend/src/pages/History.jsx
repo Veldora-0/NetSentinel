@@ -135,8 +135,8 @@ export default function History() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Security Event History & Audit Log"
-        subtitle="Persisted historical audit trail of detected network threats, anomaly detections, HIDS events, and host alterations"
+        title="Security History"
+        subtitle="Audit trail of detected threats, anomaly scores, and host security events"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh Event History">
             <RotateCcw size={14} /> Refresh

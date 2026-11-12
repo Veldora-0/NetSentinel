@@ -91,7 +91,7 @@ export function Login() {
             margin: 0,
             lineHeight: 1.4,
           }}>
-            Security Operations Console &bull; Operator Access
+            Sign in to NetSentinel
           </p>
         </div>
 
@@ -125,7 +125,7 @@ export function Login() {
               color: '#cbd5e1',
               marginBottom: '0.35rem',
             }}>
-              Operator Username
+              Username
             </label>
             <div style={{ position: 'relative' }}>
               <div style={{
@@ -271,7 +271,7 @@ export function Login() {
               </>
             ) : (
               <>
-                <span>Sign In to Console</span>
+                <span>Sign In</span>
                 <ArrowRight size={15} />
               </>
             )}
@@ -288,9 +288,7 @@ export function Login() {
           color: '#64748b',
           lineHeight: 1.45,
         }}>
-          Protected by NetSentinel RBAC &amp; Session Controls.
-          <br />
-          Authorized operator access only.
+          Protected by NetSentinel authentication &amp; session controls.
         </div>
       </div>
     </div>

@@ -151,7 +151,7 @@ ${summaryReport.analyst_note ? `\nAnalyst Notes:\n${summaryReport.analyst_note}`
 
   const handleDownloadReport = () => {
     if (!summaryReport) return;
-    const reportMarkdown = `# NetSentinel SOC Incident Investigation Report
+    const reportMarkdown = `# NetSentinel Incident Investigation Report
 **Incident ID:** \`${incidentId}\`  
 **Generated At:** ${new Date().toISOString()}  
 
@@ -281,7 +281,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           className={`investigation-tab-btn ${activeTab === 'report' ? 'active' : ''}`}
           onClick={() => setActiveTab('report')}
         >
-          <CheckCircle2 size={14} /> Executive SOC Report
+          <CheckCircle2 size={14} /> Executive Report
         </button>
         <button
           className={`investigation-tab-btn ${activeTab === 'threat-intel' ? 'active' : ''}`}
@@ -482,7 +482,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
         {/* Tab 4: SOC Report Summary */}
         {activeTab === 'report' && (
           <DashboardCard
-            title="SOC Executive Incident Report"
+            title="Executive Incident Summary"
             icon={CheckCircle2}
             actions={
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

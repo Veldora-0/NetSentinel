@@ -374,9 +374,13 @@ select option {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: 0.5rem;
-  padding-left: 0.65rem;
-  border-left: 1px solid var(--border-color);
+}
+
+.system-status-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .user-profile-tag {
@@ -844,20 +848,13 @@ select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background-color: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  color: var(--accent-cyan);
+  color: #64748b;
   flex-shrink: 0;
 }
 
 .metric-title {
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 0.76rem;
+  font-weight: 500;
   color: var(--text-secondary);
   line-height: 1.25;
 }
@@ -920,7 +917,7 @@ select option {
 }
 
 .card-icon {
-  color: var(--accent-cyan);
+  color: #64748b;
   flex-shrink: 0;
 }
 
@@ -1267,10 +1264,9 @@ select option {
 }
 
 .incident-kpi-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .incident-kpi-value {
@@ -1623,10 +1619,9 @@ select option {
 }
 
 .ti-stat-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ti-stat-val {
@@ -1798,10 +1793,9 @@ select option {
 }
 
 .mini-stat-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .mini-stat-val {
@@ -1818,8 +1812,8 @@ select option {
 }
 
 .host-section-block {
-  background-color: #0b1120;
-  border: 1px solid var(--border-color);
+  background-color: rgba(11, 17, 32, 0.5);
+  border: 1px solid rgba(30, 41, 59, 0.7);
   border-radius: var(--radius-md);
   padding: 0.85rem 1rem;
 }
@@ -1880,10 +1874,9 @@ select option {
 }
 
 .stat-title {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .stat-num {
@@ -1916,10 +1909,9 @@ select option {
 }
 
 .fim-stat-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .fim-stat-value {

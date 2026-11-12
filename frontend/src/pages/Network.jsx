@@ -192,8 +192,8 @@ export function Network() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Network Traffic & Threat Monitoring"
-        subtitle="Live kernel AF_PACKET frame ingestion, layer 2/3 protocol telemetry, and advanced ARP/ICMP detection"
+        title="Network Monitoring"
+        subtitle="Live frame ingestion, protocol telemetry, and ARP/ICMP anomaly detection"
         actions={
           <button className="btn-refresh" onClick={loadNetworkData} title="Refresh Network Telemetry">
             <RotateCcw size={14} /> Refresh
@@ -243,9 +243,7 @@ export function Network() {
           badge={
             (networkStatus?.arp?.conflicts_detected || 0) > 0 ? (
               <span className="badge badge-critical">CONFLICT</span>
-            ) : (
-              <span className="badge badge-success">HEALTHY</span>
-            )
+            ) : null
           }
         />
       </div>

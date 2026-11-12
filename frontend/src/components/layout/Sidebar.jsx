@@ -39,7 +39,7 @@ export function Sidebar({ collapsed, onToggleCollapse, onNavigate }) {
         {!collapsed && (
           <div className="sidebar-brand-text">
             <span className="brand-name">NetSentinel</span>
-            <span className="brand-version">SOC v1.0.0</span>
+            <span className="brand-version">v1.0.0</span>
           </div>
         )}
       </div>

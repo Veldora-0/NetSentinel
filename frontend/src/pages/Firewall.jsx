@@ -135,8 +135,8 @@ export default function Firewall() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Firewall Mitigation (iptables)"
-        subtitle="Active Linux netfilter kernel integration, automated risk mitigation, and manual host quarantine controls"
+        title="Firewall Management"
+        subtitle="Linux netfilter iptables integration, host quarantine, and automated mitigations"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh Firewall State">
             <RotateCcw size={14} /> Refresh
@@ -180,9 +180,7 @@ export default function Firewall() {
           badge={
             blockedIPs.length > 0 ? (
               <span className="badge badge-critical">{blockedIPs.length} BLOCKED</span>
-            ) : (
-              <span className="badge badge-neutral">ZERO BLOCKS</span>
-            )
+            ) : null
           }
         />
         <MetricCard
@@ -190,7 +188,6 @@ export default function Firewall() {
           value={isEnabled ? 'ENABLED' : 'DISABLED'}
           subtext={`Chain: ${firewallStatus?.chain || 'NETSENTINEL'}`}
           icon={Shield}
-          badge={<StatusBadge status={isEnabled ? 'HEALTHY' : 'DISABLED'} text={isEnabled ? 'ONLINE' : 'STANDBY'} />}
         />
         <MetricCard
           title="Automated Defense"
@@ -200,9 +197,7 @@ export default function Firewall() {
           badge={
             isAutoBlock ? (
               <span className="badge badge-critical">AUTO-BLOCK ON</span>
-            ) : (
-              <span className="badge badge-neutral">AUTO-BLOCK OFF</span>
-            )
+            ) : null
           }
         />
         <MetricCard
@@ -210,7 +205,6 @@ export default function Firewall() {
           value={isDryRun ? 'DRY-RUN' : isEnabled ? 'LIVE KERNEL' : 'DISABLED'}
           subtext={isDryRun ? 'Simulated rules without kernel drops' : isEnabled ? 'Active Linux netfilter' : 'Demonstration safe mode'}
           icon={CheckCircle2}
-          badge={<span className={`badge ${isDryRun || !isEnabled ? 'badge-warning' : 'badge-success'}`}>{isDryRun || !isEnabled ? 'SAFE MODE' : 'LIVE'}</span>}
         />
       </div>
 

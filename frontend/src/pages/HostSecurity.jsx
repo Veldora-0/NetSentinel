@@ -209,8 +209,8 @@ export default function HostSecurity() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Host Security & Integrity (HIDS)"
-        subtitle="Host-level intrusion detection, SSH brute-force defense, process monitoring, and cryptographic File Integrity Monitoring"
+        title="Host Security"
+        subtitle="Host-level intrusion detection, SSH monitoring, process tracking, and File Integrity Monitoring"
         actions={
           <button className="btn-refresh" onClick={loadData} title="Refresh Host Telemetry">
             <RotateCcw size={14} /> Refresh
@@ -225,14 +225,13 @@ export default function HostSecurity() {
           value={formatNumber(fimStatus?.baseline_file_count, 0, '—')}
           subtext={`${formatNumber(fimStatus?.monitored_path_count, 0, '0')} directory paths`}
           icon={FileText}
-          badge={<StatusBadge status={isFimActive ? 'HEALTHY' : 'DISABLED'} text={isFimActive ? 'FIM ACTIVE' : 'FIM OFF'} />}
         />
         <MetricCard
           title="SSH Auth Failures"
           value={formatNumber(sshDetector.total_failures, 0, '0')}
           subtext={`${formatNumber(sshDetector.total_brute_force_detected, 0, '0')} brute-force alerts`}
           icon={Terminal}
-          badge={<span className={`badge ${sshBadgeClass}`}>{sshBadgeText}</span>}
+          badge={sshDetector.total_brute_force_detected > 0 ? <span className="badge badge-critical">{sshDetector.total_brute_force_detected} ALERTS</span> : null}
         />
         <MetricCard
           title="Suspicious Processes"
@@ -242,11 +241,7 @@ export default function HostSecurity() {
           badge={
             (procMonitor.suspicious_processes_detected || 0) > 0 ? (
               <span className="badge badge-critical">ACTION REQ</span>
-            ) : procMonitor.status === 'RUNNING' ? (
-              <span className="badge badge-success">CLEAN</span>
-            ) : (
-              <span className="badge badge-info">STANDBY</span>
-            )
+            ) : null
           }
         />
         <MetricCard
@@ -254,7 +249,11 @@ export default function HostSecurity() {
           value={formatNumber(fimStatus?.changed_count, 0, '0')}
           subtext={`${formatNumber(fimStatus?.missing_count, 0, '0')} deletions recorded`}
           icon={AlertTriangle}
-          badge={<span className={`badge ${fimBadgeClass}`}>{fimBadgeText}</span>}
+          badge={
+            (fimStatus?.changed_count || 0) > 0 ? (
+              <span className="badge badge-critical">{fimStatus.changed_count} CHANGED</span>
+            ) : null
+          }
         />
       </div>
 

@@ -268,14 +268,14 @@ export function Overview() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Security Operations Overview"
-        subtitle="Real-time situational awareness across packet capture, hybrid detection rules, ML anomalies, and correlated incidents"
+        title="Overview"
+        subtitle="Real-time intrusion detection, network traffic telemetry, and threat response"
         actions={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               Updated: {lastUpdated.toLocaleTimeString()}
             </span>
-            <button className="btn-refresh" onClick={loadOverviewData} title="Refresh Operations Posture">
+            <button className="btn-refresh" onClick={loadOverviewData} title="Refresh Overview">
               <RotateCcw size={14} /> Refresh
             </button>
             <Link to="/incidents" className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', textDecoration: 'none' }}>
@@ -307,9 +307,8 @@ export function Overview() {
         <MetricCard
           title="System Health"
           value={isReady ? 'OPERATIONAL' : readiness ? 'DEGRADED' : 'CHECKING'}
-          subtext={`API: Online | Socket: Live`}
+          subtext={`API: ${isReady ? 'Online' : 'Checking'} | Stream: Live`}
           icon={Server}
-          badge={<StatusBadge status={isReady ? 'HEALTHY' : 'WARNING'} text={isReady ? 'HEALTHY' : 'DEGRADED'} />}
           onClick={() => navigate('/system')}
         />
         <MetricCard
@@ -317,7 +316,6 @@ export function Overview() {
           value={`${formatNumber(trafficMetrics?.current_pps ?? trafficMetrics?.packets_per_sec ?? 0, 0)} pps`}
           subtext={formatRate(trafficMetrics?.current_bps ?? trafficMetrics?.bytes_per_sec ?? 0, 'bps')}
           icon={Radio}
-          badge={<span className={`badge ${trafficMetrics?.status === 'running' ? 'badge-success' : 'badge-neutral'}`}>{trafficMetrics?.status?.toUpperCase() || 'STANDBY'}</span>}
           onClick={() => navigate('/network')}
         />
         <MetricCard
@@ -328,18 +326,20 @@ export function Overview() {
           badge={
             (incidentStats?.critical_incidents || 0) > 0 ? (
               <span className="badge badge-critical">CRITICAL</span>
-            ) : (
-              <span className="badge badge-success">STABLE</span>
-            )
+            ) : null
           }
           onClick={() => navigate('/incidents')}
         />
         <MetricCard
           title="Highest Threat Risk"
           value={formatScore(highestRiskScore)}
-          subtext={`Current level: ${highestRiskLevel}`}
+          subtext={`Level: ${highestRiskLevel}`}
           icon={ShieldCheck}
-          badge={<span className={`badge ${getRiskBadgeClass(highestRiskLevel)}`}>{highestRiskLevel}</span>}
+          badge={
+            highestRiskLevel !== 'LOW' ? (
+              <span className={`badge ${getRiskBadgeClass(highestRiskLevel)}`}>{highestRiskLevel}</span>
+            ) : null
+          }
           onClick={() => navigate('/detection')}
         />
         <MetricCard
@@ -355,16 +355,10 @@ export function Overview() {
           }
           subtext={
             isMlReady
-              ? `Baseline: ${mlStatus?.training_sample_count ?? 512} / ${mlStatus?.baseline_windows_required ?? 512} windows (Active)`
-              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows (NIDS/HIDS Active)`
+              ? `Baseline: ${mlStatus?.training_sample_count ?? 512} / ${mlStatus?.baseline_windows_required ?? 512} windows`
+              : `Baseline: ${mlStatus?.baseline_windows_collected ?? mlStatus?.baseline_samples_collected ?? 0} / ${mlStatus?.baseline_windows_required ?? mlStatus?.baseline_target_samples ?? 512} windows`
           }
           icon={Brain}
-          badge={
-            <StatusBadge
-              status={isMlReady ? 'HEALTHY' : 'INITIALIZING'}
-              text={isMlReady ? 'ONLINE' : isMlTraining ? 'TRAINING' : 'WARMUP'}
-            />
-          }
           onClick={() => navigate('/detection')}
         />
       </div>

@@ -173,8 +173,8 @@ export function Detection() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Intrusion Detection & Composite Risk Engine"
-        subtitle="Dual-engine pipeline combining signature rule inspection and unsupervised Isolation Forest anomaly scoring"
+        title="Detection & Risk"
+        subtitle="Dual-engine pipeline combining signature rule inspection and Isolation Forest anomaly scoring"
         actions={
           <button className="btn-refresh" onClick={loadDetectionData} title="Refresh Detection Telemetry">
             <RotateCcw size={14} /> Refresh

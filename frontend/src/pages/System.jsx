@@ -8,21 +8,23 @@ import {
   AlertTriangle,
   RotateCcw,
   Layers,
+  Radio,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/common/MetricCard';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { DashboardCard } from '../components/DashboardCard';
 import { LoadingState } from '../components/common/LoadingState';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { checkBackendHealth, fetchReadiness, fetchSystemStatus } from '../services/api';
+import { socket } from '../services/socket';
 import { formatUptime } from '../utils/formatters';
 
 export default function System() {
   const [health, setHealth] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(socket?.connected || false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -47,7 +49,18 @@ export default function System() {
   useEffect(() => {
     loadData();
     const interval = setInterval(loadData, 8000);
-    return () => clearInterval(interval);
+
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    setSocketConnected(socket.connected || false);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
   }, [loadData]);
 
   if (loading && !health && !systemStatus) {
@@ -62,7 +75,7 @@ export default function System() {
   const isConnected = health?.connected === true;
   const is429 = readiness?.status === 429;
 
-  // Semantically correct database state: UNKNOWN/CHECKING != HEALTHY
+  // Database state
   const dbStatus = systemStatus?.database != null
     ? (systemStatus.database.healthy ? 'HEALTHY' : 'OFFLINE')
     : 'CHECKING';
@@ -76,12 +89,37 @@ export default function System() {
   return (
     <div className="page-container">
       <PageHeader
-        title="System Status & Health Diagnostics"
-        subtitle="Runtime operational readiness probes, subsystem worker states, database telemetry, and platform diagnostics"
+        title="System Status"
+        subtitle="Runtime subsystem health, background workers, and service connectivity"
         actions={
-          <button className="btn-refresh" onClick={loadData} title="Run Diagnostic Probes">
-            <RotateCcw size={14} /> Refresh Probes
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="system-status-pills-bar">
+              <div className="status-pill" title="Readiness probe (/api/ready)">
+                <span className="status-label">Engine:</span>
+                <span className={`status-indicator ${isReady ? 'connected' : readiness ? 'warning' : 'disconnected'}`}>
+                  <span className="status-dot"></span>
+                  {isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
+                </span>
+              </div>
+              <div className="status-pill" title="Backend REST API connectivity (/api/health)">
+                <span className="status-label">API:</span>
+                <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+                  <span className="status-dot"></span>
+                  {isConnected ? 'LIVE' : 'OFFLINE'}
+                </span>
+              </div>
+              <div className="status-pill" title="Real-time WebSocket event stream">
+                <span className="status-label">Stream:</span>
+                <span className={`status-indicator ${socketConnected ? 'connected' : 'disconnected'}`}>
+                  <span className="status-dot"></span>
+                  {socketConnected ? 'ONLINE' : 'OFFLINE'}
+                </span>
+              </div>
+            </div>
+            <button className="btn-refresh" onClick={loadData} title="Run Diagnostic Probes">
+              <RotateCcw size={14} /> Refresh
+            </button>
+          </div>
         }
       />
 
@@ -96,51 +134,49 @@ export default function System() {
       {readiness && !isReady && !is429 && (
         <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <AlertTriangle size={18} color="#f59e0b" />
-          <span><strong>Degraded Health (HTTP 503):</strong> One or more required subsystem workers or storage components are offline or degraded.</span>
+          <span><strong>Degraded Health (HTTP 503):</strong> One or more subsystem workers are offline or degraded.</span>
         </div>
       )}
 
-      {/* KPI Probe Cards */}
+      {/* Consolidated Runtime Service Metric Cards */}
       <div className="metric-cards-grid">
         <MetricCard
-          title="Readiness Probe (/api/ready)"
-          value={isReady ? 'READY (200)' : readiness ? 'DEGRADED (503)' : 'CHECKING'}
-          subtext="Kubernetes / Systemd operational gate"
+          title="Detection Engine"
+          value={isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
+          subtext="Readiness probe (/api/ready)"
           icon={CheckCircle2}
-          badge={<StatusBadge status={isReady ? 'HEALTHY' : readiness ? 'DEGRADED' : 'CHECKING'} text={isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'} />}
         />
         <MetricCard
-          title="Liveness Health (/api/health)"
-          value={isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+          title="REST API"
+          value={isConnected ? 'LIVE' : 'OFFLINE'}
           subtext={`Uptime: ${formatUptime(appUptime)}`}
           icon={Activity}
-          badge={<StatusBadge status={isConnected ? 'HEALTHY' : 'FAILED'} text={isConnected ? 'ONLINE' : 'OFFLINE'} />}
         />
         <MetricCard
-          title="Database Latency"
+          title="WebSocket Stream"
+          value={socketConnected ? 'ONLINE' : 'OFFLINE'}
+          subtext="Real-time event stream"
+          icon={Radio}
+        />
+        <MetricCard
+          title="Database"
           value={dbLatencyDisplay}
-          subtext="SQLite WAL durable persistence layer"
+          subtext="SQLite WAL storage"
           icon={Database}
-          badge={<StatusBadge status={dbStatus} text={dbStatus} />}
         />
         <MetricCard
           title="Firewall Netfilter"
           value={systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'LIVE KERNEL') : (systemStatus?.firewall ? 'DISABLED' : 'CHECKING')}
           subtext={`Chain: ${systemStatus?.firewall?.chain || 'NETSENTINEL'}`}
           icon={Shield}
-          badge={
-            <span className={`badge ${systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'badge-warning' : 'badge-success') : systemStatus?.firewall ? 'badge-info' : 'badge-neutral'}`}>
-              {systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'ACTIVE') : (systemStatus?.firewall ? 'OFF' : 'CHECKING')}
-            </span>
-          }
         />
       </div>
 
       {/* Subsystem Worker Lifecycle Matrix */}
       <div style={{ marginTop: '1rem' }}>
         <DashboardCard
-          title="Subsystem Background Workers & Health Matrix"
-          subtitle="Real-time lifecycle state and thread heartbeat timestamps for all NetSentinel subsystems"
+          title="Subsystem Background Workers"
+          subtitle="Real-time lifecycle state and thread heartbeat for NetSentinel background workers"
           icon={Layers}
         >
           {Object.keys(workers).length === 0 ? (
@@ -154,20 +190,22 @@ export default function System() {
                     <th>Role / Responsibility</th>
                     <th>Status</th>
                     <th>Last Heartbeat</th>
-                    <th>Worker Diagnostics</th>
+                    <th>Diagnostics</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(workers).map(([name, w]) => (
                     <tr key={name}>
                       <td style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.85rem' }}>
-                        {name.replace(/_/g, ' ').toUpperCase()}
+                        {name.replace(/_/g, ' ')}
                       </td>
                       <td style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>
-                        {w.role || 'Background operational process'}
+                        {w.role || 'Background process'}
                       </td>
                       <td>
-                        <StatusBadge status={w.status || 'UNKNOWN'} text={w.status || 'UNKNOWN'} />
+                        <span className={`badge ${w.status === 'RUNNING' || w.status === 'ACTIVE' || w.status === 'HEALTHY' ? 'badge-success' : w.status === 'DEGRADED' ? 'badge-warning' : 'badge-neutral'}`}>
+                          {w.status || 'UNKNOWN'}
+                        </span>
                       </td>
                       <td style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
                         {w.last_heartbeat_seconds != null ? `${w.last_heartbeat_seconds}s ago` : 'Active'}
@@ -184,7 +222,7 @@ export default function System() {
         </DashboardCard>
       </div>
 
-      {/* System Runtime Configuration (Redacted) */}
+      {/* System Runtime Configuration */}
       <div style={{ marginTop: '1rem' }}>
         <DashboardCard title="Runtime Environment & Parameters" icon={Server}>
           <div className="dashboard-grid">
