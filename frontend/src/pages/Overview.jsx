@@ -38,6 +38,7 @@ import { LoadingState } from '../components/common/LoadingState';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { useSocketEvent } from '../hooks/useSocketEvent';
+import { socket } from '../services/socket';
 import {
   fetchReadiness,
   fetchTrafficMetrics,
@@ -72,6 +73,7 @@ export function Overview() {
 
   // Backend Data State
   const [readiness, setReadiness] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(socket?.connected || false);
   const [trafficMetrics, setTrafficMetrics] = useState(null);
   const [trafficHistory, setTrafficHistory] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -89,6 +91,7 @@ export function Overview() {
     setError(null);
     try {
       const [
+        readyRes,
         trafficRes,
         sumRes,
         incRes,
@@ -100,6 +103,7 @@ export function Overview() {
         telemRes,
         telemHistRes,
       ] = await Promise.allSettled([
+        fetchReadiness(),
         fetchTrafficMetrics(),
         fetchSecuritySummary(),
         fetchIncidents({ limit: 5 }),
@@ -111,6 +115,12 @@ export function Overview() {
         fetchTelemetryCurrent(),
         fetchTelemetryHistory(20),
       ]);
+
+      if (readyRes.status === 'fulfilled' && readyRes.value) {
+        setReadiness(readyRes.value);
+      } else if (readyRes.status === 'rejected') {
+        setReadiness({ ready: false, ok: false, error: readyRes.reason?.message || 'Readiness probe unreachable' });
+      }
 
       if (trafficRes.status === 'fulfilled' && trafficRes.value) {
         setTrafficMetrics(trafficRes.value);
@@ -156,6 +166,19 @@ export function Overview() {
     const interval = setInterval(loadOverviewData, 20000);
     return () => clearInterval(interval);
   }, [loadOverviewData]);
+
+  // Track live WebSocket connection state
+  useEffect(() => {
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    setSocketConnected(socket.connected || false);
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, []);
 
   // Real-Time Socket Stream Handlers
   useSocketEvent('traffic_metrics', (data) => {
@@ -307,7 +330,7 @@ export function Overview() {
         <MetricCard
           title="System Health"
           value={isReady ? 'OPERATIONAL' : readiness ? 'DEGRADED' : 'CHECKING'}
-          subtext={`API: ${isReady ? 'Online' : 'Checking'} | Stream: Live`}
+          subtext={`API: ${readiness ? 'Online' : 'Checking'} | Stream: ${socketConnected ? 'Online' : 'Offline'}`}
           icon={Server}
           onClick={() => navigate('/system')}
         />
