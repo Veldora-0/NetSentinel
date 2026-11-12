@@ -11,9 +11,11 @@ All captures represent genuine application states running against the production
 - **Application URL:** `http://localhost:5173` (Vite dev server proxied to Flask backend on port 5000)
 - **Browser Engine:** Mozilla Firefox (Headless Mode via Selenium WebDriver)
 - **Zoom Level:** 100%
-- **Desktop Viewport:** 1920 × 1080 (Inner rendering: 1920 × 994)
-- **Tablet Viewport:** 768 × 1024
-- **Responsive Mobile Viewports:** Mobile portrait viewports (390 × 844 and ~500 × 758, mobile breakpoint `< 768px`)
+- **Desktop Viewport:** 1920 × 1080 (Rendered viewport: 1920 × 994)
+- **Tablet Viewport:** 768 × 1024 (Rendered viewport: 768 × 938)
+- **Responsive Mobile Viewports:**
+  - Mobile compact portrait: 390 × 844 (Rendered viewport: 390 × 844)
+  - Mobile standard portrait: 500 × 758 (Rendered viewport: 500 × 672)
 - **Authentication Session:** Authenticated as primary operator (`admin`, Role: `ADMIN`)
 - **Safety Posture:** All authentication inputs masked; no credentials, secrets, session cookies, or private API keys exposed.
 
@@ -21,7 +23,7 @@ All captures represent genuine application states running against the production
 
 ## 2. Desktop Screenshot Inventory (1920 × 1080)
 
-| Screenshot File | Page Route | Viewport | Description |
+| Screenshot File | Page Route | Rendered Dimensions | Description |
 |---|---|---|---|
 | [`01-login.png`](./screenshots/01-login.png) | `/login` | 1920 × 994 | Redesigned enterprise authentication portal featuring obsidian slate card, refined typography, and credential inputs. |
 | [`01-login-error.png`](./screenshots/01-login-error.png) | `/login` | 1920 × 994 | Login form with authentication failure alert banner and validation feedback. |
@@ -47,27 +49,27 @@ All captures represent genuine application states running against the production
 
 ## 3. Tablet Screenshot Inventory (768 × 1024)
 
-| Screenshot File | Page Route | Viewport | Description |
+| Screenshot File | Page Route | Rendered Dimensions | Description |
 |---|---|---|---|
-| [`tablet-01-dashboard.png`](./screenshots/tablet-01-dashboard.png) | `/overview` | 768 × 1024 | Tablet portrait view of the SOC Overview dashboard with responsive 2-column metric cards and adapted chart sizing. |
+| [`tablet-01-dashboard.png`](./screenshots/tablet-01-dashboard.png) | `/overview` | 768 × 938 | Tablet portrait view of the SOC Overview dashboard with responsive 2-column metric cards and adapted chart sizing. |
 
 ---
 
-## 4. Responsive Mobile Screenshot Inventory (390 × 844 / 500 × 758)
+## 4. Responsive Mobile Screenshot Inventory
 
-| Screenshot File | Page Route | Viewport | Description |
-|---|---|---|---|
-| [`responsive-01-login.png`](./screenshots/responsive-01-login.png) | `/login` | 500 × 672 | Responsive mobile view of the authentication portal. |
-| [`responsive-02-dashboard.png`](./screenshots/responsive-02-dashboard.png) | `/overview` | 500 × 672 | Responsive single-column dashboard layout with non-overlapping mobile topbar (brand title, compact health badge, operator profile trigger). |
-| [`responsive-03-mobile-drawer.png`](./screenshots/responsive-03-mobile-drawer.png) | `/overview` | 500 × 672 | Mobile navigation slide-out drawer active via hamburger menu button. |
-| [`responsive-04-network.png`](./screenshots/responsive-04-network.png) | `/network` | 500 × 672 | Responsive network monitoring view adapted for compact mobile displays. |
-| [`responsive-05-incidents.png`](./screenshots/responsive-05-incidents.png) | `/incidents` | 500 × 672 | Responsive incidents queue showing mobile-friendly incident cards and status indicators. |
-| [`responsive-06-host.png`](./screenshots/responsive-06-host.png) | `/host` | 500 × 672 | Responsive host security monitor displaying host resource cards and FIM status. |
-| [`responsive-07-firewall.png`](./screenshots/responsive-07-firewall.png) | `/firewall` | 500 × 672 | Responsive firewall controls and safe-mode evaluation banner on mobile. |
+| Screenshot File | Page Route | Rendered Dimensions | Target Viewport | Description |
+|---|---|---|---|---|
+| [`responsive-01-login.png`](./screenshots/responsive-01-login.png) | `/login` | 500 × 672 | 500 × 758 | Responsive mobile view of the authentication portal. |
+| [`responsive-02-dashboard.png`](./screenshots/responsive-02-dashboard.png) | `/overview` | 390 × 844 | 390 × 844 | Exact compact mobile view (390 × 844) with non-overlapping header (brand title, compact health badge, operator profile button). |
+| [`responsive-03-mobile-drawer.png`](./screenshots/responsive-03-mobile-drawer.png) | `/overview` | 500 × 672 | 500 × 758 | Mobile navigation slide-out drawer active via hamburger menu button. |
+| [`responsive-04-network.png`](./screenshots/responsive-04-network.png) | `/network` | 500 × 672 | 500 × 758 | Responsive network monitoring view adapted for compact mobile displays. |
+| [`responsive-05-incidents.png`](./screenshots/responsive-05-incidents.png) | `/incidents` | 500 × 672 | 500 × 758 | Responsive incidents queue showing mobile-friendly incident cards and status indicators. |
+| [`responsive-06-host.png`](./screenshots/responsive-06-host.png) | `/host` | 500 × 672 | 500 × 758 | Responsive host security monitor displaying host resource cards and FIM status. |
+| [`responsive-07-firewall.png`](./screenshots/responsive-07-firewall.png) | `/firewall` | 500 × 672 | 500 × 758 | Responsive firewall controls and safe-mode evaluation banner on mobile. |
 
 ---
 
-## 5. UI Review Corrections Implemented
+## 5. UI Review Corrections & Verification Log
 
 1. **Mobile Topbar Overhaul:**
    - Redesigned topbar navigation for mobile screens (`<= 768px`). Replaced bulky multi-pill layout with a compact system health badge and an accessible operator profile popover menu.
@@ -82,3 +84,7 @@ All captures represent genuine application states running against the production
 4. **Network Monitoring Empty States:**
    - Preserved actual kernel packet capture permission-denied warnings.
    - Maintained active AreaChart and BarChart visualization surfaces during 0-packet idle states using genuine zero-count data, eliminating blank loading states and awkward whitespace without fabricating fake data.
+5. **Mobile Viewport Overflow Audit:**
+   - Evaluated `document.documentElement.scrollWidth` directly against `window.innerWidth` for both target mobile viewports:
+     - **390 × 844:** `innerWidth = 390px`, `scrollWidth = 378px` (`≤ 390px`) → **Horizontal Overflow: False**
+     - **500 × 758:** `innerWidth = 500px`, `scrollWidth = 488px` (`≤ 500px`) → **Horizontal Overflow: False**
