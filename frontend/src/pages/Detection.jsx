@@ -71,6 +71,11 @@ export function Detection() {
         fetchSecuritySummary(),
       ]);
 
+      const coreResponses = [mlStatRes, mlMetRes, riskStatRes, sumRes];
+      if (coreResponses.every((result) => result.status !== 'fulfilled' || result.value == null)) {
+        setError('Detection and risk services are unavailable. Check the backend connection and retry.');
+      }
+
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
       if (mlMetRes.status === 'fulfilled' && mlMetRes.value) setMlMetrics(mlMetRes.value);
       if (risksRes.status === 'fulfilled' && risksRes.value) {

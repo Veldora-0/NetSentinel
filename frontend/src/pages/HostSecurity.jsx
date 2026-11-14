@@ -164,8 +164,12 @@ export default function HostSecurity() {
     return <ErrorState message={error} onRetry={loadData} />;
   }
 
-  const sshDetector = hostStatus?.components?.ssh_detector || {};
-  const procMonitor = hostStatus?.components?.process_monitor || {};
+  // /api/host/status returns component summaries directly on `host`. Accept
+  // the older nested shape as well so socket updates and older API versions
+  // continue to render consistently.
+  const hostComponents = hostStatus?.components || hostStatus || {};
+  const sshDetector = hostComponents.ssh_detector || {};
+  const procMonitor = hostComponents.process_monitor || {};
   const isFimActive = fimStatus?.enabled && fimStatus?.baseline_ready;
 
   // Semantic FIM Badge
@@ -236,7 +240,7 @@ export default function HostSecurity() {
         <MetricCard
           title="Suspicious Processes"
           value={formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
-          subtext={`${formatNumber(procMonitor.visible_processes, 0, '0')} total visible PIDs`}
+          subtext={`${formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, '0')} total visible PIDs`}
           icon={ShieldAlert}
           badge={
             (procMonitor.suspicious_processes_detected || 0) > 0 ? (
@@ -385,17 +389,17 @@ export default function HostSecurity() {
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Monitored Auth Log</span>
-                <span className="host-prop-value">{sshDetector.log_file || 'auto (/var/log/auth.log)'}</span>
+                <span className="host-prop-value">{sshDetector.log_file || sshDetector.log_path || 'auto (/var/log/auth.log)'}</span>
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Brute-Force Threshold</span>
                 <span className="host-prop-value">
-                  {sshDetector.threshold_failures || 5} failures / {sshDetector.window_seconds || 120}s
+                  {sshDetector.threshold_failures || sshDetector.threshold || 5} failures / {sshDetector.window_seconds || 120}s
                 </span>
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Current Tracked Attacker IPs</span>
-                <span className="host-prop-value">{formatNumber(sshDetector.tracked_ips_count, 0, '0')}</span>
+                <span className="host-prop-value">{formatNumber(sshDetector.tracked_ips_count ?? sshDetector.tracked_sources_count, 0, '0')}</span>
               </div>
             </div>
 
@@ -433,7 +437,7 @@ export default function HostSecurity() {
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Baseline Established</span>
-                <span className="host-prop-value">{procMonitor.baseline_established ? 'YES (Active)' : 'Initializing'}</span>
+                <span className="host-prop-value">{(procMonitor.baseline_established ?? procMonitor.baseline_ready) ? 'YES (Active)' : 'Initializing'}</span>
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Inspection Interval</span>
@@ -444,7 +448,7 @@ export default function HostSecurity() {
             <div className="host-stats-row">
               <div className="host-stat-box">
                 <span className="stat-title">Visible Processes</span>
-                <span className="stat-num">{formatNumber(procMonitor.visible_processes, 0, '0')}</span>
+                <span className="stat-num">{formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, '0')}</span>
               </div>
               <div className="host-stat-box">
                 <span className="stat-title">Suspicious Invocations</span>
@@ -623,6 +627,11 @@ export default function HostSecurity() {
                         const evData = typeof ev.evidence === 'object' ? ev.evidence : {};
                         const prevHash = evData.previous_sha256 ? `${evData.previous_sha256.substring(0, 12)}...` : '-';
                         const currHash = evData.current_sha256 ? `${evData.current_sha256.substring(0, 12)}...` : '-';
+                        const metadataChanges = [
+                          ['Mode', evData.previous_mode, evData.current_mode],
+                          ['Owner UID', evData.previous_uid, evData.current_uid],
+                          ['Group GID', evData.previous_gid, evData.current_gid],
+                        ].filter(([, previous, current]) => previous != null && current != null && String(previous) !== String(current));
                         return (
                           <tr key={ev.event_id || idx}>
                             <td style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>{formatAlertTime(ev.timestamp)}</td>
@@ -654,7 +663,13 @@ export default function HostSecurity() {
                                 <span>Inode: {evData.previous_inode} &rarr; {evData.current_inode}</span>
                               )}
                               {ev.detection_type === 'FILE_METADATA_CHANGED' && (
-                                <span>Mode: {evData.previous_mode} &rarr; {evData.current_mode}</span>
+                                <span>
+                                  {metadataChanges.length ? metadataChanges.map(([label, previous, current]) => (
+                                      <span key={label} style={{ display: 'block' }}>
+                                        {label}: {previous} &rarr; {current}
+                                      </span>
+                                    )) : 'Metadata change recorded'}
+                                </span>
                               )}
                               {ev.detection_type === 'FILE_CREATED' && (
                                 <span>New file (size: {formatBytes(evData.size)})</span>

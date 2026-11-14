@@ -869,7 +869,7 @@ select option {
 
 .metric-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.85rem;
   width: 100%;
 }
@@ -947,6 +947,12 @@ select option {
   color: var(--text-primary);
   line-height: 1.15;
   letter-spacing: -0.02em;
+}
+
+@media (max-width: 1440px) {
+  .metric-value {
+    font-size: 1.2rem;
+  }
 }
 
 .metric-subtext {

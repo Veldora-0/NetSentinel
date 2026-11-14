@@ -294,16 +294,12 @@ export async function fetchTelemetryHistory(limit = 60, since = null, until = nu
 // Phase 7: Host-Based Intrusion Detection (HIDS) APIs
 
 export async function fetchHostStatus() {
-  try {
-    const response = await authFetch('/api/host/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.host || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/host/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.host || null;
 }
 
 export async function fetchHostEvents(params = {}) {

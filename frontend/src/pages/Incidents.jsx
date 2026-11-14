@@ -58,6 +58,10 @@ export default function Incidents() {
         fetchIncidents({ limit: 100 }),
         fetchIncidentStats(),
       ]);
+      if (incRes?.status === 'error' || incRes?.error) {
+        setError(incRes.error || 'Failed to load incidents');
+        return;
+      }
       setIncidents(incRes?.incidents || []);
       setIncidentStats(statsRes?.stats || statsRes);
     } catch (err) {

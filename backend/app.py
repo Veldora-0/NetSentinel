@@ -6,6 +6,7 @@ composite risk scoring, automated iptables firewall mitigation, durable event pe
 and host system telemetry sampling.
 """
 
+import os
 import platform
 import shutil
 import sys
@@ -710,10 +711,20 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "application": {
                 "name": "NetSentinel",
                 "version": Config.VERSION,
+                "environment": Config.ENV,
+                "pid": os.getpid(),
                 "python_version": sys.version.split()[0],
                 "platform": platform.platform(),
                 "uptime_seconds": uptime,
                 "start_time": app_start_time,
+            },
+            "telemetry": {
+                "enabled": bool(
+                    telemetry_worker
+                    and telemetry_worker._thread
+                    and telemetry_worker._thread.is_alive()
+                ),
+                "interval_seconds": telemetry_worker.interval if telemetry_worker else None,
             },
             "database": db_health,
             "firewall": {

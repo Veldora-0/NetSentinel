@@ -106,7 +106,7 @@ export default function System() {
         </div>
       )}
 
-      {readiness && !isReady && !is429 && (
+      {isConnected && readiness && !isReady && !is429 && (
         <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid var(--status-yellow)', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <AlertTriangle size={18} color="var(--status-yellow)" />
           <span><strong>Degraded Health (HTTP 503):</strong> One or more subsystem workers are offline or degraded.</span>
@@ -117,8 +117,8 @@ export default function System() {
       <div className="metric-cards-grid">
         <MetricCard
           title="Detection Engine"
-          value={isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
-          subtext="Readiness probe (/api/ready)"
+          value={!isConnected ? 'OFFLINE' : isReady ? 'READY' : readiness ? 'DEGRADED' : 'CHECKING'}
+          subtext={isConnected ? 'Readiness probe (/api/ready)' : 'Waiting for REST API'}
           icon={CheckCircle2}
         />
         <MetricCard
@@ -209,15 +209,19 @@ export default function System() {
               </div>
               <div className="host-stat-row">
                 <span>Environment:</span>
-                <span className="host-stat-val">{systemStatus?.application?.environment || 'production'}</span>
+                <span className="host-stat-val">{systemStatus?.application?.environment || (isConnected ? 'Unknown' : 'Unavailable')}</span>
               </div>
               <div className="host-stat-row">
                 <span>Process ID:</span>
-                <span className="host-stat-val" style={{ fontFamily: 'monospace' }}>{systemStatus?.application?.pid || '—'}</span>
+                <span className="host-stat-val" style={{ fontFamily: 'monospace' }}>{systemStatus?.application?.pid || (isConnected ? 'Unknown' : 'Unavailable')}</span>
               </div>
               <div className="host-stat-row">
                 <span>Host Telemetry:</span>
-                <span className="host-stat-val">{systemStatus?.telemetry?.enabled ? 'Active (psutil)' : 'Disabled'}</span>
+                <span className="host-stat-val">
+                  {systemStatus?.telemetry
+                    ? systemStatus.telemetry.enabled ? 'Active (psutil)' : 'Disabled'
+                    : isConnected ? 'Unknown' : 'Unavailable'}
+                </span>
               </div>
             </div>
 
@@ -226,7 +230,7 @@ export default function System() {
               <div className="host-stat-row">
                 <span>Capture Interface:</span>
                 <span className="host-stat-val" style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>
-                  {systemStatus?.packet_capture?.interface || 'Auto'}
+                  {systemStatus?.packet_capture?.interface || (isConnected ? 'Auto' : 'Unavailable')}
                 </span>
               </div>
               <div className="host-stat-row">
