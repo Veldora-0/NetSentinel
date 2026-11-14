@@ -24,9 +24,13 @@ from detector import SecurityEvent
 
 @pytest.fixture
 def test_app():
-    app, socketio = create_app(start_capture=False)
-    app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    app, socketio = create_app(
+        config_class={
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        },
+        start_capture=False,
+    )
 
     with app.app_context():
         db.create_all()

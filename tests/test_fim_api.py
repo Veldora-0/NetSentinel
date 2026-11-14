@@ -18,16 +18,20 @@ def app_and_client(tmp_path):
     f2 = tmp_path / "shadow_test"
     f2.write_text("root:*:19000:0:99999:7:::")
 
-    app, socketio = create_app(start_capture=False)
-    app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["FIM_SETTINGS"] = {
-        "fim_enabled": True,
-        "fim_interval_sec": 10.0,
-        "fim_paths": [str(f1), str(f2)],
-        "fim_max_files": 100,
-        "fim_max_file_size": 1048576,
-    }
+    app, socketio = create_app(
+        config_class={
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "FIM_SETTINGS": {
+                "fim_enabled": True,
+                "fim_interval_sec": 10.0,
+                "fim_paths": [str(f1), str(f2)],
+                "fim_max_files": 100,
+                "fim_max_file_size": 1048576,
+            },
+        },
+        start_capture=False,
+    )
 
     with app.app_context():
         db.create_all()

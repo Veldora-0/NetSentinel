@@ -13,9 +13,13 @@ from database import db
 
 @pytest.fixture
 def app_context():
-    app, _ = create_app(start_capture=False)
-    app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    app, _ = create_app(
+        config_class={
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        },
+        start_capture=False,
+    )
 
     with app.app_context():
         db.create_all()
