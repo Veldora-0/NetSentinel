@@ -100,15 +100,15 @@ export default function System() {
 
       {/* Notice Banners */}
       {is429 && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <AlertTriangle size={18} color="#ef4444" />
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--status-red)', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <AlertTriangle size={18} color="var(--status-red)" />
           <span><strong>HTTP 429 Throttling:</strong> API request rate limit reached. Temporary request backoff in effect.</span>
         </div>
       )}
 
       {readiness && !isReady && !is429 && (
-        <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <AlertTriangle size={18} color="#f59e0b" />
+        <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid var(--status-yellow)', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fcd34d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <AlertTriangle size={18} color="var(--status-yellow)" />
           <span><strong>Degraded Health (HTTP 503):</strong> One or more subsystem workers are offline or degraded.</span>
         </div>
       )}
@@ -171,10 +171,10 @@ export default function System() {
                 <tbody>
                   {Object.entries(workers).map(([name, w]) => (
                     <tr key={name}>
-                      <td style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.85rem' }}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
                         {name.replace(/_/g, ' ')}
                       </td>
-                      <td style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                         {w.role || 'Background process'}
                       </td>
                       <td>
@@ -182,10 +182,10 @@ export default function System() {
                           {w.status || 'UNKNOWN'}
                         </span>
                       </td>
-                      <td style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                         {w.last_heartbeat_seconds != null ? `${w.last_heartbeat_seconds}s ago` : 'Active'}
                       </td>
-                      <td style={{ color: '#94a3b8', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontFamily: 'monospace' }}>
                         {w.details ? JSON.stringify(w.details) : '—'}
                       </td>
                     </tr>
@@ -225,7 +225,7 @@ export default function System() {
               <div className="host-block-title">Packet Engine & Interface</div>
               <div className="host-stat-row">
                 <span>Capture Interface:</span>
-                <span className="host-stat-val" style={{ fontFamily: 'monospace', color: '#38bdf8' }}>
+                <span className="host-stat-val" style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>
                   {systemStatus?.packet_capture?.interface || 'Auto'}
                 </span>
               </div>
@@ -234,7 +234,7 @@ export default function System() {
                 <span className="host-stat-val">{systemStatus?.packet_capture?.status ? systemStatus.packet_capture.status.toUpperCase() : 'UNKNOWN'}</span>
               </div>
               {systemStatus?.packet_capture?.error && (
-                <div style={{ marginTop: '6px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '4px', fontSize: '11px', color: '#f87171', lineHeight: '1.4' }}>
+                <div style={{ marginTop: '6px', marginBottom: '8px', padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '4px', fontSize: '11px', color: 'var(--status-red)', lineHeight: '1.4' }}>
                   {systemStatus.packet_capture.error}
                 </div>
               )}
@@ -248,11 +248,11 @@ export default function System() {
               <div className="host-block-title">Detection Engines</div>
               <div className="host-stat-row">
                 <span>Signature Rules:</span>
-                <span className="host-stat-val" style={{ color: '#10b981' }}>Active (TCP/UDP/ICMP/ARP)</span>
+                <span className="host-stat-val" style={{ color: 'var(--status-green)' }}>Active (TCP/UDP/ICMP/ARP)</span>
               </div>
               <div className="host-stat-row">
                 <span>Isolation Forest:</span>
-                <span className="host-stat-val" style={{ color: '#10b981' }}>
+                <span className="host-stat-val" style={{ color: 'var(--status-green)' }}>
                   {systemStatus?.ml_detector?.model_ready ? 'Model Ready' : systemStatus?.ml_detector?.collecting_baseline ? 'Collecting Baseline' : 'Active (scikit-learn)'}
                 </span>
               </div>

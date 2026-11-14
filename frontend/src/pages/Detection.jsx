@@ -300,29 +300,29 @@ export function Detection() {
                 <AreaChart data={chartData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="anomalyScoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="var(--status-yellow)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--status-yellow)" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 1]} width={36} tickFormatter={(v) => v.toFixed(1)} />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} domain={[0, 1]} width={36} tickFormatter={(v) => v.toFixed(1)} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
-                    labelStyle={{ color: '#94a3b8' }}
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
+                    labelStyle={{ color: 'var(--text-secondary)' }}
                     formatter={(val) => [formatScore(val, 3), 'Anomaly Score']}
-                    cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '3 3' }}
+                    cursor={{ stroke: 'var(--status-yellow)', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
                   <ReferenceLine
                     y={0.5}
-                    stroke="#ef4444"
+                    stroke="var(--status-red)"
                     strokeDasharray="3 3"
-                    label={{ value: 'Anomaly Threshold (0.50)', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
+                    label={{ value: 'Anomaly Threshold (0.50)', fill: 'var(--status-red)', fontSize: 10, position: 'insideTopRight' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="score"
-                    stroke="#f59e0b"
+                    stroke="var(--status-yellow)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#anomalyScoreGrad)"
@@ -333,7 +333,7 @@ export function Detection() {
             </div>
           ) : isCollecting ? (
             <div className="placeholder-state">
-              <Activity size={28} className="placeholder-icon" style={{ color: '#f59e0b' }} />
+              <Activity size={28} className="placeholder-icon" style={{ color: 'var(--status-yellow)' }} />
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
                 Baseline Traffic Warm-Up in Progress
               </div>
@@ -365,23 +365,23 @@ export function Detection() {
                   layout="vertical"
                   margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} allowDecimals={false} />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" stroke="var(--text-muted)" fontSize={10} tickLine={false} allowDecimals={false} />
                   <YAxis
                     type="category"
                     dataKey="name"
-                    stroke="#64748b"
+                    stroke="var(--text-muted)"
                     fontSize={10}
                     tickLine={false}
                     width={130}
                     tickFormatter={(name) => (name && name.length > 18 ? `${name.slice(0, 16)}…` : name)}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                     formatter={(val) => [`${val} occurrences`, 'Frequency']}
                     cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                   />
-                  <Bar dataKey="count" fill="#38bdf8" radius={[0, 3, 3, 0]} />
+                  <Bar dataKey="count" fill="var(--accent-cyan)" radius={[0, 3, 3, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -398,11 +398,11 @@ export function Detection() {
           <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                   formatter={(val) => [`${val} assessments`, 'Count']}
                   cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                 />
@@ -471,7 +471,7 @@ export function Detection() {
                     </td>
                     <td>{r.category || r.rule_type || 'SIGNATURE'}</td>
                     <td>
-                      <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {Array.isArray(r.actions) ? r.actions.join(', ') : r.action || 'LOG'}
                       </span>
                     </td>

@@ -224,7 +224,7 @@ export default function ThreatIntelligence() {
               </div>
               <div style={{ marginTop: '0.4rem' }}>
                 <span className="ti-banner-label">Configured Providers: </span>
-                <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                   {configuredProviders.length > 0
                     ? configuredProviders.join(', ')
                     : 'None (Local / offline mode. Set ABUSEIPDB_API_KEY or VIRUSTOTAL_API_KEY in .env to enable)'}
@@ -235,13 +235,13 @@ export default function ThreatIntelligence() {
             <div className="ti-stats-grid">
               <div className="ti-stat-card">
                 <span className="ti-stat-label">Providers Ready</span>
-                <span className="ti-stat-val" style={{ color: availableProviders.length > 0 ? '#10b981' : '#94a3b8' }}>
+                <span className="ti-stat-val" style={{ color: availableProviders.length > 0 ? 'var(--status-green)' : 'var(--text-secondary)' }}>
                   {availableProviders.length} / {configuredProviders.length}
                 </span>
               </div>
               <div className="ti-stat-card">
                 <span className="ti-stat-label">Queue Load</span>
-                <span className="ti-stat-val" style={{ color: (status?.queue_size || 0) > 100 ? '#f59e0b' : '#38bdf8' }}>
+                <span className="ti-stat-val" style={{ color: (status?.queue_size || 0) > 100 ? 'var(--status-yellow)' : 'var(--accent-cyan)' }}>
                   {status?.queue_size || 0} / {status?.queue_capacity || 500}
                 </span>
               </div>
@@ -253,7 +253,7 @@ export default function ThreatIntelligence() {
               </div>
               <div className="ti-stat-card">
                 <span className="ti-stat-label">Lookups</span>
-                <span className="ti-stat-val" style={{ color: '#38bdf8' }}>
+                <span className="ti-stat-val" style={{ color: 'var(--accent-cyan)' }}>
                   {status?.successful_lookups || 0} ok / {status?.failed_lookups || 0} err
                 </span>
               </div>
@@ -266,13 +266,13 @@ export default function ThreatIntelligence() {
           subtitle="Semantic classification rules applied to external indicator telemetry"
           icon={Shield}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.75rem', color: '#cbd5e1' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-low" style={{ minWidth: '70px', textAlign: 'center' }}>CLEAN</span>
                 <span>Indicator verified benign across all queried providers</span>
               </div>
-              <span style={{ color: '#10b981', fontWeight: 600 }}>0 Risk Adder</span>
+              <span style={{ color: 'var(--status-green)', fontWeight: 600 }}>0 Risk Adder</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
@@ -280,7 +280,7 @@ export default function ThreatIntelligence() {
                 <span className="badge badge-medium" style={{ minWidth: '70px', textAlign: 'center' }}>SUSPICIOUS</span>
                 <span>Low-to-moderate report volume or suspicious ASN classification</span>
               </div>
-              <span style={{ color: '#f59e0b', fontWeight: 600 }}>+15 Risk Adder</span>
+              <span style={{ color: 'var(--status-yellow)', fontWeight: 600 }}>+15 Risk Adder</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
@@ -288,7 +288,7 @@ export default function ThreatIntelligence() {
                 <span className="badge badge-critical" style={{ minWidth: '70px', textAlign: 'center' }}>MALICIOUS</span>
                 <span>Known C2, brute-force source, or malware distribution node</span>
               </div>
-              <span style={{ color: '#ef4444', fontWeight: 600 }}>+30 Risk Adder</span>
+              <span style={{ color: 'var(--status-red)', fontWeight: 600 }}>+30 Risk Adder</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
@@ -296,7 +296,7 @@ export default function ThreatIntelligence() {
                 <span className="badge badge-high" style={{ minWidth: '70px', textAlign: 'center' }}>CONFLICT</span>
                 <span>Discrepancy between providers; conservative evaluation applied</span>
               </div>
-              <span style={{ color: '#f97316', fontWeight: 600 }}>Partial Adder</span>
+              <span style={{ color: 'var(--status-orange)', fontWeight: 600 }}>Partial Adder</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
@@ -304,7 +304,7 @@ export default function ThreatIntelligence() {
                 <span className="badge badge-neutral" style={{ minWidth: '70px', textAlign: 'center' }}>UNKNOWN</span>
                 <span>No provider data or API keys unconfigured (UNKNOWN != CLEAN)</span>
               </div>
-              <span style={{ color: '#94a3b8', fontWeight: 600 }}>Neutral</span>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Neutral</span>
             </div>
           </div>
         </DashboardCard>
@@ -318,7 +318,7 @@ export default function ThreatIntelligence() {
               <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Search size={15} /> Search External Reputation
               </span>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Public IPv4 / IPv6 addresses only</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Public IPv4 / IPv6 addresses only</span>
             </div>
 
             <div className="ti-search-bar">
@@ -352,7 +352,7 @@ export default function ThreatIntelligence() {
               <div className="ti-result-card" style={{ marginTop: '1rem' }}>
                 <div className="ti-result-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.95rem', color: '#f8fafc' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                       {lookupResult.intelligence.ip}
                     </span>
                     <span className={`badge ${getReputationBadgeClass(lookupResult.intelligence.reputation)}`}>
@@ -362,12 +362,12 @@ export default function ThreatIntelligence() {
                       {lookupResult.intelligence.consensus}
                     </span>
                     {lookupResult.intelligence.stale && (
-                      <span className="badge badge-stale" style={{ fontSize: '0.65rem', backgroundColor: '#475569', color: '#cbd5e1' }}>
+                      <span className="badge badge-stale" style={{ fontSize: '0.65rem', backgroundColor: '#475569', color: 'var(--text-secondary)' }}>
                         STALE
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     Confidence: {formatConfidence(lookupResult.intelligence.confidence)}
                   </span>
                 </div>
@@ -409,7 +409,7 @@ export default function ThreatIntelligence() {
                             {pRes.reputation}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
                           {pRes.abuse_confidence !== undefined && (
                             <span>Abuse Conf: {pRes.abuse_confidence}%</span>
                           )}

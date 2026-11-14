@@ -250,7 +250,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
             lineHeight: 1.4,
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: '0.25rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: '0.25rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <AlertCircle size={15} /> Incident Correlation Context
           </div>
           {incident.correlation_reason}
@@ -303,12 +303,12 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                 timeline.map((item, idx) => {
                   const sev = (item.severity || '').toUpperCase();
                   const borderLeftColor =
-                    sev === 'CRITICAL' ? '#ef4444' :
-                    sev === 'HIGH' ? '#f97316' :
-                    sev === 'MEDIUM' ? '#fbbf24' :
-                    sev === 'LOW' ? '#38bdf8' :
-                    sev === 'INFO' ? '#94a3b8' :
-                    item.type === 'FIREWALL_ACTION' ? '#ef4444' :
+                    sev === 'CRITICAL' ? 'var(--status-red)' :
+                    sev === 'HIGH' ? 'var(--status-orange)' :
+                    sev === 'MEDIUM' ? 'var(--status-yellow)' :
+                    sev === 'LOW' ? 'var(--accent-cyan)' :
+                    sev === 'INFO' ? 'var(--text-secondary)' :
+                    item.type === 'FIREWALL_ACTION' ? 'var(--status-red)' :
                     item.type === 'MILESTONE' ? 'var(--accent-blue)' :
                     'var(--accent-cyan)';
 
@@ -328,18 +328,18 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                           <span className="timeline-title">{item.title}</span>
                         </div>
                         <span className="timeline-time">
-                          <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#64748b' }} />
+                          <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: 'var(--text-muted)' }} />
                           {formatFullTime(item.timestamp)}
                         </span>
                       </div>
                       <div className="timeline-desc">{item.description}</div>
                       {item.metadata?.change_type ? (
                         <div className="fim-timeline-evidence-box">
-                          <div style={{ color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.78rem' }}>Path: {item.metadata.path}</div>
+                          <div style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace', fontSize: '0.78rem' }}>Path: {item.metadata.path}</div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.3rem', flexWrap: 'wrap' }}>
                             <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>{item.metadata.change_type}</span>
                             {item.metadata.previous_sha256 && (
-                              <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                                 Hash: <code>{item.metadata.previous_sha256.substring(0, 10)}...</code> &rarr; <code>{(item.metadata.current_sha256 || 'None').substring(0, 10)}...</code>
                               </span>
                             )}
@@ -347,7 +347,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                         </div>
                       ) : item.metadata && Object.keys(item.metadata).length > 0 && (
                         <div style={{ marginTop: '0.35rem' }}>
-                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
                             Evidence Metadata Attributes
                           </div>
                           <pre className="evidence-meta-pre">
@@ -371,11 +371,11 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                 <div className="host-block-title">Attacker & Target Identification</div>
                 <div className="host-stat-row">
                   <span>Correlation Key:</span>
-                  <span className="host-stat-val" style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{incident.correlation_key}</span>
+                  <span className="host-stat-val" style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>{incident.correlation_key}</span>
                 </div>
                 <div className="host-stat-row">
                   <span>Primary Source IP:</span>
-                  <span className="host-stat-val" style={{ fontFamily: 'monospace', color: '#f8fafc' }}>{incident.primary_source_ip || 'Internal Host Identity'}</span>
+                  <span className="host-stat-val" style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{incident.primary_source_ip || 'Internal Host Identity'}</span>
                 </div>
                 <div className="host-stat-row">
                   <span>Attack Domains:</span>
@@ -391,7 +391,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                 <div className="host-block-title">Deterministic Risk Scoring Breakdown</div>
                 <div className="host-stat-row">
                   <span>Calculated Risk Score:</span>
-                  <span className="host-stat-val" style={{ color: (incident.risk_score || 0) >= 0.8 ? '#f43f5e' : '#38bdf8', fontWeight: 700 }}>
+                  <span className="host-stat-val" style={{ color: (incident.risk_score || 0) >= 0.8 ? '#f43f5e' : 'var(--accent-cyan)', fontWeight: 700 }}>
                     {formatScore(incident.risk_score, 4)}
                   </span>
                 </div>
@@ -412,7 +412,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
               {incident.analyst_note && (
                 <div className="host-section-block">
                   <div className="host-block-title">Current Analyst Notes</div>
-                  <div style={{ color: '#cbd5e1', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.5 }}>
                     {incident.analyst_note}
                   </div>
                 </div>
@@ -446,9 +446,9 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                   ) : (
                     (incident.evidence || []).map((e) => (
                       <tr key={e.evidence_id}>
-                        <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{formatFullTime(e.timestamp)}</td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>{formatFullTime(e.timestamp)}</td>
                         <td><span className="badge badge-rule">{e.evidence_type}</span></td>
-                        <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{e.detection_type || e.metadata?.action || '-'}</td>
+                        <td style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>{e.detection_type || e.metadata?.action || '-'}</td>
                         <td>
                           {e.severity ? (
                             <span className={getRiskBadgeClass(e.severity)} style={{ fontSize: '0.65rem' }}>
@@ -460,7 +460,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                           {e.metadata?.change_type ? (
                             <div>
                               <div style={{ fontWeight: 600 }}>{e.summary}</div>
-                              <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                                 {e.metadata.path}
                                 {e.metadata.previous_sha256 && ` (${e.metadata.previous_sha256.substring(0, 8)}... → ${e.metadata.current_sha256?.substring(0, 8)}...)`}
                               </div>
@@ -469,7 +469,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                             e.summary
                           )}
                         </td>
-                        <td style={{ fontFamily: 'monospace', color: '#64748b', fontSize: '0.65rem' }}>{e.reference_id}</td>
+                        <td style={{ fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: '0.65rem' }}>{e.reference_id}</td>
                       </tr>
                     ))
                   )}
@@ -553,21 +553,21 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
           <DashboardCard title="External Threat Intelligence Correlation" icon={Globe}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
               {!tiMeta ? (
-                <div style={{ padding: '1.5rem', color: '#94a3b8', textAlign: 'center' }}>
+                <div style={{ padding: '1.5rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
                   <p>No threat intelligence evidence has been recorded for source IP <code>{incident.primary_source_ip || 'N/A'}</code>.</p>
-                  <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#64748b' }}>
+                  <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
                     External reputation checks are triggered asynchronously for public IPv4/IPv6 indicators when configured.
                   </p>
                 </div>
               ) : (
                 <div className="host-section-block">
                   <div className="host-block-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Globe size={15} color="#38bdf8" />
+                    <Globe size={15} color="var(--accent-cyan)" />
                     External Indicator Reputation
                   </div>
                   <div className="host-stat-row">
                     <span>Assessed Source IP:</span>
-                    <span className="host-stat-val" style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{tiMeta.ip}</span>
+                    <span className="host-stat-val" style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>{tiMeta.ip}</span>
                   </div>
                   <div className="host-stat-row">
                     <span>Consensus Reputation:</span>
@@ -598,7 +598,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
 
                   {tiMeta.provider_results && Object.keys(tiMeta.provider_results).length > 0 && (
                     <div style={{ marginTop: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.4rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                         Provider Observations
                       </div>
                       <div className="ti-provider-results-list">
@@ -610,7 +610,7 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
                                 {pRes?.reputation || 'UNKNOWN'}
                               </span>
                             </div>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                               Score: {pRes?.score !== null && pRes?.score !== undefined ? `${pRes.score}/100` : 'N/A'} | Malicious: {pRes?.malicious_votes ?? 0} | Suspicious: {pRes?.suspicious_votes ?? 0}
                             </div>
                           </div>
@@ -652,10 +652,10 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
             borderRadius: '6px',
             backgroundColor: 'rgba(148, 163, 184, 0.1)',
             border: '1px solid rgba(148, 163, 184, 0.2)',
-            color: '#94a3b8',
+            color: 'var(--text-secondary)',
             fontSize: '0.78rem',
           }}>
-            <Info size={14} style={{ color: '#38bdf8', flexShrink: 0 }} />
+            <Info size={14} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
             <span>Read-only: Incident state transitions require Analyst or Administrator role (<code>manage:incidents</code>).</span>
           </div>
         )}
@@ -727,8 +727,8 @@ ${(incident?.evidence || []).map(e => `- [${formatFullTime(e.timestamp)}] **${e.
             </button>
           )}
 
-          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#94a3b8' }}>
-            Current Status: <strong style={{ color: '#f8fafc' }}>{incident.status}</strong>
+          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Current Status: <strong style={{ color: 'var(--text-primary)' }}>{incident.status}</strong>
           </span>
         </div>
       </div>

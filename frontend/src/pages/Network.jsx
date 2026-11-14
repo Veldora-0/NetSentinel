@@ -267,7 +267,7 @@ export function Network() {
                 background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
                 padding: '2px 8px',
                 borderRadius: '4px',
-                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
               }}>
                 {isPermissionDenied
                   ? 'Packet capture unavailable: CAP_NET_RAW / elevated privileges required'
@@ -287,22 +287,22 @@ export function Network() {
               >
                 <defs>
                   <linearGradient id="netPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
-                  labelStyle={{ color: '#94a3b8' }}
-                  cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
+                  labelStyle={{ color: 'var(--text-secondary)' }}
+                  cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                 />
                 <Area
                   type="monotone"
                   dataKey="pps"
-                  stroke="#38bdf8"
+                  stroke="var(--accent-cyan)"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#netPpsGrad)"
@@ -330,7 +330,7 @@ export function Network() {
                 background: isPermissionDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.85)',
                 padding: '2px 8px',
                 borderRadius: '4px',
-                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #1e293b',
+                border: isPermissionDenied ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
               }}>
                 {isPermissionDenied
                   ? 'Packet capture unavailable until required privileges are granted'
@@ -342,11 +342,11 @@ export function Network() {
                 data={protocolData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
               >
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} tickFormatter={(v) => formatNumber(v)} domain={[0, totalProtocolPackets > 0 ? 'auto' : 10]} />
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} tickFormatter={(v) => formatNumber(v)} domain={[0, totalProtocolPackets > 0 ? 'auto' : 10]} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                   formatter={(val) => [
                     totalProtocolPackets > 0
                       ? `${formatNumber(val)} frames (${((val / totalProtocolPackets) * 100).toFixed(1)}%)`
@@ -424,7 +424,7 @@ export function Network() {
         headerRight={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-dark)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-              <Search size={13} color="#64748b" />
+              <Search size={13} color="var(--text-muted)" />
               <input
                 type="text"
                 placeholder="Search IP, MAC, vendor..."
@@ -458,7 +458,7 @@ export function Network() {
                       <code style={{ color: 'var(--accent-cyan)' }}>{item.ip}</code>
                     </td>
                     <td>
-                      <code style={{ color: '#94a3b8' }}>{item.mac}</code>
+                      <code style={{ color: 'var(--text-secondary)' }}>{item.mac}</code>
                     </td>
                     <td>{item.vendor || item.state || 'Interface Local'}</td>
                     <td>
@@ -501,7 +501,7 @@ export function Network() {
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Source: <code style={{ color: 'var(--accent-cyan)' }}>{a.source_ip}</code>
                   {a.target_ip && (
-                    <> &rarr; Target: <code style={{ color: '#cbd5e1' }}>{a.target_ip}</code></>
+                    <> &rarr; Target: <code style={{ color: 'var(--text-secondary)' }}>{a.target_ip}</code></>
                   )}
                   {a.target_port && <> (Port: {a.target_port})</>}
                 </div>

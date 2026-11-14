@@ -32,14 +32,14 @@ export function ProtectedRoute({ requiredRole, requiredPermission, children }) {
         <div style={{
           maxWidth: '500px',
           margin: '0 auto',
-          background: 'var(--bg-card, #131b2e)',
-          border: '1px solid var(--border-color, #1e293b)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
           borderRadius: '8px',
           padding: '2rem',
         }}>
-          <ShieldAlert size={48} style={{ color: 'var(--status-red, #ef4444)', margin: '0 auto 1rem' }} />
-          <h2 style={{ fontSize: '1.25rem', color: '#f8fafc', marginBottom: '0.5rem' }}>Access Denied</h2>
-          <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
+          <ShieldAlert size={48} style={{ color: 'var(--status-red)', margin: '0 auto 1rem' }} />
+          <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Access Denied</h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             This section requires the <strong>{requiredRole}</strong> role. Your current role is <strong>{user?.role}</strong>.
           </p>
         </div>
@@ -53,14 +53,14 @@ export function ProtectedRoute({ requiredRole, requiredPermission, children }) {
         <div style={{
           maxWidth: '500px',
           margin: '0 auto',
-          background: 'var(--bg-card, #131b2e)',
-          border: '1px solid var(--border-color, #1e293b)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
           borderRadius: '8px',
           padding: '2rem',
         }}>
-          <ShieldAlert size={48} style={{ color: 'var(--status-red, #ef4444)', margin: '0 auto 1rem' }} />
-          <h2 style={{ fontSize: '1.25rem', color: '#f8fafc', marginBottom: '0.5rem' }}>Insufficient Privileges</h2>
-          <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
+          <ShieldAlert size={48} style={{ color: 'var(--status-red)', margin: '0 auto 1rem' }} />
+          <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Insufficient Privileges</h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             This operation requires <code>{requiredPermission}</code> permission.
           </p>
         </div>

@@ -343,7 +343,7 @@ export function Overview() {
       {isDegraded && (
         <div className="safety-banner warning">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            <AlertTriangle size={18} style={{ color: 'var(--status-yellow)', flexShrink: 0 }} />
             <span>
               <strong>Operational Notice:</strong> Subsystem readiness is currently degraded. One or more workers are initializing or offline.
             </span>
@@ -440,7 +440,7 @@ export function Overview() {
                 background: 'rgba(15, 23, 42, 0.85)',
                 padding: '2px 8px',
                 borderRadius: '4px',
-                border: '1px solid #1e293b',
+                border: '1px solid var(--border-color)',
               }}>
                 0 pps · Awaiting traffic
               </div>
@@ -458,22 +458,22 @@ export function Overview() {
               >
                 <defs>
                   <linearGradient id="overviewPpsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} domain={[0, 'auto']} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
-                  labelStyle={{ color: '#94a3b8' }}
-                  cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
+                  labelStyle={{ color: 'var(--text-secondary)' }}
+                  cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                 />
                 <Area
                   type="monotone"
                   dataKey="pps"
-                  stroke="#38bdf8"
+                  stroke="var(--accent-cyan)"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#overviewPpsGrad)"
@@ -499,11 +499,11 @@ export function Overview() {
             <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                     formatter={(val) => [`${val} events`, 'Count']}
                     cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                   />
@@ -539,16 +539,16 @@ export function Overview() {
             <div style={{ height: '210px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                     formatter={(val, name) => [`${val}%`, name]}
-                    cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                    cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
-                  <Line type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} dot={false} name="CPU %" />
-                  <Line type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} dot={false} name="Memory %" />
+                  <Line type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" strokeWidth={2} dot={false} name="CPU %" />
+                  <Line type="monotone" dataKey="memory" stroke="var(--status-green)" strokeWidth={2} dot={false} name="Memory %" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -556,11 +556,11 @@ export function Overview() {
             <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>CPU Utilization</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#38bdf8' }}>{formatPercent(telemetry.cpu_percent)}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>{formatPercent(telemetry.cpu_percent)}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Memory Utilization</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#10b981' }}>{formatPercent(telemetry.memory_percent)}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--status-green)' }}>{formatPercent(telemetry.memory_percent)}</div>
               </div>
             </div>
           ) : (
@@ -700,7 +700,7 @@ export function Overview() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-dark)', borderRadius: '6px', fontSize: '0.82rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Active Mitigated Hosts:</span>
-              <span style={{ fontWeight: 700, color: blockedIPs.length > 0 ? '#ef4444' : 'var(--text-primary)' }}>
+              <span style={{ fontWeight: 700, color: blockedIPs.length > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
                 {blockedIPs.length} IPs
               </span>
             </div>

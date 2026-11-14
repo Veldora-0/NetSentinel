@@ -164,7 +164,7 @@ export default function UsersManagement() {
           gap: '0.5rem',
         }}
       >
-        <Shield size={16} style={{ color: '#38bdf8', flexShrink: 0 }} />
+        <Shield size={16} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
         <span>
           <strong>Account Policy:</strong> NetSentinel enforces a single administrator account. Additional operators are provisioned as Analysts (incident response & threat intelligence) or Viewers (read-only monitoring).
         </span>
@@ -181,7 +181,7 @@ export default function UsersManagement() {
             gap: '0.5rem',
             fontSize: '0.875rem',
             background: feedback.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-            border: feedback.type === 'success' ? '1px solid #22c55e' : '1px solid #ef4444',
+            border: feedback.type === 'success' ? '1px solid #22c55e' : '1px solid var(--status-red)',
             color: feedback.type === 'success' ? '#86efac' : '#fca5a5',
           }}
         >
@@ -196,7 +196,7 @@ export default function UsersManagement() {
           <div className="table-responsive">
             <table className="soc-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color, #1e293b)', textAlign: 'left', color: '#94a3b8' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-color, var(--border-color))', textAlign: 'left', color: 'var(--text-secondary)' }}>
                   <th style={{ padding: '8px 12px' }}>Username</th>
                   <th style={{ padding: '8px 12px' }}>Role</th>
                   <th style={{ padding: '8px 12px' }}>Status</th>
@@ -210,9 +210,9 @@ export default function UsersManagement() {
                   const isAdmin = u.role === 'ADMIN';
                   return (
                     <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                      <td style={{ padding: '10px 12px', fontWeight: 600, color: '#f8fafc' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {u.username}
-                        {isSelf && <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: '#38bdf8' }}>(You)</span>}
+                        {isSelf && <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>(You)</span>}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         {isAdmin ? (
@@ -224,7 +224,7 @@ export default function UsersManagement() {
                               fontSize: '0.75rem',
                               fontWeight: 700,
                               background: 'rgba(56, 189, 248, 0.2)',
-                              color: '#38bdf8',
+                              color: 'var(--accent-cyan)',
                               border: '1px solid rgba(56, 189, 248, 0.4)',
                             }}
                           >
@@ -236,8 +236,8 @@ export default function UsersManagement() {
                             onChange={(e) => handleRoleChange(u, e.target.value)}
                             style={{
                               background: 'var(--bg-dark, #0b0f19)',
-                              color: '#f8fafc',
-                              border: '1px solid var(--border-color, #1e293b)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color, var(--border-color))',
                               borderRadius: '4px',
                               padding: '4px 8px',
                               fontSize: '0.8rem',
@@ -257,13 +257,13 @@ export default function UsersManagement() {
                             fontSize: '0.75rem',
                             fontWeight: 600,
                             background: u.is_active ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                            color: u.is_active ? '#4ade80' : '#f87171',
+                            color: u.is_active ? '#4ade80' : 'var(--status-red)',
                           }}
                         >
                           {u.is_active ? 'ACTIVE' : 'DISABLED'}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: '0.75rem' }}>
+                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                         {Array.isArray(u.permissions) ? u.permissions.length : 0} scope(s)
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right' }}>
@@ -274,8 +274,8 @@ export default function UsersManagement() {
                             title={isAdmin ? 'The administrator account cannot be disabled' : (u.is_active ? 'Deactivate user' : 'Activate user')}
                             style={{
                               background: 'transparent',
-                              border: '1px solid var(--border-color, #1e293b)',
-                              color: u.is_active ? '#f87171' : '#4ade80',
+                              border: '1px solid var(--border-color, var(--border-color))',
+                              color: u.is_active ? 'var(--status-red)' : '#4ade80',
                               borderRadius: '4px',
                               padding: '4px 6px',
                               cursor: isAdmin ? 'not-allowed' : 'pointer',
@@ -289,8 +289,8 @@ export default function UsersManagement() {
                             title="Reset Password"
                             style={{
                               background: 'transparent',
-                              border: '1px solid var(--border-color, #1e293b)',
-                              color: '#38bdf8',
+                              border: '1px solid var(--border-color, var(--border-color))',
+                              color: 'var(--accent-cyan)',
                               borderRadius: '4px',
                               padding: '4px 6px',
                               cursor: 'pointer',
@@ -304,8 +304,8 @@ export default function UsersManagement() {
                             title={isAdmin ? 'The administrator account cannot be deleted' : 'Delete user'}
                             style={{
                               background: 'transparent',
-                              border: '1px solid var(--border-color, #1e293b)',
-                              color: '#ef4444',
+                              border: '1px solid var(--border-color, var(--border-color))',
+                              color: 'var(--status-red)',
                               borderRadius: '4px',
                               padding: '4px 6px',
                               cursor: isAdmin ? 'not-allowed' : 'pointer',
@@ -325,7 +325,7 @@ export default function UsersManagement() {
                               style={{
                                 background: 'var(--bg-dark, #0b0f19)',
                                 color: '#fff',
-                                border: '1px solid #38bdf8',
+                                border: '1px solid var(--accent-cyan)',
                                 borderRadius: '4px',
                                 padding: '4px 8px',
                                 fontSize: '0.75rem',
@@ -335,7 +335,7 @@ export default function UsersManagement() {
                             <button
                               onClick={() => handleResetPassword(u.id)}
                               style={{
-                                background: '#0284c7',
+                                background: 'var(--accent-primary)',
                                 color: '#fff',
                                 border: 'none',
                                 borderRadius: '4px',
@@ -361,7 +361,7 @@ export default function UsersManagement() {
         <DashboardCard title="Add User Account" icon={UserPlus}>
           <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 Username
               </label>
               <input
@@ -373,7 +373,7 @@ export default function UsersManagement() {
                 style={{
                   width: '100%',
                   background: 'var(--bg-dark, #0b0f19)',
-                  border: '1px solid var(--border-color, #1e293b)',
+                  border: '1px solid var(--border-color, var(--border-color))',
                   borderRadius: '6px',
                   padding: '8px 12px',
                   color: '#fff',
@@ -382,7 +382,7 @@ export default function UsersManagement() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 Password (min 8 characters)
               </label>
               <input
@@ -394,7 +394,7 @@ export default function UsersManagement() {
                 style={{
                   width: '100%',
                   background: 'var(--bg-dark, #0b0f19)',
-                  border: '1px solid var(--border-color, #1e293b)',
+                  border: '1px solid var(--border-color, var(--border-color))',
                   borderRadius: '6px',
                   padding: '8px 12px',
                   color: '#fff',
@@ -403,7 +403,7 @@ export default function UsersManagement() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 Role
               </label>
               <select
@@ -412,7 +412,7 @@ export default function UsersManagement() {
                 style={{
                   width: '100%',
                   background: 'var(--bg-dark, #0b0f19)',
-                  border: '1px solid var(--border-color, #1e293b)',
+                  border: '1px solid var(--border-color, var(--border-color))',
                   borderRadius: '6px',
                   padding: '8px 12px',
                   color: '#fff',
@@ -427,7 +427,7 @@ export default function UsersManagement() {
               type="submit"
               disabled={createLoading}
               style={{
-                background: '#0284c7',
+                background: 'var(--accent-primary)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '6px',

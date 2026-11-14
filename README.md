@@ -90,7 +90,7 @@ NetSentinel/
 │   │   ├── services/    # REST API & Socket.IO client connections (Incidents, Events, Host, History, Telemetry, Risk & Firewall)
 │   │   ├── utils/       # Safe formatting utilities (formatBytes, formatNumber, formatPercent, formatAlertTime)
 │   │   ├── App.jsx      # Root routing controller with BrowserRouter, AppLayout, and workspace routes
-│   │   ├── App.css      # Dark theme styling with responsive sidebar, topbar, incident tables, and workspace layouts
+│   │   ├── App.css      # Responsive light/dark theme styling and dashboard workspace layouts
 │   │   └── main.jsx     # React entry point
 │   ├── index.html       # HTML entry point
 │   ├── package.json     # Node dependencies and scripts
@@ -141,6 +141,10 @@ NetSentinel/
 ├── .gitignore           # Git ignore configurations
 └── README.md            # Project documentation
 ```
+
+### Frontend appearance
+
+The dashboard opens in a restrained light theme. The top-right theme control switches between light and dark appearance; the selection is saved in the browser as `netsentinel_theme` and applies across dashboard pages. Theme preference changes only the presentation and does not affect sensor, detection, or firewall settings.
 
 ---
 

@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, User, LogOut, ChevronDown } from 'lucide-react';
+import { Activity, User, LogOut, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export function Topbar({ onMenuClick }) {
   const { user, logout, isAuthenticated } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('netsentinel_theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('netsentinel_theme', theme);
+    } catch {
+      // The theme still works for this session when browser storage is unavailable.
+    }
+  }, [theme]);
 
   // Close profile dropdown on click outside or escape key
   useEffect(() => {
@@ -28,28 +44,7 @@ export function Topbar({ onMenuClick }) {
     };
   }, [profileOpen]);
 
-  const getRoleBadgeStyle = (role) => {
-    switch (String(role).toUpperCase()) {
-      case 'ADMIN':
-        return {
-          backgroundColor: 'rgba(239, 68, 68, 0.12)',
-          color: '#f87171',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-        };
-      case 'ANALYST':
-        return {
-          backgroundColor: 'rgba(56, 189, 248, 0.12)',
-          color: '#38bdf8',
-          border: '1px solid rgba(56, 189, 248, 0.3)',
-        };
-      default: // VIEWER
-        return {
-          backgroundColor: 'rgba(148, 163, 184, 0.12)',
-          color: '#cbd5e1',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
-        };
-    }
-  };
+  const roleClass = `role-${String(user?.role || 'viewer').toLowerCase()}`;
 
   return (
     <header className="app-topbar">
@@ -63,33 +58,43 @@ export function Topbar({ onMenuClick }) {
         </button>
       </div>
 
-      {/* Desktop User Controls */}
-      <div className="topbar-status-group desktop-topbar-controls">
-        {isAuthenticated && user && (
-          <div className="topbar-user-block">
-            <div className="user-profile-tag">
-              <User size={13} style={{ color: '#94a3b8' }} />
-              <span className="user-name">{user.username}</span>
-              <span className="user-role-badge" style={getRoleBadgeStyle(user.role)}>
-                {user.role}
-              </span>
+      <div className="topbar-right">
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          aria-pressed={theme === 'dark'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          <span className="theme-toggle-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
+
+        {/* Desktop User Controls */}
+        <div className="topbar-status-group desktop-topbar-controls">
+          {isAuthenticated && user && (
+            <div className="topbar-user-block">
+              <div className="user-profile-tag">
+                <User size={13} />
+                <span className="user-name">{user.username}</span>
+                <span className={`user-role-badge ${roleClass}`}>{user.role}</span>
+              </div>
+
+              <button
+                onClick={logout}
+                title="Sign Out of NetSentinel"
+                className="btn-signout"
+              >
+                <LogOut size={12} />
+                <span>Sign Out</span>
+              </button>
             </div>
+          )}
+        </div>
 
-            <button
-              onClick={logout}
-              title="Sign Out of NetSentinel"
-              className="btn-signout"
-            >
-              <LogOut size={12} />
-              <span>Sign Out</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile-Optimized Profile Trigger */}
-      <div className="mobile-topbar-controls" ref={dropdownRef}>
-        {isAuthenticated && user && (
+        {/* Mobile-Optimized Profile Trigger */}
+        <div className="mobile-topbar-controls" ref={dropdownRef}>
+          {isAuthenticated && user && (
           <div className="mobile-profile-wrapper">
             <button
               className={`mobile-profile-btn ${profileOpen ? 'active' : ''}`}
@@ -109,7 +114,7 @@ export function Topbar({ onMenuClick }) {
                     <User size={16} className="dropdown-avatar" />
                     <div>
                       <div className="dropdown-username">{user.username}</div>
-                      <span className="user-role-badge" style={getRoleBadgeStyle(user.role)}>
+                      <span className={`user-role-badge ${roleClass}`}>
                         {user.role}
                       </span>
                     </div>
@@ -131,7 +136,8 @@ export function Topbar({ onMenuClick }) {
               </div>
             )}
           </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

@@ -208,7 +208,7 @@ export default function Incidents() {
         headerRight={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="incident-search-box" style={{ margin: 0 }}>
-              <Search size={13} color="#64748b" />
+              <Search size={13} color="var(--text-muted)" />
               <input
                 type="text"
                 className="incident-search-input"
@@ -297,7 +297,7 @@ export default function Incidents() {
                               fontSize: '0.62rem',
                               padding: '1px 5px',
                               backgroundColor: 'rgba(56, 189, 248, 0.12)',
-                              color: '#38bdf8',
+                              color: 'var(--accent-cyan)',
                               borderRadius: '3px',
                             }}
                           >
@@ -317,7 +317,7 @@ export default function Incidents() {
                     <td>
                       <strong style={{
                         fontFamily: 'monospace',
-                        color: (inc.risk_score || 0) >= 0.8 ? '#f87171' : (inc.risk_score || 0) >= 0.6 ? '#fbbf24' : '#38bdf8',
+                        color: (inc.risk_score || 0) >= 0.8 ? 'var(--status-red)' : (inc.risk_score || 0) >= 0.6 ? 'var(--status-yellow)' : 'var(--accent-cyan)',
                       }}>
                         {formatScore(inc.risk_score, 2)}
                       </strong>

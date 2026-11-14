@@ -4,6 +4,10 @@ This document catalogs the visual audit screenshots captured from the live, runn
 
 All captures represent genuine application states running against the production Flask backend, React 18 / Vite single-page application, and active SQLite telemetry database.
 
+### Current appearance
+
+The screenshots below document the earlier dark-only palette. The current dashboard defaults to a neutral light palette and includes a top-bar theme control for switching to dark mode. The selected theme is stored in browser local storage under `netsentinel_theme`; changing it does not alter application behavior. Existing route and interaction inventory remains useful, but the screenshots should be refreshed before using this document as a current visual reference.
+
 ---
 
 ## 1. Environment & Capture Configuration

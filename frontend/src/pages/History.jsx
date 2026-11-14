@@ -188,11 +188,11 @@ export default function History() {
           <div style={{ height: '140px', width: '100%', marginTop: '4px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={severityChartData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                   formatter={(val) => [`${val} events`, 'Total Recorded']}
                   cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                 />
@@ -214,7 +214,7 @@ export default function History() {
         headerRight={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="incident-search-box" style={{ margin: 0 }}>
-              <Search size={13} color="#64748b" />
+              <Search size={13} color="var(--text-muted)" />
               <input
                 type="text"
                 className="incident-search-input"
@@ -302,7 +302,7 @@ export default function History() {
                 <tbody>
                   {events.map((ev, idx) => (
                     <tr key={ev.event_id || idx}>
-                      <td style={{ color: '#94a3b8', fontSize: '0.74rem', whiteSpace: 'nowrap' }}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.74rem', whiteSpace: 'nowrap' }}>
                         {formatFullTime(ev.timestamp)}
                       </td>
                       <td>
@@ -319,11 +319,11 @@ export default function History() {
                         </code>
                       </td>
                       <td>
-                        <code style={{ color: '#94a3b8', fontSize: '0.74rem' }}>
+                        <code style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
                           {ev.destination_ip ? `${ev.destination_ip}${ev.destination_port ? `:${ev.destination_port}` : ''}` : '—'}
                         </code>
                       </td>
-                      <td style={{ maxWidth: '340px', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                      <td style={{ maxWidth: '340px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                         {ev.description}
                       </td>
                     </tr>

@@ -162,7 +162,7 @@ export default function Firewall() {
       ) : (
         <div className="safety-banner warning">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            <AlertTriangle size={18} style={{ color: 'var(--status-yellow)', flexShrink: 0 }} />
             <span>
               <strong>Kernel Netfilter Active:</strong> iptables drop rules are actively inserted into the `{firewallStatus?.chain || 'NETSENTINEL'}` chain.
             </span>
@@ -232,17 +232,17 @@ export default function Firewall() {
             borderRadius: '6px',
             backgroundColor: 'rgba(148, 163, 184, 0.1)',
             border: '1px solid rgba(148, 163, 184, 0.2)',
-            color: '#94a3b8',
+            color: 'var(--text-secondary)',
             fontSize: '0.78rem',
           }}>
-            <Info size={14} style={{ color: '#38bdf8', flexShrink: 0 }} />
+            <Info size={14} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
             <span>Read-only: Modifying firewall mitigation rules requires Administrator role (<code>manage:firewall</code>).</span>
           </div>
         )}
         <form onSubmit={handleManualBlock} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                 Target IP Address
               </label>
               <input
@@ -257,7 +257,7 @@ export default function Firewall() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                 Quarantine Reason
               </label>
               <input
@@ -272,7 +272,7 @@ export default function Firewall() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                 Duration
               </label>
               <select
@@ -298,8 +298,8 @@ export default function Firewall() {
               className="ti-btn-primary"
               disabled={actionLoading || !targetIP.trim() || !canManageFirewall}
               style={{
-                backgroundColor: canManageFirewall ? '#ef4444' : '#475569',
-                borderColor: canManageFirewall ? '#ef4444' : '#475569',
+                backgroundColor: canManageFirewall ? 'var(--status-red)' : '#475569',
+                borderColor: canManageFirewall ? 'var(--status-red)' : '#475569',
                 cursor: canManageFirewall ? 'pointer' : 'not-allowed',
                 opacity: canManageFirewall ? 1 : 0.6,
               }}
@@ -336,17 +336,17 @@ export default function Firewall() {
                 {blockedIPs.map((blk) => (
                   <tr key={blk.ip}>
                     <td>
-                      <code style={{ color: '#f87171', fontWeight: 600, fontSize: '0.85rem' }}>
+                      <code style={{ color: 'var(--status-red)', fontWeight: 600, fontSize: '0.85rem' }}>
                         {blk.ip}
                       </code>
                     </td>
-                    <td style={{ color: '#f8fafc', fontSize: '0.8rem' }}>
+                    <td style={{ color: 'var(--text-primary)', fontSize: '0.8rem' }}>
                       {blk.reason || 'Automated high risk threshold mitigation'}
                     </td>
-                    <td style={{ color: '#94a3b8', fontSize: '0.74rem' }}>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
                       {blk.blocked_at ? formatFullTime(blk.blocked_at) : 'Active'}
                     </td>
-                    <td style={{ color: '#94a3b8', fontSize: '0.74rem' }}>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
                       {blk.expires_at ? (
                         <span>Expires {formatAlertTime(blk.expires_at)}</span>
                       ) : (

@@ -58,7 +58,7 @@ export function ErrorState({ error, onRetry, message }) {
         <AlertTriangle
           size={18}
           style={{
-            color: isDegraded ? 'var(--status-yellow, #f59e0b)' : 'var(--status-red, #ef4444)',
+            color: isDegraded ? 'var(--status-yellow, var(--status-yellow))' : 'var(--status-red, var(--status-red))',
             flexShrink: 0,
           }}
         />

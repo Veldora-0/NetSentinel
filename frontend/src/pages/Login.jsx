@@ -47,17 +47,17 @@ export function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#090d16',
+      backgroundColor: 'var(--bg-dark)',
       padding: '1.5rem',
       position: 'relative',
     }}>
       <div style={{
         width: '100%',
         maxWidth: '400px',
-        backgroundColor: '#0f172a',
-        border: '1px solid #1e293b',
+        backgroundColor: 'var(--bg-card)',
+        border: '1px solid var(--border-color)',
         borderRadius: '8px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        boxShadow: 'var(--shadow-elevated)',
         padding: '2.25rem 2rem',
       }}>
         {/* Brand Header */}
@@ -71,7 +71,7 @@ export function Login() {
             borderRadius: '8px',
             backgroundColor: 'rgba(2, 132, 199, 0.1)',
             border: '1px solid rgba(2, 132, 199, 0.3)',
-            color: '#38bdf8',
+            color: 'var(--accent-cyan)',
             marginBottom: '0.85rem',
           }}>
             <Shield size={26} />
@@ -79,7 +79,7 @@ export function Login() {
           <h1 style={{
             fontSize: '1.35rem',
             fontWeight: 700,
-            color: '#f8fafc',
+            color: 'var(--text-primary)',
             margin: '0 0 0.25rem 0',
             letterSpacing: '-0.02em',
           }}>
@@ -87,7 +87,7 @@ export function Login() {
           </h1>
           <p style={{
             fontSize: '0.78rem',
-            color: '#94a3b8',
+            color: 'var(--text-secondary)',
             margin: 0,
             lineHeight: 1.4,
           }}>
@@ -110,7 +110,7 @@ export function Login() {
             marginBottom: '1.25rem',
             lineHeight: 1.45,
           }}>
-            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--status-red)' }} />
             <span>{error}</span>
           </div>
         )}
@@ -122,7 +122,7 @@ export function Login() {
               display: 'block',
               fontSize: '0.75rem',
               fontWeight: 500,
-              color: '#cbd5e1',
+              color: 'var(--text-secondary)',
               marginBottom: '0.35rem',
             }}>
               Username
@@ -133,7 +133,7 @@ export function Login() {
                 left: '0.85rem',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 pointerEvents: 'none',
@@ -152,17 +152,17 @@ export function Login() {
                   width: '100%',
                   height: '40px',
                   padding: '0 0.85rem 0 2.4rem',
-                  backgroundColor: '#090d16',
-                  border: '1px solid #1e293b',
+                  backgroundColor: 'var(--bg-dark)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#f8fafc',
+                  color: 'var(--text-primary)',
                   fontSize: '0.8125rem',
                   outline: 'none',
                   transition: 'border-color 0.15s ease',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#0284c7')}
-                onBlur={(e) => (e.target.style.borderColor = '#1e293b')}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--accent-primary)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
               />
             </div>
           </div>
@@ -172,7 +172,7 @@ export function Login() {
               display: 'block',
               fontSize: '0.75rem',
               fontWeight: 500,
-              color: '#cbd5e1',
+              color: 'var(--text-secondary)',
               marginBottom: '0.35rem',
             }}>
               Password
@@ -183,7 +183,7 @@ export function Login() {
                 left: '0.85rem',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 pointerEvents: 'none',
@@ -201,17 +201,17 @@ export function Login() {
                   width: '100%',
                   height: '40px',
                   padding: '0 2.5rem 0 2.4rem',
-                  backgroundColor: '#090d16',
-                  border: '1px solid #1e293b',
+                  backgroundColor: 'var(--bg-dark)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '6px',
-                  color: '#f8fafc',
+                  color: 'var(--text-primary)',
                   fontSize: '0.8125rem',
                   outline: 'none',
                   transition: 'border-color 0.15s ease',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#0284c7')}
-                onBlur={(e) => (e.target.style.borderColor = '#1e293b')}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--accent-primary)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border-color)')}
               />
               <button
                 type="button"
@@ -223,7 +223,7 @@ export function Login() {
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
-                  color: '#64748b',
+                  color: 'var(--text-muted)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -247,7 +247,7 @@ export function Login() {
               width: '100%',
               height: '40px',
               marginTop: '0.35rem',
-              backgroundColor: '#0284c7',
+              backgroundColor: 'var(--accent-primary)',
               color: '#ffffff',
               fontWeight: 600,
               fontSize: '0.8125rem',
@@ -258,10 +258,10 @@ export function Login() {
               transition: 'background-color 0.15s ease',
             }}
             onMouseOver={(e) => {
-              if (!loading) e.currentTarget.style.backgroundColor = '#0369a1';
+              if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)';
             }}
             onMouseOut={(e) => {
-              if (!loading) e.currentTarget.style.backgroundColor = '#0284c7';
+              if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
             }}
           >
             {loading ? (
@@ -282,10 +282,10 @@ export function Login() {
         <div style={{
           marginTop: '1.75rem',
           paddingTop: '1.1rem',
-          borderTop: '1px solid #1e293b',
+          borderTop: '1px solid var(--border-color)',
           textAlign: 'center',
           fontSize: '0.7rem',
-          color: '#64748b',
+          color: 'var(--text-muted)',
           lineHeight: 1.45,
         }}>
           Protected by NetSentinel authentication &amp; session controls.

@@ -272,24 +272,24 @@ export default function HostSecurity() {
                     <AreaChart data={telemetryHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="hostCpuGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0.0} />
                         </linearGradient>
                         <linearGradient id="hostMemGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="var(--status-green)" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="var(--status-green)" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
-                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[0, 100]} width={36} tickFormatter={(v) => `${v}%`} />
+                      <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+                      <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} domain={[0, 100]} width={36} tickFormatter={(v) => `${v}%`} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#0b1120', borderColor: '#334155', borderRadius: '6px', fontSize: '11px', color: '#f8fafc' }}
+                        contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
                         formatter={(val, name) => [`${val}%`, name]}
-                        cursor={{ stroke: '#38bdf8', strokeWidth: 1, strokeDasharray: '3 3' }}
+                        cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                       />
-                      <Area type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />
-                      <Area type="monotone" dataKey="memory" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#hostMemGrad)" name="RAM %" />
+                      <Area type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />
+                      <Area type="monotone" dataKey="memory" stroke="var(--status-green)" strokeWidth={2} fillOpacity={1} fill="url(#hostMemGrad)" name="RAM %" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -406,7 +406,7 @@ export default function HostSecurity() {
               </div>
               <div className="host-stat-box">
                 <span className="stat-title">Brute-Force Alerts</span>
-                <span className="stat-num" style={{ color: (sshDetector.total_brute_force_detected || 0) > 0 ? '#f87171' : '#f8fafc' }}>
+                <span className="stat-num" style={{ color: (sshDetector.total_brute_force_detected || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
                   {formatNumber(sshDetector.total_brute_force_detected, 0, '0')}
                 </span>
               </div>
@@ -448,7 +448,7 @@ export default function HostSecurity() {
               </div>
               <div className="host-stat-box">
                 <span className="stat-title">Suspicious Invocations</span>
-                <span className="stat-num" style={{ color: (procMonitor.suspicious_processes_detected || 0) > 0 ? '#f87171' : '#f8fafc' }}>
+                <span className="stat-num" style={{ color: (procMonitor.suspicious_processes_detected || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
                   {formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
                 </span>
               </div>
@@ -463,7 +463,7 @@ export default function HostSecurity() {
         icon={FileText}
         headerRight={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
               Last scan: {fimStatus?.last_scan_timestamp ? formatAlertTime(fimStatus.last_scan_timestamp) : 'Pending'}
             </span>
             <button
@@ -489,7 +489,7 @@ export default function HostSecurity() {
         {showRebaselineConfirm && (
           <div className="safety-banner warning" style={{ marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={16} color="#f59e0b" />
+              <AlertTriangle size={16} color="var(--status-yellow)" />
               <span>
                 Re-establish cryptographic baseline? Current SHA-256 hashes will be saved as the trusted reference state.
               </span>
@@ -520,7 +520,7 @@ export default function HostSecurity() {
             borderRadius: '4px',
             fontSize: '0.75rem',
             background: rebaselineMsg.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-            border: `1px solid ${rebaselineMsg.type === 'success' ? '#10b981' : '#ef4444'}`,
+            border: `1px solid ${rebaselineMsg.type === 'success' ? 'var(--status-green)' : 'var(--status-red)'}`,
             color: rebaselineMsg.type === 'success' ? '#86efac' : '#fca5a5',
           }}>
             {rebaselineMsg.text}
@@ -553,7 +553,7 @@ export default function HostSecurity() {
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Modified Files</div>
-                <div className="fim-stat-value" style={{ color: (fimStatus.changed_count || 0) > 0 ? '#f87171' : '#f8fafc' }}>
+                <div className="fim-stat-value" style={{ color: (fimStatus.changed_count || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
                   {formatNumber(fimStatus.changed_count, 0, '0')}
                 </div>
                 <div className="fim-stat-sub">SHA-256 hash mismatches</div>
@@ -567,7 +567,7 @@ export default function HostSecurity() {
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Missing Files</div>
-                <div className="fim-stat-value" style={{ color: (fimStatus.missing_count || 0) > 0 ? '#fbbf24' : '#f8fafc' }}>
+                <div className="fim-stat-value" style={{ color: (fimStatus.missing_count || 0) > 0 ? 'var(--status-yellow)' : 'var(--text-primary)' }}>
                   {formatNumber(fimStatus.missing_count, 0, '0')}
                 </div>
                 <div className="fim-stat-sub">Deleted system files</div>
@@ -578,7 +578,7 @@ export default function HostSecurity() {
             <div className="fim-paths-section" style={{ marginTop: '1rem' }}>
               <div className="fim-section-title">
                 <span>Configured System File Targets</span>
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                   SHA-256 Chunked Hashing (Max {formatBytes(fimStatus.max_file_size || 10485760)})
                 </span>
               </div>
@@ -595,7 +595,7 @@ export default function HostSecurity() {
             <div className="fim-events-section" style={{ marginTop: '1rem' }}>
               <div className="fim-section-title">
                 <span>Integrity Deviation Audit Trail</span>
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                   {fimEvents.length} deviation events recorded
                 </span>
               </div>
@@ -625,9 +625,9 @@ export default function HostSecurity() {
                         const currHash = evData.current_sha256 ? `${evData.current_sha256.substring(0, 12)}...` : '-';
                         return (
                           <tr key={ev.event_id || idx}>
-                            <td style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{formatAlertTime(ev.timestamp)}</td>
+                            <td style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>{formatAlertTime(ev.timestamp)}</td>
                             <td>
-                              <code style={{ color: '#f8fafc', fontWeight: 500 }}>
+                              <code style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
                                 {evData.path || ev.description}
                               </code>
                             </td>
@@ -646,7 +646,7 @@ export default function HostSecurity() {
                                 {ev.severity}
                               </span>
                             </td>
-                            <td style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                            <td style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                               {ev.detection_type === 'FILE_MODIFIED' && (
                                 <span>Hash: <code style={{ color: '#fca5a5' }}>{prevHash}</code> &rarr; <code style={{ color: '#86efac' }}>{currHash}</code></span>
                               )}
