@@ -116,3 +116,6 @@ The screenshots below document the earlier dark-only palette. The current dashbo
    - Added runtime environment, process ID, and telemetry worker state to `/api/system/status` so the System Status page no longer shows fallback values for live diagnostics.
    - FIM metadata evidence now shows changed mode, owner UID, and group GID values, avoiding identical mode values when an ownership change triggered the event.
    - Detection and incident pages now surface API failures instead of presenting failed requests as empty risk or incident results; System Status reports the API as offline when it cannot be reached.
+10. **Firewall Status Accuracy:**
+   - The Overview firewall posture now reads the live firewall configuration instead of displaying a hardcoded evaluation-mode message.
+   - System diagnostics now include the firewall enabled flag and chain, distinguish disabled, dry-run, live, and unavailable states, and display the capability-check reason when live enforcement is configured but unavailable.

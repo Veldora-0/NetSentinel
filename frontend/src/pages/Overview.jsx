@@ -51,6 +51,8 @@ import {
   fetchMLStatus,
   fetchTelemetryCurrent,
   fetchTelemetryHistory,
+  fetchFirewallStatus,
+  fetchSystemStatus,
 } from '../services/api';
 import {
   formatNumber,
@@ -84,6 +86,8 @@ export function Overview() {
   const [recentRisks, setRecentRisks] = useState([]);
   const [riskStats, setRiskStats] = useState(null);
   const [mlStatus, setMlStatus] = useState(null);
+  const [firewallStatus, setFirewallStatus] = useState(null);
+  const [systemStatus, setSystemStatus] = useState(null);
   const [telemetry, setTelemetry] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState([]);
 
@@ -103,6 +107,8 @@ export function Overview() {
         mlStatRes,
         telemRes,
         telemHistRes,
+        firewallRes,
+        systemRes,
       ] = await Promise.allSettled([
         fetchReadiness(),
         fetchTrafficMetrics(),
@@ -115,6 +121,8 @@ export function Overview() {
         fetchMLStatus(),
         fetchTelemetryCurrent(),
         fetchTelemetryHistory(20),
+        fetchFirewallStatus(),
+        fetchSystemStatus(),
       ]);
 
       // Evaluate API connectivity independently from readiness
@@ -156,6 +164,8 @@ export function Overview() {
       if (risksRes.status === 'fulfilled' && risksRes.value) setRecentRisks(Array.isArray(risksRes.value) ? risksRes.value : (risksRes.value.assessments || []));
       if (riskStatsRes.status === 'fulfilled' && riskStatsRes.value) setRiskStats(riskStatsRes.value.stats || riskStatsRes.value);
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
+      if (firewallRes.status === 'fulfilled' && firewallRes.value) setFirewallStatus(firewallRes.value);
+      if (systemRes.status === 'fulfilled' && systemRes.value) setSystemStatus(systemRes.value);
       if (telemRes.status === 'fulfilled' && telemRes.value?.telemetry) setTelemetry(telemRes.value.telemetry);
       if (telemHistRes.status === 'fulfilled' && telemHistRes.value?.history) {
         const formatted = telemHistRes.value.history.map((h) => ({
@@ -316,6 +326,35 @@ export function Overview() {
   ];
 
   const totalSeverityCount = severityBreakdown.reduce((sum, item) => sum + item.count, 0);
+  const firewallEnabled = firewallStatus?.enabled === true;
+  const firewallDryRun = firewallStatus?.dry_run === true;
+  const firewallModeLabel = !firewallStatus
+    ? 'STATUS UNKNOWN'
+    : !firewallEnabled
+    ? 'STANDBY'
+    : firewallDryRun
+    ? 'DRY-RUN'
+    : !systemStatus?.firewall
+    ? 'CHECKING'
+    : !systemStatus.firewall.capable
+    ? 'UNAVAILABLE'
+    : 'LIVE KERNEL';
+  const firewallModeClass = firewallModeLabel === 'LIVE KERNEL'
+    ? 'badge-success'
+    : firewallModeLabel === 'DRY-RUN'
+    ? 'badge-warning'
+    : 'badge-neutral';
+  const firewallModeDescription = !firewallStatus
+    ? 'Firewall status is unavailable.'
+    : !firewallEnabled
+    ? 'Firewall enforcement is disabled in configuration.'
+    : firewallDryRun
+    ? 'Quarantine actions are simulated; kernel rules are not changed.'
+    : !systemStatus?.firewall
+    ? 'Checking kernel firewall capability.'
+    : !systemStatus.firewall.capable
+    ? `Live firewall capability unavailable: ${systemStatus.firewall.reason || 'system check failed'}.`
+    : 'Firewall rules can be inserted into the configured kernel chain.';
 
   return (
     <div className="page-container">
@@ -693,9 +732,9 @@ export function Overview() {
             <div style={{ padding: '10px 12px', background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.15)', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Kernel iptables Integration</span>
-                <span className="badge badge-info" style={{ fontSize: '10px' }}>EVALUATION MODE</span>
+                <span className={`badge ${firewallModeClass}`} style={{ fontSize: '10px' }}>{firewallModeLabel}</span>
               </div>
-              <div>Firewall enforcement is in evaluation/standby mode (`NETSENTINEL_FIREWALL_ENABLED=false`). Drops are observed without mutating live kernel chains.</div>
+              <div>{firewallModeDescription} Auto-block: {firewallStatus ? (firewallStatus.auto_block ? 'ON' : 'OFF') : 'Unknown'}.</div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-dark)', borderRadius: '6px', fontSize: '0.82rem' }}>

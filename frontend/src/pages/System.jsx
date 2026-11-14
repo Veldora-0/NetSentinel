@@ -74,6 +74,9 @@ export default function System() {
   const isReady = readiness?.ready === true;
   const isConnected = health?.connected === true;
   const is429 = readiness?.status === 429;
+  const firewallConfigured = Boolean(systemStatus?.firewall) && (
+    systemStatus.firewall.enabled ?? systemStatus.firewall.mode !== 'disabled'
+  );
 
   // Database state
   const dbStatus = systemStatus?.database != null
@@ -113,6 +116,12 @@ export default function System() {
         </div>
       )}
 
+      {firewallConfigured && !systemStatus.firewall.dry_run && !systemStatus.firewall.capable && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid var(--status-red)', borderRadius: '6px', padding: '10px 14px', marginBottom: '1rem', fontSize: '0.85rem', color: '#fca5a5' }}>
+          <strong>Firewall unavailable:</strong> {systemStatus.firewall.reason || 'The iptables capability check failed.'}
+        </div>
+      )}
+
       {/* Consolidated Runtime Service Metric Cards */}
       <div className="metric-cards-grid">
         <MetricCard
@@ -141,8 +150,16 @@ export default function System() {
         />
         <MetricCard
           title="Firewall Netfilter"
-          value={systemStatus?.firewall?.capable ? (systemStatus.firewall.dry_run ? 'DRY-RUN' : 'LIVE KERNEL') : (systemStatus?.firewall ? 'DISABLED' : 'CHECKING')}
-          subtext={`Chain: ${systemStatus?.firewall?.chain || 'NETSENTINEL'}`}
+          value={!systemStatus?.firewall
+            ? isConnected ? 'CHECKING' : 'OFFLINE'
+            : !firewallConfigured
+            ? 'DISABLED'
+            : systemStatus.firewall.dry_run
+            ? 'DRY-RUN'
+            : systemStatus.firewall.capable
+            ? 'LIVE KERNEL'
+            : 'UNAVAILABLE'}
+          subtext={systemStatus?.firewall?.reason || `Chain: ${systemStatus?.firewall?.chain || 'NETSENTINEL'}`}
           icon={Shield}
         />
       </div>

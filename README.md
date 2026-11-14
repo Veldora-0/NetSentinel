@@ -521,6 +521,11 @@ Security Event (Public Source IP)
    ```bash
    pip install -r requirements.txt
    ```
+   For live firewall enforcement on Debian/Ubuntu, also install the iptables userspace command and confirm it is on the server's `PATH`:
+   ```bash
+   sudo apt install iptables
+   command -v iptables
+   ```
 3. Run automated tests:
    ```bash
    pytest tests/

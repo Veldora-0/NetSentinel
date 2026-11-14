@@ -729,9 +729,11 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
             "database": db_health,
             "firewall": {
                 **fw_cap_status,
+                "enabled": firewall.enabled if firewall else False,
                 "active_blocks": len(firewall._blocked_ips) if firewall else 0,
                 "dry_run": firewall.dry_run if firewall else True,
                 "auto_block": firewall.auto_block if firewall else False,
+                "chain": firewall.chain if firewall else "NETSENTINEL",
             },
             "packet_capture": {
                 "status": capture_status,
