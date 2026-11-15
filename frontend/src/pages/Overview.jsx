@@ -125,6 +125,14 @@ export function Overview() {
         fetchSystemStatus(),
       ]);
 
+      const telemetryErrors = [
+        telemRes.status === 'rejected' ? `Current telemetry: ${telemRes.reason?.message || 'request failed'}` : null,
+        telemHistRes.status === 'rejected' ? `Telemetry history: ${telemHistRes.reason?.message || 'request failed'}` : null,
+      ].filter(Boolean);
+      setError(telemetryErrors.length
+        ? `Host telemetry could not be fully refreshed: ${telemetryErrors.join('; ')}`
+        : null);
+
       // Evaluate API connectivity independently from readiness
       // Backend /api/ready responds with HTTP 200 (healthy) or HTTP 503 (subsystems degraded)
       // A network failure (no status) or proxy gateway failure (non-ready response) indicates API is unreachable
@@ -166,12 +174,12 @@ export function Overview() {
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
       if (firewallRes.status === 'fulfilled' && firewallRes.value) setFirewallStatus(firewallRes.value);
       if (systemRes.status === 'fulfilled' && systemRes.value) setSystemStatus(systemRes.value);
-      if (telemRes.status === 'fulfilled' && telemRes.value?.telemetry) setTelemetry(telemRes.value.telemetry);
-      if (telemHistRes.status === 'fulfilled' && telemHistRes.value?.history) {
-        const formatted = telemHistRes.value.history.map((h) => ({
+      if (telemRes.status === 'fulfilled' && telemRes.value) setTelemetry(telemRes.value);
+      if (telemHistRes.status === 'fulfilled' && Array.isArray(telemHistRes.value)) {
+        const formatted = telemHistRes.value.map((h) => ({
           time: formatAlertTime(h.timestamp),
-          cpu: safeNumber(h.cpu_percent, 0),
-          memory: safeNumber(h.memory_percent, 0),
+          cpu: safeNumber(h.cpu_percent, null),
+          memory: safeNumber(h.memory_percent, null),
         }));
         setTelemetryHistory(formatted);
       }
@@ -232,8 +240,8 @@ export function Overview() {
         ...prev,
         {
           time: nowStr,
-          cpu: safeNumber(data.cpu_percent, 0),
-          memory: safeNumber(data.memory_percent, 0),
+          cpu: safeNumber(data.cpu_percent, null),
+          memory: safeNumber(data.memory_percent, null),
         },
       ];
       return updated.length > 25 ? updated.slice(-25) : updated;
@@ -583,7 +591,7 @@ export function Overview() {
                   <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
-                    formatter={(val, name) => [`${val}%`, name]}
+                    formatter={(val, name) => [val == null ? 'Unavailable' : `${val}%`, name]}
                     cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                   />
                   <Line type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" strokeWidth={2} dot={false} name="CPU %" />
@@ -603,7 +611,10 @@ export function Overview() {
               </div>
             </div>
           ) : (
-            <LoadingState message="Collecting host telemetry samples..." compact />
+            <LoadingState
+              message={error ? 'Host telemetry is unavailable. Check the error above and retry.' : 'Collecting host telemetry samples...'}
+              compact
+            />
           )}
         </DashboardCard>
       </div>

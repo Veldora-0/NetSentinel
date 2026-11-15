@@ -259,36 +259,28 @@ export async function fetchSecuritySummary(since = null) {
 }
 
 export async function fetchTelemetryCurrent() {
-  try {
-    const response = await authFetch('/api/telemetry/current', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.telemetry || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/telemetry/current', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.telemetry || null;
 }
 
 export async function fetchTelemetryHistory(limit = 60, since = null, until = null) {
-  try {
-    const query = new URLSearchParams();
-    if (limit) query.append('limit', limit);
-    if (since) query.append('since', since);
-    if (until) query.append('until', until);
+  const query = new URLSearchParams();
+  if (limit) query.append('limit', limit);
+  if (since) query.append('since', since);
+  if (until) query.append('until', until);
 
-    const qs = query.toString();
-    const url = qs ? `/api/telemetry/history?${qs}` : '/api/telemetry/history';
-    const response = await authFetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.telemetry || [];
-  } catch (error) {
-    return [];
-  }
+  const qs = query.toString();
+  const url = qs ? `/api/telemetry/history?${qs}` : '/api/telemetry/history';
+  const response = await authFetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.telemetry || [];
 }
 
 // Phase 7: Host-Based Intrusion Detection (HIDS) APIs

@@ -59,6 +59,7 @@ export default function HostSecurity() {
   const [fimEvents, setFimEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [requestErrors, setRequestErrors] = useState([]);
   const [showRebaselineConfirm, setShowRebaselineConfirm] = useState(false);
   const [rebaselining, setRebaselining] = useState(false);
   const [rebaselineMsg, setRebaselineMsg] = useState(null);
@@ -66,25 +67,41 @@ export default function HostSecurity() {
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [hStatus, telem, telemHist, fStatus, fEventsRes] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchHostStatus(),
         fetchTelemetryCurrent(),
         fetchTelemetryHistory(30),
         fetchFimStatus(),
         fetchFimEvents({ limit: 50 }),
       ]);
-      setHostStatus(hStatus);
-      setHostTelemetry(telem?.telemetry || telem);
-      if (telemHist?.history) {
-        const formatted = telemHist.history.map((h) => ({
+      const requestNames = ['Host status', 'Current telemetry', 'Telemetry history', 'FIM status', 'FIM event history'];
+      const failures = [];
+      const values = results.map((result, index) => {
+        if (result.status === 'rejected') {
+          failures.push(`${requestNames[index]}: ${result.reason?.message || 'request failed'}`);
+          return null;
+        }
+        if (result.value?.error || result.value?.status === 'error') {
+          failures.push(`${requestNames[index]}: ${result.value.error || result.value.message || 'request failed'}`);
+          return null;
+        }
+        return result.value;
+      });
+      setRequestErrors(failures);
+
+      const [hStatus, telem, telemHist, fStatus, fEventsRes] = values;
+      if (hStatus) setHostStatus(hStatus);
+      if (telem) setHostTelemetry(telem);
+      if (Array.isArray(telemHist)) {
+        const formatted = telemHist.map((h) => ({
           time: formatAlertTime(h.timestamp),
-          cpu: safeNumber(h.cpu_percent, 0),
-          memory: safeNumber(h.memory_percent, 0),
+          cpu: safeNumber(h.cpu_percent, null),
+          memory: safeNumber(h.memory_percent, null),
         }));
         setTelemetryHistory(formatted);
       }
-      setFimStatus(fStatus);
-      setFimEvents(fEventsRes?.events || []);
+      if (fStatus) setFimStatus(fStatus);
+      if (fEventsRes) setFimEvents(fEventsRes.events || []);
     } catch (err) {
       setError(err.message || 'Failed to load host security data');
     } finally {
@@ -116,8 +133,8 @@ export default function HostSecurity() {
         ...prev,
         {
           time: nowStr,
-          cpu: safeNumber(data.cpu_percent, 0),
-          memory: safeNumber(data.memory_percent, 0),
+          cpu: safeNumber(data.cpu_percent, null),
+          memory: safeNumber(data.memory_percent, null),
         },
       ];
       return updated.length > 30 ? updated.slice(-30) : updated;
@@ -170,10 +187,17 @@ export default function HostSecurity() {
   const hostComponents = hostStatus?.components || hostStatus || {};
   const sshDetector = hostComponents.ssh_detector || {};
   const procMonitor = hostComponents.process_monitor || {};
+  const hostMetricFallback = hostStatus ? '0' : '—';
+  const fimMetricFallback = fimStatus ? '0' : '—';
+  const hostStatusError = requestErrors.some((failure) => failure.startsWith('Host status:'));
+  const fimStatusError = requestErrors.some((failure) => failure.startsWith('FIM status:'));
+  const fimEventsError = requestErrors.some((failure) => failure.startsWith('FIM event history:'));
   const isFimActive = fimStatus?.enabled && fimStatus?.baseline_ready;
 
   // Semantic FIM Badge
-  const fimBadgeText = !fimStatus
+  const fimBadgeText = fimStatusError
+    ? 'UNAVAILABLE'
+    : !fimStatus
     ? 'CHECKING'
     : !fimStatus.enabled
     ? 'DISABLED'
@@ -183,7 +207,9 @@ export default function HostSecurity() {
     ? 'ALTERED'
     : 'VERIFIED';
 
-  const fimBadgeClass = !fimStatus
+  const fimBadgeClass = fimStatusError
+    ? 'badge-danger'
+    : !fimStatus
     ? 'badge-warning'
     : !fimStatus.enabled
     ? 'badge-info'
@@ -194,7 +220,9 @@ export default function HostSecurity() {
     : 'badge-success';
 
   // Semantic SSH Badge
-  const sshBadgeText = !sshDetector.status
+  const sshBadgeText = hostStatusError
+    ? 'UNAVAILABLE'
+    : !sshDetector.status
     ? 'STANDBY'
     : (sshDetector.total_brute_force_detected || 0) > 0
     ? 'ATTACKS DETECTED'
@@ -202,7 +230,9 @@ export default function HostSecurity() {
     ? 'NORMAL'
     : sshDetector.status;
 
-  const sshBadgeClass = !sshDetector.status
+  const sshBadgeClass = hostStatusError
+    ? 'badge-danger'
+    : !sshDetector.status
     ? 'badge-info'
     : (sshDetector.total_brute_force_detected || 0) > 0
     ? 'badge-critical'
@@ -222,25 +252,32 @@ export default function HostSecurity() {
         }
       />
 
+      {requestErrors.length > 0 && (
+        <ErrorState
+          message={`Some Host Security data could not be refreshed: ${requestErrors.join('; ')}. Values for failed requests are stale and retained from the last successful update; other sections show their latest successful data.`}
+          onRetry={loadData}
+        />
+      )}
+
       {/* KPI Cards Row */}
       <div className="metric-cards-grid">
         <MetricCard
           title="Monitored Files"
           value={formatNumber(fimStatus?.baseline_file_count, 0, '—')}
-          subtext={`${formatNumber(fimStatus?.monitored_path_count, 0, '0')} directory paths`}
+          subtext={`${formatNumber(fimStatus?.monitored_path_count, 0, fimMetricFallback)} directory paths`}
           icon={FileText}
         />
         <MetricCard
           title="SSH Auth Failures"
-          value={formatNumber(sshDetector.total_failures, 0, '0')}
-          subtext={`${formatNumber(sshDetector.total_brute_force_detected, 0, '0')} brute-force alerts`}
+          value={formatNumber(sshDetector.total_failures, 0, hostMetricFallback)}
+          subtext={`${formatNumber(sshDetector.total_brute_force_detected, 0, hostMetricFallback)} brute-force alerts`}
           icon={Terminal}
           badge={sshDetector.total_brute_force_detected > 0 ? <span className="badge badge-critical">{sshDetector.total_brute_force_detected} ALERTS</span> : null}
         />
         <MetricCard
           title="Suspicious Processes"
-          value={formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
-          subtext={`${formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, '0')} total visible PIDs`}
+          value={formatNumber(procMonitor.suspicious_processes_detected, 0, hostMetricFallback)}
+          subtext={`${formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, hostMetricFallback)} total visible PIDs`}
           icon={ShieldAlert}
           badge={
             (procMonitor.suspicious_processes_detected || 0) > 0 ? (
@@ -250,8 +287,8 @@ export default function HostSecurity() {
         />
         <MetricCard
           title="Integrity Alterations"
-          value={formatNumber(fimStatus?.changed_count, 0, '0')}
-          subtext={`${formatNumber(fimStatus?.missing_count, 0, '0')} deletions recorded`}
+          value={formatNumber(fimStatus?.changed_count, 0, fimMetricFallback)}
+          subtext={`${formatNumber(fimStatus?.missing_count, 0, fimMetricFallback)} deletions recorded`}
           icon={AlertTriangle}
           badge={
             (fimStatus?.changed_count || 0) > 0 ? (
@@ -289,7 +326,7 @@ export default function HostSecurity() {
                       <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} domain={[0, 100]} width={36} tickFormatter={(v) => `${v}%`} />
                       <Tooltip
                         contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
-                        formatter={(val, name) => [`${val}%`, name]}
+                        formatter={(val, name) => [val == null ? 'Unavailable' : `${val}%`, name]}
                         cursor={{ stroke: 'var(--accent-cyan)', strokeWidth: 1, strokeDasharray: '3 3' }}
                       />
                       <Area type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" strokeWidth={2} fillOpacity={1} fill="url(#hostCpuGrad)" name="CPU %" />
@@ -297,6 +334,8 @@ export default function HostSecurity() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
+              ) : requestErrors.some((failure) => failure.startsWith('Telemetry history:')) ? (
+                <EmptyState message="Telemetry history is unavailable; the chart cannot be refreshed." icon={Activity} />
               ) : (
                 <LoadingState message="Collecting resource samples..." compact />
               )}
@@ -399,19 +438,19 @@ export default function HostSecurity() {
               </div>
               <div className="host-prop-item">
                 <span className="host-prop-label">Current Tracked Attacker IPs</span>
-                <span className="host-prop-value">{formatNumber(sshDetector.tracked_ips_count ?? sshDetector.tracked_sources_count, 0, '0')}</span>
+                <span className="host-prop-value">{formatNumber(sshDetector.tracked_ips_count ?? sshDetector.tracked_sources_count, 0, hostMetricFallback)}</span>
               </div>
             </div>
 
             <div className="host-stats-row">
               <div className="host-stat-box">
                 <span className="stat-title">Total Failed Logins</span>
-                <span className="stat-num">{formatNumber(sshDetector.total_failures, 0, '0')}</span>
+                <span className="stat-num">{formatNumber(sshDetector.total_failures, 0, hostMetricFallback)}</span>
               </div>
               <div className="host-stat-box">
                 <span className="stat-title">Brute-Force Alerts</span>
                 <span className="stat-num" style={{ color: (sshDetector.total_brute_force_detected || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
-                  {formatNumber(sshDetector.total_brute_force_detected, 0, '0')}
+                  {formatNumber(sshDetector.total_brute_force_detected, 0, hostMetricFallback)}
                 </span>
               </div>
             </div>
@@ -426,9 +465,9 @@ export default function HostSecurity() {
                 <span>Process Observer Engine</span>
                 <span className={`badge ${
                   procMonitor.status === 'RUNNING' ? 'badge-success' :
-                  procMonitor.status === 'PERMISSION_DENIED' ? 'badge-danger' : 'badge-neutral'
+                    procMonitor.status === 'PERMISSION_DENIED' || hostStatusError ? 'badge-danger' : 'badge-neutral'
                 }`}>
-                  {procMonitor.status || 'UNKNOWN'}
+                  {hostStatusError ? 'UNAVAILABLE' : procMonitor.status || 'UNKNOWN'}
                 </span>
               </div>
               <div className="host-prop-item">
@@ -448,12 +487,12 @@ export default function HostSecurity() {
             <div className="host-stats-row">
               <div className="host-stat-box">
                 <span className="stat-title">Visible Processes</span>
-                <span className="stat-num">{formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, '0')}</span>
+                <span className="stat-num">{formatNumber(procMonitor.visible_processes ?? procMonitor.tracked_processes ?? procMonitor.baseline_pids_count, 0, hostMetricFallback)}</span>
               </div>
               <div className="host-stat-box">
                 <span className="stat-title">Suspicious Invocations</span>
                 <span className="stat-num" style={{ color: (procMonitor.suspicious_processes_detected || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
-                  {formatNumber(procMonitor.suspicious_processes_detected, 0, '0')}
+                  {formatNumber(procMonitor.suspicious_processes_detected, 0, hostMetricFallback)}
                 </span>
               </div>
             </div>
@@ -532,7 +571,7 @@ export default function HostSecurity() {
         )}
 
         {!fimStatus ? (
-          <EmptyState message="Waiting for File Integrity Monitoring status..." icon={FileText} />
+          <EmptyState message={fimStatusError ? 'File Integrity Monitoring status is unavailable.' : 'Waiting for File Integrity Monitoring status...'} icon={FileText} />
         ) : (
           <div className="fim-container">
             {/* Metric stats strip */}
@@ -551,28 +590,28 @@ export default function HostSecurity() {
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Monitored Files</div>
-                <div className="fim-stat-value">{formatNumber(fimStatus.baseline_file_count, 0, '0')}</div>
-                <div className="fim-stat-sub">{formatNumber(fimStatus.monitored_path_count, 0, '0')} target path(s)</div>
+                <div className="fim-stat-value">{formatNumber(fimStatus.baseline_file_count, 0, fimMetricFallback)}</div>
+                <div className="fim-stat-sub">{formatNumber(fimStatus.monitored_path_count, 0, fimMetricFallback)} target path(s)</div>
               </div>
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Modified Files</div>
                 <div className="fim-stat-value" style={{ color: (fimStatus.changed_count || 0) > 0 ? 'var(--status-red)' : 'var(--text-primary)' }}>
-                  {formatNumber(fimStatus.changed_count, 0, '0')}
+                  {formatNumber(fimStatus.changed_count, 0, fimMetricFallback)}
                 </div>
                 <div className="fim-stat-sub">SHA-256 hash mismatches</div>
               </div>
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Added Files</div>
-                <div className="fim-stat-value">{formatNumber(fimStatus.added_count, 0, '0')}</div>
+                <div className="fim-stat-value">{formatNumber(fimStatus.added_count, 0, fimMetricFallback)}</div>
                 <div className="fim-stat-sub">New files detected</div>
               </div>
 
               <div className="fim-stat-card">
                 <div className="fim-stat-label">Missing Files</div>
                 <div className="fim-stat-value" style={{ color: (fimStatus.missing_count || 0) > 0 ? 'var(--status-yellow)' : 'var(--text-primary)' }}>
-                  {formatNumber(fimStatus.missing_count, 0, '0')}
+                  {formatNumber(fimStatus.missing_count, 0, fimMetricFallback)}
                 </div>
                 <div className="fim-stat-sub">Deleted system files</div>
               </div>
@@ -619,7 +658,9 @@ export default function HostSecurity() {
                     {fimEvents.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                          No integrity deviations recorded. Monitored files match expected baselines.
+                          {fimEventsError
+                            ? 'FIM event history is unavailable; no event count can be confirmed.'
+                            : 'No integrity deviations recorded. Monitored files match expected baselines.'}
                         </td>
                       </tr>
                     ) : (
