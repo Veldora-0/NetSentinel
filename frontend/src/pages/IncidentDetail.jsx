@@ -40,6 +40,12 @@ import {
   getIncidentStatusBadgeClass,
   getReputationBadgeClass,
 } from '../utils/formatters';
+
+function throwOnIncidentActionFailure(result) {
+  if (result?.status === 'error' || result?.error || result?.success === false) {
+    throw new Error(result.message || result.error || 'Incident action failed');
+  }
+}
 import { useAuth } from '../context/AuthContext';
 
 export default function IncidentDetail() {
@@ -106,16 +112,16 @@ export default function IncidentDetail() {
     setActionFeedback(null);
     try {
       if (actionType === 'acknowledge') {
-        await acknowledgeIncident(incidentId, analystNote);
+        throwOnIncidentActionFailure(await acknowledgeIncident(incidentId, analystNote));
         setActionFeedback({ type: 'success', text: 'Incident successfully acknowledged.' });
       } else if (actionType === 'resolve') {
-        await resolveIncident(incidentId, resolutionNote, analystNote);
+        throwOnIncidentActionFailure(await resolveIncident(incidentId, resolutionNote, analystNote));
         setActionFeedback({ type: 'success', text: 'Incident marked as resolved.' });
       } else if (actionType === 'close') {
-        await closeIncident(incidentId, resolutionNote, analystNote);
+        throwOnIncidentActionFailure(await closeIncident(incidentId, resolutionNote, analystNote));
         setActionFeedback({ type: 'success', text: 'Incident closed.' });
       } else if (actionType === 'reopen') {
-        await reopenIncident(incidentId, analystNote);
+        throwOnIncidentActionFailure(await reopenIncident(incidentId, analystNote));
         setActionFeedback({ type: 'success', text: 'Incident reopened.' });
       }
       setAnalystNote('');

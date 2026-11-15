@@ -65,9 +65,23 @@ export function Network() {
         fetchARPMappings(100),
         fetchSecurityAlerts(50),
       ]);
+      const requestErrors = [
+        ['Network status', netStatusRes],
+        ['ARP mappings', arpRes],
+        ['Security alerts', alertsRes],
+      ].flatMap(([name, result]) => {
+        if (result.status === 'rejected') {
+          return [`${name}: ${result.reason?.message || 'request failed'}`];
+        }
+        if (result.value?.status === 'error' || result.value?.error) {
+          return [`${name}: ${result.value.error || result.value.message || 'request failed'}`];
+        }
+        return [];
+      });
 
       let captureData = null;
-      if (netStatusRes.status === 'fulfilled' && netStatusRes.value) {
+      if (netStatusRes.status === 'fulfilled' && netStatusRes.value &&
+          netStatusRes.value.status !== 'error' && !netStatusRes.value.error) {
         const net = netStatusRes.value.network || netStatusRes.value;
         if (netStatusRes.value.network) setNetworkStatus(netStatusRes.value.network);
         captureData = net?.capture || netStatusRes.value.capture || null;
@@ -77,10 +91,14 @@ export function Network() {
       if (!captureData) {
         try {
           captureData = await fetchTrafficMetrics();
-        } catch {
-          // ignore fallback error
+        } catch (err) {
+          requestErrors.push(`Traffic metrics: ${err.message || 'request failed'}`);
         }
       }
+
+      setError(requestErrors.length
+        ? `Some network data could not be refreshed: ${requestErrors.join('; ')}. Values for failed requests are retained from the last successful response.`
+        : null);
 
       if (captureData) {
         setTrafficMetrics(captureData);
@@ -97,7 +115,10 @@ export function Network() {
         });
       }
 
-      if (arpRes.status === 'fulfilled' && arpRes.value?.mappings) setArpMappings(arpRes.value.mappings);
+      if (arpRes.status === 'fulfilled' && arpRes.value?.status !== 'error' && !arpRes.value?.error &&
+          Array.isArray(arpRes.value?.mappings)) {
+        setArpMappings(arpRes.value.mappings);
+      }
       if (alertsRes.status === 'fulfilled' && Array.isArray(alertsRes.value)) setAlerts(alertsRes.value);
     } catch (err) {
       setError(err.message || 'Failed to load network traffic data');

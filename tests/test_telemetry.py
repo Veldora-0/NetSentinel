@@ -104,3 +104,36 @@ def test_get_system_metrics_backward_compatibility():
     assert "memory_percent" in res
     assert "bytes_sent" in res
     assert "bytes_recv" in res
+
+
+def test_telemetry_sampling_errors_are_reported_as_unavailable():
+    worker = TelemetryWorker()
+
+    with patch("telemetry.psutil.cpu_percent", side_effect=OSError("cpu unavailable")), \
+         patch("telemetry.psutil.virtual_memory", side_effect=OSError("memory unavailable")), \
+         patch("telemetry.psutil.disk_usage", side_effect=OSError("disk unavailable")), \
+         patch("telemetry.os.getloadavg", side_effect=OSError("load unavailable")), \
+         patch("telemetry.psutil.net_io_counters", side_effect=OSError("network unavailable")):
+        sample = worker.sample_now()
+
+    for metric in (
+        "cpu_percent",
+        "memory_percent",
+        "memory_used_bytes",
+        "memory_available_bytes",
+        "disk_percent",
+        "disk_used_bytes",
+        "disk_free_bytes",
+        "load_1",
+        "load_5",
+        "load_15",
+        "network_bytes_sent",
+        "network_bytes_recv",
+        "network_packets_sent",
+        "network_packets_recv",
+        "host_tx_bps",
+        "host_rx_bps",
+        "host_tx_pps",
+        "host_rx_pps",
+    ):
+        assert sample[metric] is None, metric

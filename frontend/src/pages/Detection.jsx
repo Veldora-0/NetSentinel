@@ -71,10 +71,25 @@ export function Detection() {
         fetchSecuritySummary(),
       ]);
 
-      const coreResponses = [mlStatRes, mlMetRes, riskStatRes, sumRes];
-      if (coreResponses.every((result) => result.status !== 'fulfilled' || result.value == null)) {
-        setError('Detection and risk services are unavailable. Check the backend connection and retry.');
-      }
+      const detectionRequests = [
+        ['ML status', mlStatRes],
+        ['ML metrics', mlMetRes],
+        ['Recent risk assessments', risksRes],
+        ['Risk statistics', riskStatRes],
+        ['Security summary', sumRes],
+      ];
+      const requestErrors = detectionRequests.flatMap(([name, result]) => {
+        if (result.status === 'rejected') {
+          return [`${name}: ${result.reason?.message || 'request failed'}`];
+        }
+        if (result.value?.status === 'error' || result.value?.error) {
+          return [`${name}: ${result.value.error || result.value.message || 'request failed'}`];
+        }
+        return [];
+      });
+      setError(requestErrors.length
+        ? `Some detection data could not be refreshed: ${requestErrors.join('; ')}. Values for failed requests are retained from the last successful response.`
+        : null);
 
       if (mlStatRes.status === 'fulfilled' && mlStatRes.value) setMlStatus(mlStatRes.value);
       if (mlMetRes.status === 'fulfilled' && mlMetRes.value) setMlMetrics(mlMetRes.value);

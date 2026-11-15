@@ -75,7 +75,7 @@ class TelemetryWorker:
             cpu_pct = float(psutil.cpu_percent(interval=None))
         except Exception as ex:
             logger.debug("CPU percent reading failed: %s", ex)
-            cpu_pct = 0.0
+            cpu_pct = None
 
         # 2. Virtual Memory
         try:
@@ -85,7 +85,7 @@ class TelemetryWorker:
             mem_avail = int(mem.available)
         except Exception as ex:
             logger.debug("Memory reading failed: %s", ex)
-            mem_pct, mem_used, mem_avail = 0.0, 0, 0
+            mem_pct, mem_used, mem_avail = None, None, None
 
         # 3. Disk Usage
         try:
@@ -96,10 +96,10 @@ class TelemetryWorker:
             disk_free = int(disk.free)
         except Exception as ex:
             logger.debug("Disk reading failed: %s", ex)
-            disk_pct, disk_used, disk_free = 0.0, 0, 0
+            disk_pct, disk_used, disk_free = None, None, None
 
         # 4. OS System Load Averages (1, 5, 15 min)
-        load_1, load_5, load_15 = 0.0, 0.0, 0.0
+        load_1, load_5, load_15 = None, None, None
         try:
             if hasattr(os, "getloadavg"):
                 l1, l5, l15 = os.getloadavg()
@@ -108,9 +108,9 @@ class TelemetryWorker:
             logger.debug("Load average reading failed: %s", ex)
 
         # 5. Host Network I/O Counters & Rate Derivation
-        tx_bps, rx_bps, tx_pps, rx_pps = 0.0, 0.0, 0.0, 0.0
-        net_bytes_sent, net_bytes_recv = 0, 0
-        net_pkts_sent, net_pkts_recv = 0, 0
+        tx_bps, rx_bps, tx_pps, rx_pps = None, None, None, None
+        net_bytes_sent, net_bytes_recv = None, None
+        net_pkts_sent, net_pkts_recv = None, None
 
         try:
             curr_net = psutil.net_io_counters()
@@ -132,24 +132,27 @@ class TelemetryWorker:
                     rx_pps = round(delta_rx_pkts / dt, 2)
 
                 self._prev_net_io = curr_net
+            else:
+                self._prev_net_io = None
         except Exception as ex:
             logger.debug("Network counters reading failed: %s", ex)
+            self._prev_net_io = None
 
         self._last_time = now_mono
 
         return {
             "telemetry_id": str(uuid.uuid4()),
             "timestamp": now_wall,
-            "cpu_percent": round(cpu_pct, 2),
-            "memory_percent": round(mem_pct, 2),
+            "cpu_percent": round(cpu_pct, 2) if cpu_pct is not None else None,
+            "memory_percent": round(mem_pct, 2) if mem_pct is not None else None,
             "memory_used_bytes": mem_used,
             "memory_available_bytes": mem_avail,
-            "disk_percent": round(disk_pct, 2),
+            "disk_percent": round(disk_pct, 2) if disk_pct is not None else None,
             "disk_used_bytes": disk_used,
             "disk_free_bytes": disk_free,
-            "load_1": round(load_1, 2),
-            "load_5": round(load_5, 2),
-            "load_15": round(load_15, 2),
+            "load_1": round(load_1, 2) if load_1 is not None else None,
+            "load_5": round(load_5, 2) if load_5 is not None else None,
+            "load_15": round(load_15, 2) if load_15 is not None else None,
             "network_bytes_sent": net_bytes_sent,
             "network_bytes_recv": net_bytes_recv,
             "network_packets_sent": net_pkts_sent,

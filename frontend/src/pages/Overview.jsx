@@ -125,12 +125,32 @@ export function Overview() {
         fetchSystemStatus(),
       ]);
 
-      const telemetryErrors = [
-        telemRes.status === 'rejected' ? `Current telemetry: ${telemRes.reason?.message || 'request failed'}` : null,
-        telemHistRes.status === 'rejected' ? `Telemetry history: ${telemHistRes.reason?.message || 'request failed'}` : null,
-      ].filter(Boolean);
-      setError(telemetryErrors.length
-        ? `Host telemetry could not be fully refreshed: ${telemetryErrors.join('; ')}`
+      const dashboardRequests = [
+        ['Backend readiness', readyRes],
+        ['Traffic metrics', trafficRes],
+        ['Security summary', sumRes],
+        ['Incidents', incRes],
+        ['Incident statistics', statsRes],
+        ['Blocked IPs', blockedRes],
+        ['Recent risk assessments', risksRes],
+        ['Risk statistics', riskStatsRes],
+        ['ML status', mlStatRes],
+        ['Current telemetry', telemRes],
+        ['Telemetry history', telemHistRes],
+        ['Firewall status', firewallRes],
+        ['System status', systemRes],
+      ];
+      const requestErrors = dashboardRequests.flatMap(([name, result]) => {
+        if (result.status === 'rejected') {
+          return [`${name}: ${result.reason?.message || 'request failed'}`];
+        }
+        if (result.value?.status === 'error' || result.value?.error) {
+          return [`${name}: ${result.value.error || result.value.message || 'request failed'}`];
+        }
+        return [];
+      });
+      setError(requestErrors.length
+        ? `Some dashboard data could not be refreshed: ${requestErrors.join('; ')}. Values for failed requests are retained from the last successful response.`
         : null);
 
       // Evaluate API connectivity independently from readiness
@@ -166,7 +186,9 @@ export function Overview() {
         });
       }
       if (sumRes.status === 'fulfilled' && sumRes.value) setSummary(sumRes.value.summary || sumRes.value);
-      if (incRes.status === 'fulfilled' && incRes.value) setIncidents(incRes.value.incidents || (Array.isArray(incRes.value) ? incRes.value : []));
+      if (incRes.status === 'fulfilled' && incRes.value && incRes.value.status !== 'error' && !incRes.value.error) {
+        setIncidents(incRes.value.incidents || (Array.isArray(incRes.value) ? incRes.value : []));
+      }
       if (statsRes.status === 'fulfilled' && statsRes.value) setIncidentStats(statsRes.value.stats || statsRes.value);
       if (blockedRes.status === 'fulfilled' && Array.isArray(blockedRes.value)) setBlockedIPs(blockedRes.value);
       if (risksRes.status === 'fulfilled' && risksRes.value) setRecentRisks(Array.isArray(risksRes.value) ? risksRes.value : (risksRes.value.assessments || []));
@@ -250,23 +272,25 @@ export function Overview() {
 
   useSocketEvent('incident_created', () => {
     fetchIncidents({ limit: 5 }).then((res) => {
-      if (res?.incidents) setIncidents(res.incidents);
-    });
+      if (res?.incidents && !res.error) setIncidents(res.incidents);
+      else if (res?.error) setError(`Incidents: ${res.error}`);
+    }).catch((err) => setError(`Incidents: ${err.message || 'request failed'}`));
     fetchIncidentStats().then((res) => {
       if (res?.stats) setIncidentStats(res.stats);
-    });
+    }).catch((err) => setError(`Incident statistics: ${err.message || 'request failed'}`));
   });
 
   useSocketEvent('incident_updated', () => {
     fetchIncidents({ limit: 5 }).then((res) => {
-      if (res?.incidents) setIncidents(res.incidents);
-    });
+      if (res?.incidents && !res.error) setIncidents(res.incidents);
+      else if (res?.error) setError(`Incidents: ${res.error}`);
+    }).catch((err) => setError(`Incidents: ${err.message || 'request failed'}`));
   });
 
   useSocketEvent('firewall_action', () => {
     fetchBlockedIPs().then((ips) => {
       if (Array.isArray(ips)) setBlockedIPs(ips);
-    });
+    }).catch((err) => setError(`Blocked IPs: ${err.message || 'request failed'}`));
   });
 
   useSocketEvent('risk_assessment', (data) => {
@@ -308,6 +332,7 @@ export function Overview() {
     : 'Checking';
 
   const socketStatusText = socketConnected ? 'Online' : 'Offline';
+  const telemetryUnavailable = error?.includes('Current telemetry:') || error?.includes('Telemetry history:');
 
   // Severity Distribution Data from Summary or Risk Stats
   const severityBreakdown = [
@@ -612,7 +637,7 @@ export function Overview() {
             </div>
           ) : (
             <LoadingState
-              message={error ? 'Host telemetry is unavailable. Check the error above and retry.' : 'Collecting host telemetry samples...'}
+              message={telemetryUnavailable ? 'Host telemetry is unavailable. Check the error above and retry.' : 'Collecting host telemetry samples...'}
               compact
             />
           )}

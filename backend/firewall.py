@@ -53,6 +53,7 @@ class FirewallManager:
         self._lock = threading.RLock()
         self._blocked_ips: Dict[str, BlockRecord] = {}
         self._chain_initialized = False
+        self._chain_initialization_error: Optional[str] = None
 
         # Gather local host addresses
         self._local_addresses: Set[str] = self._discover_local_addresses()
@@ -175,10 +176,12 @@ class FirewallManager:
             # Insert jump at position 1 of INPUT chain
             link_success, link_err = self._run_iptables_command(["-I", "INPUT", "1", "-j", self.chain])
             if not link_success:
+                self._chain_initialization_error = link_err
                 logger.warning("Failed linking %s chain to INPUT: %s", self.chain, link_err)
                 return False
 
         self._chain_initialized = True
+        self._chain_initialization_error = None
         logger.info("Dedicated iptables chain '%s' initialized and linked to INPUT.", self.chain)
         return True
 
@@ -256,7 +259,14 @@ class FirewallManager:
                 }
 
             # Real iptables execution
-            self._ensure_chain_exists()
+            if not self._ensure_chain_exists():
+                return {
+                    "success": False,
+                    "action": "block",
+                    "ip": clean_ip,
+                    "status": "error",
+                    "message": f"Failed initializing iptables chain '{self.chain}': {self._chain_initialization_error or 'unknown error'}",
+                }
             ok, err = self._run_iptables_command(["-I", self.chain, "1", "-s", clean_ip, "-j", "DROP"])
             if not ok:
                 return {
@@ -299,9 +309,8 @@ class FirewallManager:
                     "message": f"IP {clean_ip} is not currently in managed block list.",
                 }
 
-            del self._blocked_ips[clean_ip]
-
             if not self.enabled or self.dry_run:
+                del self._blocked_ips[clean_ip]
                 return {
                     "success": True,
                     "action": "unblock",
@@ -315,13 +324,14 @@ class FirewallManager:
             if not ok:
                 logger.warning("iptables delete rule error for %s: %s", clean_ip, err)
                 return {
-                    "success": True,
+                    "success": False,
                     "action": "unblock",
                     "ip": clean_ip,
-                    "status": "warning",
-                    "message": f"Removed from internal state, but iptables returned: {err}",
+                    "status": "error",
+                    "message": f"Failed removing iptables rule; IP remains managed as blocked: {err}",
                 }
 
+            del self._blocked_ips[clean_ip]
             logger.info("IP %s unblocked from iptables chain %s.", clean_ip, self.chain)
             return {
                 "success": True,
@@ -340,8 +350,8 @@ class FirewallManager:
             if not rec:
                 return False
             if rec.expires_at is not None and now >= rec.expires_at:
-                self.unblock_ip(clean_ip)
-                return False
+                result = self.unblock_ip(clean_ip)
+                return not result["success"]
             return True
 
     def list_blocked_ips(self) -> List[Dict[str, Any]]:
@@ -358,9 +368,9 @@ class FirewallManager:
         """Flush ONLY the managed NetSentinel chain without touching global iptables rules."""
         with self._lock:
             cleared_count = len(self._blocked_ips)
-            self._blocked_ips.clear()
 
             if not self.enabled or self.dry_run:
+                self._blocked_ips.clear()
                 return {
                     "success": True,
                     "cleared_count": cleared_count,
@@ -378,6 +388,7 @@ class FirewallManager:
                     "message": f"Failed flushing {self.chain}: {err}",
                 }
 
+            self._blocked_ips.clear()
             logger.info("Flushed managed chain %s (%d rules cleared).", self.chain, cleared_count)
             return {
                 "success": True,
@@ -391,17 +402,19 @@ class FirewallManager:
         current_time = now or time.time()
         expired_ips: List[str] = []
 
+        cleaned_count = 0
         with self._lock:
             for ip, rec in self._blocked_ips.items():
                 if rec.expires_at is not None and current_time >= rec.expires_at:
                     expired_ips.append(ip)
 
             for ip in expired_ips:
-                self.unblock_ip(ip)
+                if self.unblock_ip(ip)["success"]:
+                    cleaned_count += 1
 
-        if expired_ips:
-            logger.info("Cleaned up %d expired IP blocks: %s", len(expired_ips), expired_ips)
-        return len(expired_ips)
+        if cleaned_count:
+            logger.info("Cleaned up %d expired IP blocks: %s", cleaned_count, expired_ips)
+        return cleaned_count
 
     def get_status(self) -> Dict[str, Any]:
         """Return read-only status dictionary for REST APIs and dashboard."""

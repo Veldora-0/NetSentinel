@@ -71,104 +71,72 @@ export async function checkBackendHealth() {
 }
 
 export async function fetchTrafficMetrics() {
-  try {
-    const response = await authFetch('/api/metrics', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    return await parseResponseOrError(response);
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/metrics', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
 }
 
 export async function fetchSecurityAlerts(limit = 50) {
-  try {
-    const response = await authFetch(`/api/alerts?limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.alerts || [];
-  } catch (error) {
-    return [];
-  }
+  const response = await authFetch(`/api/alerts?limit=${limit}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.alerts || [];
 }
 
 export async function fetchMLStatus() {
-  try {
-    const response = await authFetch('/api/ml/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    return await parseResponseOrError(response);
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/ml/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
 }
 
 export async function fetchMLMetrics() {
-  try {
-    const response = await authFetch('/api/ml/metrics', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    return await parseResponseOrError(response);
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/ml/metrics', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
 }
 
 export async function fetchRecentRisks(limit = 20) {
-  try {
-    const response = await authFetch(`/api/risk/recent?limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.assessments || [];
-  } catch (error) {
-    return [];
-  }
+  const response = await authFetch(`/api/risk/recent?limit=${limit}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.assessments || [];
 }
 
 export async function fetchRiskStats() {
-  try {
-    const response = await authFetch('/api/risk/stats', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.stats || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/risk/stats', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.stats || null;
 }
 
 export async function fetchFirewallStatus() {
-  try {
-    const response = await authFetch('/api/firewall/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.firewall || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/firewall/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.firewall || null;
 }
 
 export async function fetchBlockedIPs() {
-  try {
-    const response = await authFetch('/api/firewall/blocked', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.blocked_ips || [];
-  } catch (error) {
-    return [];
-  }
+  const response = await authFetch('/api/firewall/blocked', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.blocked_ips || [];
 }
 
 export async function manualBlockIP(ip, reason = 'Operator Manual Block', duration = 300) {
@@ -245,17 +213,13 @@ export async function fetchRiskHistory(params = {}) {
 }
 
 export async function fetchSecuritySummary(since = null) {
-  try {
-    const url = since ? `/api/security/summary?since=${since}` : '/api/security/summary';
-    const response = await authFetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.summary || null;
-  } catch (error) {
-    return null;
-  }
+  const url = since ? `/api/security/summary?since=${since}` : '/api/security/summary';
+  const response = await authFetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.summary || null;
 }
 
 export async function fetchTelemetryCurrent() {
@@ -320,15 +284,11 @@ export async function fetchHostEvents(params = {}) {
 // Phase 8: Advanced Network Threat Detection APIs
 
 export async function fetchNetworkStatus() {
-  try {
-    const response = await authFetch('/api/network/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    return await parseResponseOrError(response);
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/network/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
 }
 
 export async function fetchARPMappings(limit = 100) {
@@ -370,59 +330,43 @@ export async function fetchIncidents(params = {}) {
 }
 
 export async function fetchIncidentStats(since = null) {
-  try {
-    const url = since ? `/api/incidents/stats?since=${since}` : '/api/incidents/stats';
-    const response = await authFetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.stats || null;
-  } catch (error) {
-    return null;
-  }
+  const url = since ? `/api/incidents/stats?since=${since}` : '/api/incidents/stats';
+  const response = await authFetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.stats || null;
 }
 
 export async function fetchIncidentDetail(incidentId) {
   if (!incidentId) return null;
-  try {
-    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.incident || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.incident || null;
 }
 
 export async function fetchIncidentTimeline(incidentId) {
   if (!incidentId) return [];
-  try {
-    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/timeline`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.timeline || [];
-  } catch (error) {
-    return [];
-  }
+  const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/timeline`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.timeline || [];
 }
 
 export async function fetchIncidentSummary(incidentId) {
   if (!incidentId) return null;
-  try {
-    const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/summary`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.summary || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch(`/api/incidents/${encodeURIComponent(incidentId)}/summary`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.summary || null;
 }
 
 export async function updateIncidentStatus(incidentId, status, analystNote = '', resolution = '') {
@@ -564,16 +508,12 @@ export async function triggerFimRebaseline(paths = null) {
 // ==============================================================================
 
 export async function fetchThreatIntelStatus() {
-  try {
-    const response = await authFetch('/api/threat-intel/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await parseResponseOrError(response);
-    return data.threat_intel || null;
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/threat-intel/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await parseResponseOrError(response);
+  return data.threat_intel || null;
 }
 
 export async function fetchThreatIntelIP(ip) {
@@ -625,15 +565,11 @@ export async function fetchReadiness() {
 }
 
 export async function fetchSystemStatus() {
-  try {
-    const response = await authFetch('/api/system/status', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    return await parseResponseOrError(response);
-  } catch (error) {
-    return null;
-  }
+  const response = await authFetch('/api/system/status', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  return await parseResponseOrError(response);
 }
 
 /**

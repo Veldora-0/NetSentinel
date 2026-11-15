@@ -348,7 +348,7 @@ export default function HostSecurity() {
                 <div className="resource-gauge-item">
                   <div className="gauge-header">
                     <span>Current CPU</span>
-                    <span className="gauge-value">{formatPercent(hostTelemetry.cpu_percent, 1)}</span>
+                    <span className="gauge-value">{hostTelemetry.cpu_percent == null ? '—' : formatPercent(hostTelemetry.cpu_percent, 1)}</span>
                   </div>
                   <div className="gauge-track">
                     <div
@@ -363,7 +363,7 @@ export default function HostSecurity() {
                   <div className="gauge-header">
                     <span>Current RAM</span>
                     <span className="gauge-value">
-                      {formatPercent(hostTelemetry.memory_percent, 1)} ({formatBytes(hostTelemetry.memory_used_bytes)} used)
+                      {hostTelemetry.memory_percent == null ? '—' : formatPercent(hostTelemetry.memory_percent, 1)} ({hostTelemetry.memory_used_bytes == null ? '—' : formatBytes(hostTelemetry.memory_used_bytes)} used)
                     </span>
                   </div>
                   <div className="gauge-track">
@@ -379,7 +379,7 @@ export default function HostSecurity() {
                   <div className="gauge-header">
                     <span>Root Disk</span>
                     <span className="gauge-value">
-                      {formatPercent(hostTelemetry.disk_percent, 1)} ({formatBytes(hostTelemetry.disk_used_bytes)} used)
+                      {hostTelemetry.disk_percent == null ? '—' : formatPercent(hostTelemetry.disk_percent, 1)} ({hostTelemetry.disk_used_bytes == null ? '—' : formatBytes(hostTelemetry.disk_used_bytes)} used)
                     </span>
                   </div>
                   <div className="gauge-track">
@@ -395,13 +395,13 @@ export default function HostSecurity() {
                 <div className="telemetry-mini-stat">
                   <span className="mini-stat-label">OS Load Averages (1m, 5m, 15m)</span>
                   <span className="mini-stat-val">
-                    {hostTelemetry.load_1 ?? 0} / {hostTelemetry.load_5 ?? 0} / {hostTelemetry.load_15 ?? 0}
+                    {hostTelemetry.load_1 ?? '—'} / {hostTelemetry.load_5 ?? '—'} / {hostTelemetry.load_15 ?? '—'}
                   </span>
                 </div>
                 <div className="telemetry-mini-stat">
                   <span className="mini-stat-label">Host Network I/O Rate</span>
                   <span className="mini-stat-val" style={{ fontSize: '0.75rem' }}>
-                    ↑ {formatBytes(hostTelemetry.host_tx_bps)}/s | ↓ {formatBytes(hostTelemetry.host_rx_bps)}/s
+                    ↑ {hostTelemetry.host_tx_bps == null ? '—' : formatBytes(hostTelemetry.host_tx_bps)}/s | ↓ {hostTelemetry.host_rx_bps == null ? '—' : formatBytes(hostTelemetry.host_rx_bps)}/s
                   </span>
                 </div>
               </div>

@@ -37,6 +37,12 @@ import {
   getIncidentStatusBadgeClass,
 } from '../utils/formatters';
 
+function throwOnIncidentActionFailure(result) {
+  if (result?.status === 'error' || result?.error || result?.success === false) {
+    throw new Error(result.message || result.error || 'Incident action failed');
+  }
+}
+
 export default function Incidents() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState([]);
@@ -117,16 +123,16 @@ export default function Incidents() {
     setActionFeedback(null);
     try {
       if (action === 'acknowledge') {
-        await acknowledgeIncident(incidentId, 'Quick acknowledged from incidents console');
+        throwOnIncidentActionFailure(await acknowledgeIncident(incidentId, 'Quick acknowledged from incidents console'));
         setActionFeedback({ type: 'success', text: `Incident ${incidentId} acknowledged.` });
       } else if (action === 'resolve') {
-        await resolveIncident(incidentId, 'Quick resolved from console', 'Resolved by operator');
+        throwOnIncidentActionFailure(await resolveIncident(incidentId, 'Quick resolved from console', 'Resolved by operator'));
         setActionFeedback({ type: 'success', text: `Incident ${incidentId} resolved.` });
       } else if (action === 'close') {
-        await closeIncident(incidentId, 'Quick closed from console', 'Closed by operator');
+        throwOnIncidentActionFailure(await closeIncident(incidentId, 'Quick closed from console', 'Closed by operator'));
         setActionFeedback({ type: 'success', text: `Incident ${incidentId} closed.` });
       } else if (action === 'reopen') {
-        await reopenIncident(incidentId, 'Reopened from console');
+        throwOnIncidentActionFailure(await reopenIncident(incidentId, 'Reopened from console'));
         setActionFeedback({ type: 'success', text: `Incident ${incidentId} reopened.` });
       }
       await loadData();

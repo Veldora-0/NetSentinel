@@ -81,6 +81,11 @@ export default function History() {
         fetchSecuritySummary(),
       ]);
 
+      if (eventsRes?.status === 'error' || eventsRes?.error) {
+        setError(eventsRes.error || 'Failed to load security event history');
+        return;
+      }
+
       setEvents(eventsRes?.events || []);
       setTotalCount(eventsRes?.total ?? eventsRes?.events?.length ?? 0);
       if (summaryRes?.summary) setSummary(summaryRes.summary);

@@ -227,3 +227,82 @@ def test_iptables_missing_or_permission_denied_handled_safely():
         res2 = fm.block_ip("198.51.100.89")
         assert res2["success"] is False
         assert "Permission denied" in res2["message"]
+
+
+def test_block_fails_when_chain_initialization_fails():
+    fm = FirewallManager(config={"enabled": True, "dry_run": False})
+
+    with patch.object(
+        fm,
+        "_run_iptables_command",
+        side_effect=[
+            (False, "chain creation failed"),
+            (False, "chain jump not found"),
+            (False, "permission denied linking chain"),
+        ],
+    ) as run_command:
+        result = fm.block_ip("198.51.100.90")
+
+    assert result["success"] is False
+    assert result["status"] == "error"
+    assert "chain" in result["message"].lower()
+    assert fm.is_blocked("198.51.100.90") is False
+    assert [call.args[0] for call in run_command.call_args_list] == [
+        ["-N", fm.chain],
+        ["-C", "INPUT", "-j", fm.chain],
+        ["-I", "INPUT", "1", "-j", fm.chain],
+    ]
+
+
+def test_unblock_command_failure_retains_block_and_allows_retry():
+    fm = FirewallManager(config={"enabled": True, "dry_run": False})
+    fm._chain_initialized = True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        blocked = fm.block_ip("198.51.100.91")
+    assert blocked["success"] is True
+    assert fm.is_blocked("198.51.100.91") is True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(False, "permission denied")):
+        failed_unblock = fm.unblock_ip("198.51.100.91")
+    assert failed_unblock["success"] is False
+    assert failed_unblock["status"] == "error"
+    assert fm.is_blocked("198.51.100.91") is True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        retried_unblock = fm.unblock_ip("198.51.100.91")
+    assert retried_unblock["success"] is True
+    assert fm.is_blocked("198.51.100.91") is False
+
+
+def test_expired_block_remains_managed_when_rule_removal_fails():
+    fm = FirewallManager(config={"enabled": True, "dry_run": False})
+    fm._chain_initialized = True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        fm.block_ip("198.51.100.92", duration=0.01)
+    time.sleep(0.02)
+
+    with patch.object(fm, "_run_iptables_command", return_value=(False, "iptables unavailable")):
+        assert fm.is_blocked("198.51.100.92") is True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        assert fm.is_blocked("198.51.100.92") is False
+
+
+def test_clear_failure_keeps_managed_state_for_retry():
+    fm = FirewallManager(config={"enabled": True, "dry_run": False})
+    fm._chain_initialized = True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        fm.block_ip("198.51.100.93")
+
+    with patch.object(fm, "_run_iptables_command", return_value=(False, "permission denied")):
+        failed_clear = fm.clear_managed_rules()
+    assert failed_clear["success"] is False
+    assert fm.is_blocked("198.51.100.93") is True
+
+    with patch.object(fm, "_run_iptables_command", return_value=(True, "")):
+        retried_clear = fm.clear_managed_rules()
+    assert retried_clear["success"] is True
+    assert fm.is_blocked("198.51.100.93") is False
