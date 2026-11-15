@@ -3,7 +3,7 @@
 ## 1. Project Description
 **NetSentinel** is a modern Linux-based hybrid Network Intrusion Detection System (NIDS), Host Intrusion Detection System (HIDS), and Intrusion Prevention System (IPS). It captures and analyzes raw network traffic, applies signature and rule-based detection alongside machine learning anomaly detection (Isolation Forest), evaluates composite security risk levels, and mitigates threats safely using Linux `iptables` firewall rules on an isolated managed chain.
 
-> **Implementation Status:** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Framework** (`backend/evaluation/`, `reports/`). All 454 automated backend tests pass deterministically.
+> **Implementation Status:** NetSentinel includes live network packet capture using Linux `AF_PACKET` raw sockets, a complete packet parser (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP), real-time traffic rate metrics, a stateful **Rule-Based Intrusion Detection Engine** (`detector.py`), an advanced **ARP Threat Detector** (`arp_detector.py`), an unsupervised **Machine Learning Anomaly Detection System** (`backend/ml/`), a deterministic **Composite Risk Engine** (`risk_engine.py`), a safe **Linux iptables Firewall Manager** (`firewall.py`), a background **Host Telemetry Worker** (`telemetry.py`), **Durable Security History Persistence & Reporting** (`database.py`), a comprehensive **Host-Based Intrusion Detection System (HIDS)** (`backend/host/`), an **Incident Correlation & Investigation Layer** (`backend/incident_manager.py`), a **Threat Intelligence Enrichment Service** (`backend/threat_intel/`), **Production Hardening, Operational Controls, and Service Deployment** (`deploy/netsentinel.service`, `backend/config_validator.py`, `backend/logging_config.py`, `backend/security_middleware.py`, `backend/lifecycle.py`), **Authentication & Role-Based Access Control (RBAC)** (`backend/auth/`, `backend/bootstrap.py`), an **End-to-End Validation Harness** (`backend/validation_harness.py`), and a standalone **Performance & Machine Learning Evaluation Framework** (`backend/evaluation/`, `reports/`). The latest verified backend suite contains 459 passing tests.
 
 ---
 
@@ -21,7 +21,7 @@
 * **Flask-SQLAlchemy / SQLAlchemy** - Database ORM & persistence models with SQLite hardening (`PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`)
 * **SQLite** - Embedded database storage with automated time-based retention pruning
 * **psutil** - Host system telemetry monitoring & process integrity observation
-* **pytest** - Automated test suite (454 tests)
+* **pytest** - Automated test suite (459 tests at the latest verification)
 
 ### Frontend
 * **React 18** - UI component framework
@@ -108,7 +108,7 @@ NetSentinel/
 ├── data/
 │   ├── models/          # Persisted Isolation Forest models and metadata (.joblib, .json)
 │   └── netsentinel.db   # SQLite database storage
-├── tests/               # Automated unit, integration, and E2E validation tests (454 tests)
+├── tests/               # Automated unit, integration, and E2E validation tests (459 tests at the latest verification)
 │   ├── test_health.py   # Test GET /api/health
 │   ├── test_parser.py   # Parser unit tests with binary packet fixtures
 │   ├── test_arp_parser.py # Binary ARP packet parser tests
@@ -249,12 +249,16 @@ The firewall manager verifies each IP against strict safety criteria before bloc
 
 ### Temporary Block Expiration
 * IP blocks are temporary by default (`NETSENTINEL_BLOCK_DURATION`, default: 300 seconds / 5 minutes).
-* Active blocks are automatically unblocked upon expiration.
+* Expired blocks are automatically removed. If iptables rejects removal, the block remains tracked as active and cleanup can retry it; failed cleanup is not reported as successful.
 * Duplicate blocks update the existing expiration timestamp rather than adding duplicate kernel rules.
+
+A failed block insertion or managed-chain initialization is reported as an error and is not added to the in-memory blocked list. A failed managed-chain flush leaves the in-memory list intact.
 
 ### Safe Default Behavior
 * **Firewall Disabled by Default**: `NETSENTINEL_FIREWALL_ENABLED=false` and `NETSENTINEL_AUTO_BLOCK=false`.
 * If disabled or in dry-run mode, risk assessments still compute recommended actions, and firewall actions are simulated in memory without invoking `iptables`.
+
+For details about failed firewall operations, unavailable telemetry values, and telemetry history persistence, see [Runtime failure handling](docs/runtime-failure-handling.md).
 
 ---
 
@@ -656,7 +660,7 @@ NetSentinel supports multiple secure methods to bootstrap the initial administra
 
 ## 16. Automated Testing
 
-All 454 unit, integration, and end-to-end validation tests run deterministically without requiring root privileges or live external network access:
+All 459 unit, integration, and end-to-end validation tests passed in the latest verification run. The suite is designed to run without requiring root privileges or live external network access:
 ```bash
 pytest -v tests/
 ```
@@ -697,9 +701,9 @@ Test coverage:
 * `tests/test_ml_pipeline_diagnostics.py`: ML diagnostics API, sliding window buffer bounds, and memory profile diagnostics.
 * `tests/test_production_baseline_lifecycle.py`: 512-window baseline lifecycle, warm-up state transitions, and restart sample compatibility.
 * `tests/test_risk.py`: Severity scores, ML weighting, score clamping, boundary mapping, repeat frequency boost, and state pruning.
-* `tests/test_firewall.py`: IP validation, localhost/broadcast/multicast protection, allowlists, argument security (no shell=True), expiration, and isolated chain flushing.
+* `tests/test_firewall.py`: IP validation, localhost/broadcast/multicast protection, allowlists, argument security (no shell=True), expiration and failed-cleanup handling, and isolated chain flushing.
 * `tests/test_database.py`: SQLAlchemy persistence models, queries, filtering, pagination, and automated retention cleanup.
-* `tests/test_telemetry.py`: Host telemetry sampling via `psutil`, baseline priming, delta rate calculation, and thread lifecycle.
+* `tests/test_telemetry.py`: Host telemetry sampling via `psutil`, unavailable-sample handling, baseline priming, delta rate calculation, and thread lifecycle.
 * `tests/test_history_api.py`: Historical REST APIs (`/api/events`, `/api/risk/history`, `/api/security/summary`, `/api/telemetry/*`), and firewall action persistence.
 * `tests/test_risk_firewall_api.py`: Risk and firewall REST APIs, manual block/unblock validation, and Socket.IO pipeline integration.
 * `tests/test_ssh_detector.py`: Authentication log discovery, rotation, truncation, OpenSSH pattern matching, IP validation, sliding window, and alert cooldown.
