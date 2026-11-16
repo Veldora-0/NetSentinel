@@ -1,12 +1,14 @@
 """NetSentinel SSH Authentication Log Reader Module.
 
 Implements resilient, incremental log tailing for Linux authentication logs
-(/var/log/auth.log on Debian/Ubuntu and /var/log/secure on RHEL/CentOS/Fedora).
-Handles log rotation, truncation, file absence, and permission restrictions gracefully.
+and systemd journal SSH service events. Handles rotation, absence, and permissions.
 """
 
+import json
 import logging
 import os
+import shutil
+import subprocess
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("netsentinel.host.log_reader")
@@ -36,6 +38,9 @@ class SSHLogReader:
         self.status: str = "uninitialized"  # "RUNNING", "not_found", "permission_denied", "error"
         self.status_message: str = ""
         self.total_lines_read: int = 0
+        self._journal_source = False
+        self._journal_cursor: Optional[str] = None
+        self._journalctl = shutil.which("journalctl")
 
         self._discover_log_file()
 
@@ -65,11 +70,95 @@ class SSHLogReader:
                     logger.warning("Permission denied reading %s", path)
                     return path
 
+        # Some Linux distributions keep authentication events only in journald
+        # and do not create /var/log/auth.log or /var/log/secure.
+        if not self.custom_path and self._discover_journal():
+            return self.current_path
+
         self.current_path = None
         self.status = "NOT_FOUND"
         self.status_message = "No standard auth log found (/var/log/auth.log, /var/log/secure)"
         logger.debug("No active authentication log file found among candidates")
         return None
+
+    def _discover_journal(self) -> bool:
+        """Use journald as a fallback when no standard auth log file exists."""
+        if not self._journalctl:
+            return False
+        try:
+            result = subprocess.run(
+                [
+                    self._journalctl,
+                    "--no-pager",
+                    "-n", "0",
+                    "--show-cursor",
+                    "-o", "json",
+                    "-u", "ssh.service",
+                    "-u", "sshd.service",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+            if result.returncode != 0:
+                self.status = "PERMISSION_DENIED" if "permission" in result.stderr.lower() else "ERROR"
+                self.status_message = result.stderr.strip() or "Unable to query the system journal"
+                return False
+            for line in result.stdout.splitlines():
+                if line.startswith("-- cursor: "):
+                    self._journal_cursor = line.removeprefix("-- cursor: ").strip() or None
+            self._journal_source = True
+            self.current_path = "journald (ssh.service, sshd.service)"
+            self.status = "RUNNING"
+            self.status_message = "Monitoring SSH authentication events from journald"
+            return True
+        except subprocess.TimeoutExpired:
+            self.status = "ERROR"
+            self.status_message = "Timed out while checking the system journal"
+        except Exception as ex:
+            self.status = "ERROR"
+            self.status_message = f"Unable to query the system journal: {ex}"
+        return False
+
+    def _read_journal_lines(self, max_lines: int) -> List[str]:
+        """Return new SSH service messages since the last journal cursor."""
+        if not self._journalctl and not self._discover_journal():
+            return []
+        command = [self._journalctl, "--no-pager", "-o", "json", "-u", "ssh.service", "-u", "sshd.service"]
+        if self._journal_cursor:
+            command.append(f"--after-cursor={self._journal_cursor}")
+        else:
+            command.extend(["--since=-5s"])
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=3, check=False)
+            if result.returncode != 0:
+                self.status = "PERMISSION_DENIED" if "permission" in result.stderr.lower() else "ERROR"
+                self.status_message = result.stderr.strip() or "Unable to read SSH events from journald"
+                return []
+            messages = []
+            for line in result.stdout.splitlines():
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                cursor = entry.get("__CURSOR")
+                if cursor:
+                    self._journal_cursor = cursor
+                message = entry.get("MESSAGE")
+                if isinstance(message, str) and message.strip():
+                    messages.append(message.strip())
+            self.status = "RUNNING"
+            self.status_message = "Monitoring SSH authentication events from journald"
+            self.total_lines_read += len(messages)
+            return messages[-max_lines:]
+        except subprocess.TimeoutExpired:
+            self.status = "ERROR"
+            self.status_message = "Timed out reading SSH events from journald"
+        except Exception as ex:
+            self.status = "ERROR"
+            self.status_message = f"Error reading SSH events from journald: {ex}"
+        return []
 
     def _init_position(self, path: str) -> None:
         """Initialize read offset for newly opened log file."""
@@ -95,6 +184,9 @@ class SSHLogReader:
         Returns:
             List of new log line strings.
         """
+        if self._journal_source:
+            return self._read_journal_lines(max_lines)
+
         # Re-check discovery if log file wasn't found previously
         if not self.current_path or self.status in ("NOT_FOUND", "PERMISSION_DENIED"):
             found = self._discover_log_file()
@@ -151,6 +243,7 @@ class SSHLogReader:
         """Return operational reader status summary."""
         return {
             "current_path": self.current_path,
+            "source": "journald" if self._journal_source else "file",
             "status": self.status,
             "status_message": self.status_message,
             "last_offset": self.last_offset,

@@ -352,6 +352,8 @@ sudo iptables -X NETSENTINEL
 * `POST /api/incidents/<id>/close`: Operator shortcut to close an incident.
 * `POST /api/incidents/<id>/reopen`: Operator shortcut to reopen a resolved or closed incident.
 
+SSH monitoring reads `/var/log/auth.log` or `/var/log/secure` when available, and falls back to `journalctl` for `ssh.service` / `sshd.service` on journald-based systems. Set `NETSENTINEL_SSH_LOG_PATH` to select a specific auth log file.
+
 ### Socket.IO Real-Time Streams
 * `traffic_metrics`: Periodic traffic rate and protocol volume.
 * `security_event`: Live rule-based intrusion detection alerts.
