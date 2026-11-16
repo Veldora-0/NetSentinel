@@ -129,6 +129,21 @@ def test_repeated_source_frequency_boost():
     assert a_last.evidence["repeat_boost"] == 0.20
 
 
+def test_unattributed_assessments_do_not_share_synthetic_repeat_identity():
+    engine = RiskEngine()
+    first = engine.assess(source_ip=None, rule_alerts=[{"severity": "MEDIUM", "detection_type": "SSH_AUTH_FAILURE"}])
+    second = engine.assess(source_ip="  ", rule_alerts=[{"severity": "MEDIUM", "detection_type": "SSH_AUTH_FAILURE"}])
+
+    assert first.source_ip is None
+    assert second.source_ip is None
+    assert first.evidence["repeat_boost"] == 0.0
+    assert second.evidence["repeat_boost"] == 0.0
+    assert first.evidence["correlated"] is False
+    assert second.evidence["correlated"] is False
+    assert "127.0.0.1" not in engine._ip_history
+    assert engine._ip_history == {}
+
+
 def test_bounded_state_and_history_pruning():
     """Verify risk engine enforces max_history on assessments and cleans stale IP history."""
     engine = RiskEngine(config={

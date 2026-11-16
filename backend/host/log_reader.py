@@ -19,6 +19,11 @@ CANDIDATE_AUTH_LOGS = [
 ]
 
 
+def _journal_permission_denied(stderr: str) -> bool:
+    message = (stderr or "").lower()
+    return "permission denied" in message or "not seeing messages from other users" in message
+
+
 class SSHLogReader:
     """Incremental Linux authentication log reader and tailer."""
 
@@ -101,10 +106,12 @@ class SSHLogReader:
                 timeout=3,
                 check=False,
             )
-            if result.returncode != 0:
-                self.status = "PERMISSION_DENIED" if "permission" in result.stderr.lower() else "ERROR"
+            if result.returncode != 0 or _journal_permission_denied(result.stderr):
+                self.status = "PERMISSION_DENIED" if _journal_permission_denied(result.stderr) else "ERROR"
                 self.status_message = result.stderr.strip() or "Unable to query the system journal"
-                return False
+                self._journal_source = True
+                self.current_path = "journald (ssh.service, sshd.service)"
+                return True
             for line in result.stdout.splitlines():
                 if line.startswith("-- cursor: "):
                     self._journal_cursor = line.removeprefix("-- cursor: ").strip() or None
@@ -119,7 +126,9 @@ class SSHLogReader:
         except Exception as ex:
             self.status = "ERROR"
             self.status_message = f"Unable to query the system journal: {ex}"
-        return False
+        self._journal_source = True
+        self.current_path = "journald (ssh.service, sshd.service)"
+        return True
 
     def _read_journal_lines(self, max_lines: int) -> List[str]:
         """Return new SSH service messages since the last journal cursor."""
@@ -132,8 +141,8 @@ class SSHLogReader:
             command.extend(["--since=-5s"])
         try:
             result = subprocess.run(command, capture_output=True, text=True, timeout=3, check=False)
-            if result.returncode != 0:
-                self.status = "PERMISSION_DENIED" if "permission" in result.stderr.lower() else "ERROR"
+            if result.returncode != 0 or _journal_permission_denied(result.stderr):
+                self.status = "PERMISSION_DENIED" if _journal_permission_denied(result.stderr) else "ERROR"
                 self.status_message = result.stderr.strip() or "Unable to read SSH events from journald"
                 return []
             messages = []

@@ -233,7 +233,7 @@ class RiskEngine:
         ti_summary: Optional[Any] = None,
     ) -> RiskAssessment:
         """Convenience method to evaluate a single SecurityEvent instance."""
-        src_ip = getattr(event, "source_ip", None) or "127.0.0.1"
+        src_ip = getattr(event, "source_ip", None)
         dst_ip = getattr(event, "destination_ip", None)
         return self.assess(
             source_ip=src_ip,
@@ -254,15 +254,21 @@ class RiskEngine:
 
         """Evaluate overall threat level, compute composite score, and record assessment."""
         now = time.time()
-        safe_source_ip = source_ip if (source_ip and source_ip.strip()) else "127.0.0.1"
+        safe_source_ip = source_ip.strip() if isinstance(source_ip, str) and source_ip.strip() else None
         alerts = rule_alerts or []
         ml_score = max(0.0, min(1.0, float(ml_anomaly_score or 0.0)))
 
         with self._lock:
-            self._record_ip_event(safe_source_ip, now)
-            self._record_correlation(safe_source_ip, alerts, now)
-            repeat_boost = self._get_repeat_boost(safe_source_ip, now)
-            is_correlated, correlation_boost, correlation_note = self._check_correlation(safe_source_ip, now)
+            if safe_source_ip:
+                self._record_ip_event(safe_source_ip, now)
+                self._record_correlation(safe_source_ip, alerts, now)
+                repeat_boost = self._get_repeat_boost(safe_source_ip, now)
+                is_correlated, correlation_boost, correlation_note = self._check_correlation(safe_source_ip, now)
+            else:
+                # Unattributed observations must not share a synthetic identity
+                # or accumulate repeat/cross-domain boosts with one another.
+                repeat_boost = 0.0
+                is_correlated, correlation_boost, correlation_note = False, 0.0, ""
 
             # Determine rule score and detection types
             detection_types = []

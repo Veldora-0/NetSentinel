@@ -480,7 +480,9 @@ def save_assessment_record(
         record = RiskAssessmentRecord(
             assessment_id=assessment.assessment_id,
             timestamp=assessment.timestamp,
-            source_ip=assessment.source_ip,
+            # Keep unattributed assessments persistable without inventing an
+            # attacker address. The schema predates nullable source IPs.
+            source_ip=assessment.source_ip or "UNATTRIBUTED",
             destination_ip=assessment.destination_ip,
             rule_score=assessment.rule_score,
             ml_anomaly_score=assessment.ml_anomaly_score,

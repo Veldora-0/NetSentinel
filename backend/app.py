@@ -405,7 +405,7 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                 # Emit real-time risk assessment over Socket.IO
                 socketio.emit("risk_assessment", assessment.to_dict())
 
-                # Phase 9: Correlate into Incident
+                # Phase 9: Correlate rule-based security detections into incidents.
                 incident_manager.correlate_security_event(event, risk_assessment=assessment)
                 if lifecycle_manager:
                     lifecycle_manager.record_heartbeat("incident_manager")
@@ -445,9 +445,13 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
                     except Exception:
                         pass
 
-                incident_manager.correlate_security_event(event, risk_assessment=assessment)
-                if lifecycle_manager:
-                    lifecycle_manager.record_heartbeat("incident_manager")
+                # Preserve ML evidence and its assessment, but do not open a
+                # standalone incident without independent rule corroboration.
+                if getattr(event, "source_ip", None):
+                    app.logger.debug(
+                        "Retained ML anomaly for %s without creating a standalone incident",
+                        event.source_ip,
+                    )
         except Exception as ex:
             app.logger.debug("Error in ML anomaly pipeline: %s", ex)
 

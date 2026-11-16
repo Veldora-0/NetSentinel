@@ -83,8 +83,8 @@ class TrafficDetector:
 
         # Stateful Tracking Structures
         self._lock = threading.Lock()
-        # source_ip -> deque of (timestamp, dst_port)
-        self._port_scan_state: Dict[str, deque] = {}
+        # (source_ip, destination_ip, protocol) -> deque of (timestamp, dst_port)
+        self._port_scan_state: Dict[Tuple[str, str, int], deque] = {}
         # source_ip -> deque of timestamps
         self._syn_flood_state: Dict[str, deque] = {}
         # source_ip -> deque of (timestamp, dst_ip)
@@ -179,7 +179,7 @@ class TrafficDetector:
 
     def detect_port_scan(self, packet: ParsedPacket) -> Optional[SecurityEvent]:
         """Detect Port Scan activity based on unique destination ports probed within window."""
-        if not packet.src_ip or packet.dst_port is None:
+        if not packet.src_ip or not packet.dst_ip or packet.dst_port is None:
             return None
 
         # Port scan detection applies to transport traffic (TCP/UDP)
@@ -188,13 +188,15 @@ class TrafficDetector:
 
         now = packet.timestamp or time.time()
         src_ip = packet.src_ip
+        dst_ip = packet.dst_ip
+        scan_key = (src_ip, dst_ip, packet.protocol)
         dst_port = packet.dst_port
 
-        if src_ip not in self._port_scan_state:
+        if scan_key not in self._port_scan_state:
             self._enforce_max_ips()
-            self._port_scan_state[src_ip] = deque()
+            self._port_scan_state[scan_key] = deque()
 
-        probes = self._port_scan_state[src_ip]
+        probes = self._port_scan_state[scan_key]
         probes.append((now, dst_port))
 
         # Evict probes outside the active time window
@@ -205,8 +207,9 @@ class TrafficDetector:
         unique_ports: Set[int] = {port for _, port in probes}
 
         if len(unique_ports) >= self.port_scan_threshold:
-            if not self._is_in_cooldown(src_ip, "PORT_SCAN", now):
-                self._mark_alerted(src_ip, "PORT_SCAN", now)
+            cooldown_scope = f"PORT_SCAN:{dst_ip}:{packet.protocol}"
+            if not self._is_in_cooldown(src_ip, cooldown_scope, now):
+                self._mark_alerted(src_ip, cooldown_scope, now)
                 sample_ports = sorted(list(unique_ports))[:10]
                 event = SecurityEvent(
                     event_id=uuid.uuid4().hex[:12],
@@ -227,6 +230,9 @@ class TrafficDetector:
                         "window_seconds": self.port_scan_window_sec,
                         "threshold": self.port_scan_threshold,
                         "sample_ports": sample_ports,
+                        "destination_ports": sorted(unique_ports),
+                        "destination_ip": dst_ip,
+                        "protocol": packet.protocol_name or "TCP",
                     },
                     rule_name="RULE_PORT_SCAN",
                 )

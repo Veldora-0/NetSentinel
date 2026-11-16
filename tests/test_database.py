@@ -26,6 +26,7 @@ from database import (
     cleanup_old_records,
 )
 from detector import SecurityEvent
+from risk_engine import RiskEngine
 
 
 @pytest.fixture
@@ -233,6 +234,14 @@ def test_query_security_summary(app_ctx):
     assert summary["average_risk_score"] == 0.75
     assert len(summary["top_source_ips"]) >= 1
     assert summary["top_source_ips"][0]["source_ip"] == "10.0.0.99"
+
+
+def test_unattributed_risk_assessment_persists_without_fake_ip(app_ctx):
+    assessment = RiskEngine().assess(source_ip=None, rule_alerts=[], ml_anomaly_score=0.7)
+    assert assessment.source_ip is None
+    assert save_assessment_record(assessment) is True
+    stored = RiskAssessmentRecord.query.one()
+    assert stored.source_ip == "UNATTRIBUTED"
 
 
 def test_cleanup_old_records_retention(app_ctx):

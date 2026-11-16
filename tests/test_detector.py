@@ -131,6 +131,47 @@ def test_port_scan_independent_sources():
     assert len(detector.event_history) == 0
 
 
+def test_port_scan_does_not_combine_different_destination_hosts():
+    """A source must probe one target, not several targets, to meet scan threshold."""
+    detector = TrafficDetector({
+        "port_scan_window_sec": 5.0,
+        "port_scan_threshold": 4,
+        "alert_cooldown_sec": 10.0,
+    })
+
+    for port, target in zip([80, 443, 22, 8080], ["10.0.0.1", "10.0.0.1", "10.0.0.2", "10.0.0.2"]):
+        assert detector.analyze_packet(make_tcp_packet(
+            src_ip="192.0.2.10", dst_ip=target, dst_port=port
+        )) == []
+
+    assert len(detector.event_history) == 0
+
+
+def test_port_scan_event_keeps_target_protocol_and_evidence():
+    detector = TrafficDetector({
+        "port_scan_window_sec": 5.0,
+        "port_scan_threshold": 3,
+        "alert_cooldown_sec": 10.0,
+    })
+    emitted = []
+    for port in [22, 80, 443]:
+        emitted.extend(detector.analyze_packet(make_tcp_packet(
+            src_ip="192.0.2.10", dst_ip="198.51.100.20", dst_port=port
+        )))
+
+    assert len(emitted) == 1
+    event = emitted[0]
+    assert event.source_ip == "192.0.2.10"
+    assert event.destination_ip == "198.51.100.20"
+    assert event.protocol == "TCP"
+    assert event.evidence["destination_ip"] == event.destination_ip
+    assert event.evidence["protocol"] == event.protocol
+    assert event.evidence["unique_ports_count"] == 3
+    assert event.evidence["sample_ports"] == [22, 80, 443]
+    assert event.evidence["destination_ports"] == [22, 80, 443]
+    assert event.evidence["window_seconds"] == 5.0
+
+
 def test_port_scan_cooldown_suppression():
     """Verify duplicate port scan alerts are suppressed during cooldown."""
     detector = TrafficDetector({

@@ -203,8 +203,8 @@ def test_incident_manager_correlates_ml_anomaly_with_risk_assessment():
         assert len(incident.evidence_list) == 2  # SECURITY_EVENT + RISK_ASSESSMENT
 
 
-def test_app_on_ml_anomaly_wiring_updates_risk_and_incidents():
-    """Verify that when an ML anomaly fires, risk assessments increment and incident is persisted."""
+def test_app_on_ml_anomaly_wiring_persists_observation_without_standalone_incident():
+    """ML anomalies remain evidence, but do not open incidents without rule corroboration."""
     test_config = {
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
@@ -243,7 +243,7 @@ def test_app_on_ml_anomaly_wiring_updates_risk_and_incidents():
         stats_after = app.risk_engine.get_stats()
         assert stats_after["total_assessments"] == initial_assessments + 1
 
-        # Check database persistence of SecurityEvent, RiskAssessment, and Incident
+        # The observation and risk assessment persist independently.
         sec_rec = SecurityEventRecord.query.filter_by(event_id="ml_wired_001").first()
         assert sec_rec is not None
         assert sec_rec.detection_type == "ML_ANOMALY"
@@ -255,5 +255,5 @@ def test_app_on_ml_anomaly_wiring_updates_risk_and_incidents():
 
         from database import query_incidents
         inc_res = query_incidents(primary_source_ip="10.0.2.15")
-        assert inc_res["total"] >= 1
-        assert "ip:10.0.2.15" in app.incident_manager._active_by_key
+        assert inc_res["total"] == 0
+        assert "ip:10.0.2.15" not in app.incident_manager._active_by_key

@@ -68,7 +68,7 @@ export function Detection() {
         fetchMLMetrics(),
         fetchRecentRisks(50),
         fetchRiskStats(),
-        fetchSecuritySummary(),
+        fetchSecuritySummary(Date.now() / 1000 - 24 * 60 * 60),
       ]);
 
       const detectionRequests = [
@@ -170,22 +170,22 @@ export function Detection() {
   const severityBreakdown = [
     {
       name: 'LOW',
-      count: safeNumber(summary?.severities?.LOW ?? riskStats?.low_count, 0),
+      count: safeNumber(summary?.severities?.LOW, 0),
       color: SEVERITY_COLORS.LOW,
     },
     {
       name: 'MEDIUM',
-      count: safeNumber(summary?.severities?.MEDIUM ?? riskStats?.medium_count, 0),
+      count: safeNumber(summary?.severities?.MEDIUM, 0),
       color: SEVERITY_COLORS.MEDIUM,
     },
     {
       name: 'HIGH',
-      count: safeNumber(summary?.severities?.HIGH ?? riskStats?.high_count, 0),
+      count: safeNumber(summary?.severities?.HIGH, 0),
       color: SEVERITY_COLORS.HIGH,
     },
     {
       name: 'CRITICAL',
-      count: safeNumber(summary?.severities?.CRITICAL ?? riskStats?.critical_count, 0),
+      count: safeNumber(summary?.severities?.CRITICAL, 0),
       color: SEVERITY_COLORS.CRITICAL,
     },
   ];
@@ -376,7 +376,7 @@ export function Detection() {
 
       {/* Detection-Type Breakdown and Severity Distribution */}
       <div className="dashboard-grid">
-        <DashboardCard title="Detection Vector Distribution" icon={Layers}>
+        <DashboardCard title="Detection Vector Distribution (24 hours)" icon={Layers}>
           {detectionTypeData.length > 0 ? (
             <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -414,7 +414,7 @@ export function Detection() {
           )}
         </DashboardCard>
 
-        <DashboardCard title="Composite Risk Severity Distribution" icon={ShieldAlert}>
+        <DashboardCard title="Security Event Severity (24 hours)" icon={ShieldAlert}>
           <div style={{ height: '220px', width: '100%', marginTop: '6px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={severityBreakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -423,7 +423,7 @@ export function Detection() {
                 <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} width={36} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-hover)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-primary)' }}
-                  formatter={(val) => [`${val} assessments`, 'Count']}
+                  formatter={(val) => [`${val} events`, 'Count']}
                   cursor={{ fill: 'rgba(56, 189, 248, 0.08)' }}
                 />
                 <Bar dataKey="count" radius={[3, 3, 0, 0]}>

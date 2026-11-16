@@ -1,6 +1,7 @@
 """Unit tests for SSHLogReader and SSHDetector (Phase 7 HIDS)."""
 
 import os
+import json
 import tempfile
 import time
 import pytest
@@ -15,6 +16,50 @@ def test_ssh_log_reader_not_found():
     lines = reader.read_new_lines()
     assert lines == []
     assert reader.status == "NOT_FOUND"
+
+
+def test_ssh_log_reader_uses_journald_when_auth_files_are_absent(monkeypatch):
+    """Journald fallback exposes SSH messages incrementally without replaying old entries."""
+    from types import SimpleNamespace
+    import importlib
+
+    responses = [
+        SimpleNamespace(returncode=0, stdout="", stderr=""),
+        SimpleNamespace(returncode=0, stdout=json.dumps({
+            "__CURSOR": "cursor-1",
+            "MESSAGE": "Failed password for demo from 192.0.2.15 port 2222 ssh2",
+        }) + "\n", stderr=""),
+        SimpleNamespace(returncode=0, stdout="", stderr=""),
+    ]
+    reader_module = importlib.import_module(SSHLogReader.__module__)
+    monkeypatch.setattr(reader_module.shutil, "which", lambda _name: "/usr/bin/journalctl")
+    monkeypatch.setattr(reader_module.subprocess, "run", lambda *args, **kwargs: responses.pop(0))
+
+    reader = SSHLogReader()
+    assert reader.status == "RUNNING"
+    assert reader.get_status()["source"] == "journald"
+    assert reader.read_new_lines() == [
+        "Failed password for demo from 192.0.2.15 port 2222 ssh2"
+    ]
+    assert reader.read_new_lines() == []
+    assert reader.get_status()["total_lines_read"] == 1
+
+
+def test_ssh_log_reader_reports_journal_group_permission_warning(monkeypatch):
+    """journalctl may exit 0 while explicitly warning that records are hidden."""
+    from types import SimpleNamespace
+    import importlib
+
+    reader_module = importlib.import_module(SSHLogReader.__module__)
+    monkeypatch.setattr(reader_module.shutil, "which", lambda _name: "/usr/bin/journalctl")
+    monkeypatch.setattr(reader_module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        returncode=0,
+        stdout="",
+        stderr="Hint: You are currently not seeing messages from other users.",
+    ))
+
+    reader = SSHLogReader()
+    assert reader.status == "PERMISSION_DENIED"
 
 
 def test_ssh_log_reader_reads_new_lines_incrementally():
