@@ -267,7 +267,7 @@ export default function ThreatIntelligence() {
           icon={Shield}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-elevated)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-low" style={{ minWidth: '70px', textAlign: 'center' }}>CLEAN</span>
                 <span>Indicator verified benign across all queried providers</span>
@@ -275,7 +275,7 @@ export default function ThreatIntelligence() {
               <span style={{ color: 'var(--status-green)', fontWeight: 600 }}>0 Risk Adder</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-elevated)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-medium" style={{ minWidth: '70px', textAlign: 'center' }}>SUSPICIOUS</span>
                 <span>Low-to-moderate report volume or suspicious ASN classification</span>
@@ -283,7 +283,7 @@ export default function ThreatIntelligence() {
               <span style={{ color: 'var(--status-yellow)', fontWeight: 600 }}>+15 Risk Adder</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-elevated)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-critical" style={{ minWidth: '70px', textAlign: 'center' }}>MALICIOUS</span>
                 <span>Known C2, brute-force source, or malware distribution node</span>
@@ -291,7 +291,7 @@ export default function ThreatIntelligence() {
               <span style={{ color: 'var(--status-red)', fontWeight: 600 }}>+30 Risk Adder</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-elevated)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-high" style={{ minWidth: '70px', textAlign: 'center' }}>CONFLICT</span>
                 <span>Discrepancy between providers; conservative evaluation applied</span>
@@ -299,7 +299,7 @@ export default function ThreatIntelligence() {
               <span style={{ color: 'var(--status-orange)', fontWeight: 600 }}>Partial Adder</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.6rem', background: 'var(--bg-elevated)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className="badge badge-neutral" style={{ minWidth: '70px', textAlign: 'center' }}>UNKNOWN</span>
                 <span>No provider data or API keys unconfigured (UNKNOWN != CLEAN)</span>
