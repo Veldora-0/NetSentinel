@@ -86,7 +86,7 @@ class TrafficDetector:
         # (source_ip, destination_ip, protocol) -> deque of (timestamp, dst_port)
         self._port_scan_state: Dict[Tuple[str, str, int], deque] = {}
         # source_ip -> deque of timestamps
-        self._syn_flood_state: Dict[str, deque] = {}
+        self._syn_flood_state: Dict[Tuple[str, str, int], deque] = {}
         # source_ip -> deque of (timestamp, dst_ip)
         self._icmp_sweep_state: Dict[str, deque] = {}
 
@@ -242,21 +242,27 @@ class TrafficDetector:
 
     def detect_syn_flood(self, packet: ParsedPacket) -> Optional[SecurityEvent]:
         """Detect SYN Flood activity based on excessive TCP SYN rates within window."""
-        if not packet.src_ip or packet.protocol != 6 or not packet.tcp_flags:
+        if (not packet.src_ip or not packet.dst_ip or packet.protocol != 6
+                or not packet.tcp_flags or not packet.tcp_flags.get("SYN")
+                or packet.tcp_flags.get("ACK")):
             return None
-
-        # Match isolated SYN packet (connection request without ACK)
-        if not (packet.tcp_flags.get("SYN") and not packet.tcp_flags.get("ACK")):
+        try:
+            ipaddress.ip_address(packet.src_ip)
+            ipaddress.ip_address(packet.dst_ip)
+        except (TypeError, ValueError):
             return None
 
         now = packet.timestamp or time.time()
         src_ip = packet.src_ip
+        dst_ip = packet.dst_ip
+        protocol = packet.protocol
+        syn_key = (src_ip, dst_ip, protocol)
 
-        if src_ip not in self._syn_flood_state:
+        if syn_key not in self._syn_flood_state:
             self._enforce_max_ips()
-            self._syn_flood_state[src_ip] = deque()
+            self._syn_flood_state[syn_key] = deque()
 
-        syn_times = self._syn_flood_state[src_ip]
+        syn_times = self._syn_flood_state[syn_key]
         syn_times.append(now)
 
         # Evict timestamps outside the active time window
@@ -266,8 +272,9 @@ class TrafficDetector:
 
         syn_count = len(syn_times)
         if syn_count >= self.syn_flood_threshold:
-            if not self._is_in_cooldown(src_ip, "SYN_FLOOD", now):
-                self._mark_alerted(src_ip, "SYN_FLOOD", now)
+            cooldown_scope = f"SYN_FLOOD:{dst_ip}:{protocol}"
+            if not self._is_in_cooldown(src_ip, cooldown_scope, now):
+                self._mark_alerted(src_ip, cooldown_scope, now)
                 rate = round(syn_count / self.syn_flood_window_sec, 2)
                 event = SecurityEvent(
                     event_id=uuid.uuid4().hex[:12],
@@ -276,7 +283,7 @@ class TrafficDetector:
                     severity="HIGH",
                     source_ip=src_ip,
                     destination_ip=packet.dst_ip,
-                    protocol="TCP",
+                    protocol=packet.protocol_name or "TCP",
                     source_port=packet.src_port,
                     destination_port=packet.dst_port,
                     description=(
@@ -285,9 +292,13 @@ class TrafficDetector:
                     ),
                     evidence={
                         "syn_count": syn_count,
+                        "packet_count": syn_count,
                         "window_seconds": self.syn_flood_window_sec,
                         "threshold": self.syn_flood_threshold,
                         "syn_rate_pps": rate,
+                        "protocol": packet.protocol_name or "TCP",
+                        "source_ip": src_ip,
+                        "destination_ip": dst_ip,
                     },
                     rule_name="RULE_SYN_FLOOD",
                 )

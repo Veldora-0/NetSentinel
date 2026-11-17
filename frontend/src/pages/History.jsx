@@ -320,7 +320,7 @@ export default function History() {
                       </td>
                       <td>
                         <code style={{ color: 'var(--accent-cyan)', fontWeight: 600, fontSize: '0.78rem' }}>
-                          {ev.source_ip || 'local host'}
+                          {ev.source_ip || (ev.detection_type === 'ML_ANOMALY' ? 'Unattributed aggregate' : 'local host')}
                         </code>
                       </td>
                       <td>

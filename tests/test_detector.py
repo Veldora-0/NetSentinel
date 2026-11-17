@@ -236,6 +236,80 @@ def test_syn_flood_threshold_exceeded():
     assert evt.evidence["syn_count"] == 5
 
 
+def test_syn_flood_target_isolation_and_evidence():
+    detector = TrafficDetector({"syn_flood_window_sec": 5.0, "syn_flood_threshold": 4, "alert_cooldown_sec": 10.0})
+    flags = {"SYN": True, "ACK": False, "FIN": False, "RST": False, "PSH": False, "URG": False}
+    for i in range(4):
+        target = "198.51.100.1" if i % 2 else "198.51.100.2"
+        assert detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.50", dst_ip=target, tcp_flags=flags,
+                                                       timestamp=100.0 + i * .1)) == []
+    events = []
+    for i in range(4):
+        events.extend(detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.50", dst_ip="198.51.100.1",
+                                                               tcp_flags=flags, timestamp=101.0 + i * .1)))
+    assert len(events) == 1
+    event = events[0]
+    assert (event.source_ip, event.destination_ip, event.protocol) == ("192.0.2.50", "198.51.100.1", "TCP")
+    assert event.evidence["protocol"] == "TCP"
+    assert event.evidence["packet_count"] == 4
+    assert event.evidence["threshold"] == 4
+    assert event.evidence["window_seconds"] == 5.0
+
+
+def test_syn_flood_state_is_isolated_by_source_and_protocol():
+    detector = TrafficDetector({"syn_flood_window_sec": 5.0, "syn_flood_threshold": 3})
+    syn = {"SYN": True, "ACK": False, "FIN": False, "RST": False, "PSH": False, "URG": False}
+    for i in range(2):
+        assert detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.20", dst_ip="198.51.100.20",
+            tcp_flags=syn, timestamp=100.0 + i * .1)) == []
+        assert detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.21", dst_ip="198.51.100.20",
+            tcp_flags=syn, timestamp=100.0 + i * .1)) == []
+
+    assert set(detector._syn_flood_state) == {
+        ("192.0.2.20", "198.51.100.20", 6),
+        ("192.0.2.21", "198.51.100.20", 6),
+    }
+    event = detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.20", dst_ip="198.51.100.20",
+        tcp_flags=syn, timestamp=101.0))[0]
+    assert event.source_ip == "192.0.2.20"
+    assert event.evidence["protocol"] == "TCP"
+
+
+def test_syn_flood_ignores_handshakes_non_tcp_and_invalid_endpoints():
+    detector = TrafficDetector({"syn_flood_window_sec": 5.0, "syn_flood_threshold": 2})
+    syn = {"SYN": True, "ACK": False, "FIN": False, "RST": False, "PSH": False, "URG": False}
+    handshake = {"SYN": True, "ACK": True, "FIN": False, "RST": False, "PSH": False, "URG": False}
+    assert detector.analyze_packet(make_tcp_packet(tcp_flags=handshake)) == []
+    assert detector.analyze_packet(make_tcp_packet(tcp_flags={**syn, "SYN": False, "ACK": True})) == []
+    udp = make_tcp_packet(tcp_flags=syn)
+    udp.protocol, udp.protocol_name = 17, "UDP"
+    assert detector.analyze_packet(udp) == []
+    assert detector.analyze_packet(make_tcp_packet(src_ip="bad-ip", tcp_flags=syn)) == []
+    assert detector.detect_syn_flood(make_tcp_packet(src_ip=[], tcp_flags=syn)) is None
+    assert detector._syn_flood_state == {}
+
+
+def test_syn_flood_cooldown_isolated_by_destination():
+    detector = TrafficDetector({"syn_flood_window_sec": 5.0, "syn_flood_threshold": 2, "alert_cooldown_sec": 30.0})
+    flags = {"SYN": True, "ACK": False, "FIN": False, "RST": False, "PSH": False, "URG": False}
+    emitted = []
+    for i in range(2):
+        emitted.extend(detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.8", dst_ip="198.51.100.8",
+            tcp_flags=flags, timestamp=100.0 + i * .1)))
+    assert len(emitted) == 1
+    other = []
+    for i in range(2):
+        other.extend(detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.8", dst_ip="198.51.100.9",
+            tcp_flags=flags, timestamp=101.0 + i * .1)))
+    assert len(other) == 1 and other[0].destination_ip == "198.51.100.9"
+
+    other_source = []
+    for i in range(2):
+        other_source.extend(detector.analyze_packet(make_tcp_packet(src_ip="192.0.2.9", dst_ip="198.51.100.8",
+            tcp_flags=flags, timestamp=102.0 + i * .1)))
+    assert len(other_source) == 1 and other_source[0].source_ip == "192.0.2.9"
+
+
 def test_syn_flood_window_expiration():
     """Verify SYNs outside the window are discarded."""
     detector = TrafficDetector({

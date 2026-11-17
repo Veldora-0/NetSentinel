@@ -50,6 +50,15 @@ import {
   SEVERITY_COLORS,
 } from '../utils/formatters';
 
+const getAssessmentSourceLabel = (assessment, fallback) => {
+  if (assessment?.source_ip === 'UNATTRIBUTED') return 'Unattributed aggregate';
+  if (assessment?.source_ip) return assessment.source_ip;
+  if (assessment?.ml_anomaly_score > 0 && !(assessment?.detection_types || []).length) {
+    return 'Unattributed aggregate';
+  }
+  return fallback;
+};
+
 export function Detection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -479,7 +488,7 @@ export function Detection() {
                   <tr key={idx}>
                     <td>{formatAlertTime(r.timestamp)}</td>
                     <td>
-                      <code style={{ color: 'var(--accent-cyan)' }}>{r.source_ip || 'Host-Internal'}</code>
+                      <code style={{ color: 'var(--accent-cyan)' }}>{getAssessmentSourceLabel(r, 'Host-Internal')}</code>
                     </td>
                     <td>
                       <span className={`badge ${getRiskBadgeClass(r.risk_level)}`}>

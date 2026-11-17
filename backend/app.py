@@ -186,7 +186,9 @@ def create_app(config_class=Config, start_capture: bool = True) -> Tuple[Flask, 
     app.detector = detector
 
     # 2. Initialize Machine Learning Anomaly Detector (Isolation Forest)
-    ml_detector = MLAnomalyDetector(config=app.config.get("ML_SETTINGS"))
+    ml_config = dict(app.config.get("ML_SETTINGS") or {})
+    ml_config["interface"] = resolve_network_interface(app.config.get("NETWORK_INTERFACE", Config.NETWORK_INTERFACE))
+    ml_detector = MLAnomalyDetector(config=ml_config)
     app.ml_detector = ml_detector
 
     # 3. Initialize Composite Risk Engine

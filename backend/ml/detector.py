@@ -5,7 +5,7 @@ Isolation Forest inference, and real-time anomaly event dispatching.
 """
 
 from collections import deque, OrderedDict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import logging
 import os
 import shutil
@@ -41,6 +41,12 @@ class MLAnomalyEvent:
     source_ip: Optional[str] = None
     destination_ip: Optional[str] = None
     detection_type: str = "ML_ANOMALY"
+    interface_id: Optional[str] = None
+    window_start: Optional[float] = None
+    window_end: Optional[float] = None
+    model_fingerprint: Optional[str] = None
+    detection_method: str = "isolation_forest_aggregate_window"
+    evidence: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert dataclass to JSON-serializable dictionary."""
@@ -212,7 +218,8 @@ class MLAnomalyDetector:
         )
 
         # Traffic window buffer
-        self.window = TrafficWindow(window_seconds=self.window_seconds)
+        self.interface_id = cfg.get("interface", Config.NETWORK_INTERFACE)
+        self.window = TrafficWindow(window_seconds=self.window_seconds, interface_id=self.interface_id)
 
         # State & metrics tracking
         self._lock = threading.RLock()
@@ -553,8 +560,6 @@ class MLAnomalyDetector:
                     # Cooldown check to avoid alert fatigue
                     if (now - self.last_alert_time) >= self.alert_cooldown_seconds:
                         self.last_alert_time = now
-                        top_src = getattr(self.window, "last_primary_source_ip", None)
-                        top_dst = getattr(self.window, "last_primary_destination_ip", None)
                         event = MLAnomalyEvent(
                             event_id=uuid.uuid4().hex[:12],
                             timestamp=now,
@@ -569,9 +574,24 @@ class MLAnomalyDetector:
                                 f"Anomalous traffic pattern detected: window score {norm_score:.4f} "
                                 f"(raw: {raw_score:+.4f}) deviates significantly from the learned baseline."
                             ),
-                            source_ip=top_src,
-                            destination_ip=top_dst,
+                            source_ip=None,
+                            destination_ip=None,
                             detection_type="ML_ANOMALY",
+                            interface_id=self.interface_id,
+                            window_start=getattr(self.window, "last_window_start", None),
+                            window_end=getattr(self.window, "last_window_end", now),
+                            model_fingerprint=getattr(self.model, "generation_id", None),
+                            evidence={
+                                **f_dict,
+                                "interface_id": self.interface_id,
+                                "window_start": getattr(self.window, "last_window_start", None),
+                                "window_end": getattr(self.window, "last_window_end", now),
+                                "window_seconds": self.window_seconds,
+                                "anomaly_score": norm_score,
+                                "raw_score": raw_score,
+                                "model_fingerprint": getattr(self.model, "generation_id", None),
+                                "detection_method": "isolation_forest_aggregate_window",
+                            },
                         )
                         self.anomaly_history.append(event)
 

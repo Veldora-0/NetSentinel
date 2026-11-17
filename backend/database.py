@@ -446,7 +446,9 @@ def save_security_event_record(event: Any) -> bool:
             src_p = getattr(event, "source_port", None)
             dst_p = getattr(event, "destination_port", None)
             desc = getattr(event, "description", "")
-            evidence_data = getattr(event, "evidence", None) or getattr(event, "features", {})
+            event_evidence = getattr(event, "evidence", None) or {}
+            event_features = getattr(event, "features", None) or {}
+            evidence_data = {**event_features, **event_evidence} if isinstance(event_evidence, dict) and isinstance(event_features, dict) else (event_evidence or event_features)
             rule_name = getattr(event, "rule_name", None)
 
         record = SecurityEventRecord(

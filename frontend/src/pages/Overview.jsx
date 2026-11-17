@@ -67,6 +67,15 @@ import {
   SEVERITY_COLORS,
 } from '../utils/formatters';
 
+const getAssessmentSourceLabel = (assessment) => {
+  if (assessment?.source_ip === 'UNATTRIBUTED') return 'Unattributed aggregate';
+  if (assessment?.source_ip) return assessment.source_ip;
+  if (assessment?.ml_anomaly_score > 0 && !(assessment?.detection_types || []).length) {
+    return 'Unattributed aggregate';
+  }
+  return 'Host Activity';
+};
+
 export function Overview() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -732,7 +741,7 @@ export function Overview() {
                         {r.risk_level}
                       </span>
                       <code style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
-                        {r.source_ip || 'Host Activity'}
+                        {getAssessmentSourceLabel(r)}
                       </code>
                     </div>
                     <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>

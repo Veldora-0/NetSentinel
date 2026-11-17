@@ -91,8 +91,8 @@ def test_traffic_window_tracks_primary_source_and_destination_ip():
     assert tw.last_primary_destination_ip == "10.0.2.3"
 
 
-def test_ml_anomaly_event_attributes_and_defaults():
-    """Verify MLAnomalyEvent carries detection_type, source_ip, and destination_ip."""
+def test_ml_anomaly_event_serializes_aggregate_metadata_without_ip_attribution():
+    """Aggregate ML events carry metadata but do not invent flow identities."""
     event = MLAnomalyEvent(
         event_id="evt12345",
         timestamp=time.time(),
@@ -104,21 +104,29 @@ def test_ml_anomaly_event_attributes_and_defaults():
         features={"packets_per_second": 10.0},
         model_status="READY",
         description="Test anomaly",
-        source_ip="10.0.2.15",
-        destination_ip="10.0.2.3",
+        source_ip=None,
+        destination_ip=None,
+        interface_id="enp0s3",
+        window_start=100.0,
+        window_end=105.0,
+        model_fingerprint="model-generation-1",
         detection_type="ML_ANOMALY",
     )
     assert event.detection_type == "ML_ANOMALY"
-    assert event.source_ip == "10.0.2.15"
-    assert event.destination_ip == "10.0.2.3"
+    assert event.source_ip is None
+    assert event.destination_ip is None
 
     d = event.to_dict()
     assert d["detection_type"] == "ML_ANOMALY"
-    assert d["source_ip"] == "10.0.2.15"
-    assert d["destination_ip"] == "10.0.2.3"
+    assert d["source_ip"] is None
+    assert d["destination_ip"] is None
+    assert d["interface_id"] == "enp0s3"
+    assert d["window_start"] == 100.0
+    assert d["window_end"] == 105.0
+    assert d["model_fingerprint"] == "model-generation-1"
 
 
-def test_save_security_event_record_persists_ml_anomaly_accurately():
+def test_save_security_event_record_persists_unattributed_ml_anomaly():
     """Verify MLAnomalyEvent persists to security_events table with ML_ANOMALY detection type."""
     from flask import Flask
 
@@ -138,9 +146,15 @@ def test_save_security_event_record_persists_ml_anomaly_accurately():
         features={"packets_per_second": 4.0, "bytes_per_second": 392.0},
         model_status="READY",
         description="Traffic window anomaly detected",
-        source_ip="10.0.2.15",
-        destination_ip="10.0.2.3",
+        source_ip=None,
+        destination_ip=None,
         detection_type="ML_ANOMALY",
+        interface_id="enp0s3",
+        window_start=995.0,
+        window_end=1000.0,
+        model_fingerprint="model-generation-2",
+        evidence={"interface_id": "enp0s3", "window_start": 995.0, "window_end": 1000.0,
+                  "model_fingerprint": "model-generation-2", "detection_method": "isolation_forest_aggregate_window"},
     )
 
     with test_app.app_context():
@@ -150,10 +164,63 @@ def test_save_security_event_record_persists_ml_anomaly_accurately():
         rec = SecurityEventRecord.query.filter_by(event_id="ml_evt_001").first()
         assert rec is not None
         assert rec.detection_type == "ML_ANOMALY"
-        assert rec.source_ip == "10.0.2.15"
-        assert rec.destination_ip == "10.0.2.3"
+        assert rec.source_ip is None
+        assert rec.destination_ip is None
         assert rec.severity == "MEDIUM"
         assert "packets_per_second" in rec.evidence
+        assert '"interface_id": "enp0s3"' in rec.evidence
+        assert '"window_start": 995.0' in rec.evidence
+        assert '"model_fingerprint": "model-generation-2"' in rec.evidence
+        assert '"packets_per_second": 4.0' in rec.evidence
+
+
+def test_events_api_serializes_null_ml_addresses():
+    app, _socketio = create_app(config_class={
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        "AUTH_ENABLED": False,
+        "NETWORK_INTERFACE": "lo",
+    }, start_capture=False)
+    event = MLAnomalyEvent(
+        event_id="ml_null_api", timestamp=time.time(), event_type="ML_ANOMALY", severity="MEDIUM",
+        prediction="ANOMALY", raw_score=-0.1, anomaly_score=0.6,
+        features={"packets_per_second": 3.0}, model_status="READY", description="aggregate anomaly",
+        source_ip=None, destination_ip=None, interface_id="lo", window_start=10.0, window_end=15.0,
+        evidence={"interface_id": "lo", "window_start": 10.0, "window_end": 15.0},
+    )
+    with app.app_context():
+        assert save_security_event_record(event)
+    payload = app.test_client().get("/api/events?detection_type=ML_ANOMALY").get_json()
+    record = next(item for item in payload["events"] if item["event_id"] == "ml_null_api")
+    assert record["source_ip"] is None
+    assert record["destination_ip"] is None
+    assert record["evidence"]["interface_id"] == "lo"
+    assert record["evidence"]["packets_per_second"] == 3.0
+
+
+def test_aggregate_ml_window_with_many_sources_and_targets_has_no_attribution():
+    detector = MLAnomalyDetector(config={"enabled": True, "window_seconds": 5.0,
+        "baseline_windows": 10, "min_samples": 10, "interface": "enp0s3"})
+    detector.model.status = ModelStatus.READY
+    detector.model.generation_id = "fixture-fingerprint"
+    detector.model.predict = lambda _features: (True, -0.2, 0.8)
+    for source, target in [("10.0.2.3", "10.0.2.2"), ("10.0.2.15", "10.0.2.3"),
+                           ("8.8.8.8", "10.0.2.3"), ("10.0.2.15", "1.1.1.1")]:
+        detector.window.add_packet(make_test_packet(src_ip=source, dst_ip=target))
+
+    event = detector.evaluate_window()
+    assert event is not None
+    assert event.source_ip is None and event.destination_ip is None
+    assert event.interface_id == "enp0s3"
+    assert event.window_start is not None and event.window_end is not None
+    assert event.window_start <= event.window_end
+    assert event.model_fingerprint == "fixture-fingerprint"
+    assert len(event.features) == 13
+    assert event.evidence["detection_method"] == "isolation_forest_aggregate_window"
+    assert event.evidence["anomaly_score"] == 0.8
+    assert event.evidence["unique_source_ips"] == 3.0
+    assert event.evidence["unique_destination_ips"] == 3.0
 
 
 def test_incident_manager_correlates_ml_anomaly_with_risk_assessment():

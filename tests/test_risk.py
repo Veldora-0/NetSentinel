@@ -144,6 +144,18 @@ def test_unattributed_assessments_do_not_share_synthetic_repeat_identity():
     assert engine._ip_history == {}
 
 
+def test_unattributed_persistence_marker_is_never_a_correlation_identity():
+    engine = RiskEngine()
+    assessment = engine.assess(source_ip="UNATTRIBUTED", rule_alerts=[
+        {"severity": "HIGH", "detection_type": "PORT_SCAN"},
+    ])
+    assert assessment.source_ip is None
+    assert assessment.evidence["repeat_boost"] == 0.0
+    assert assessment.evidence["correlated"] is False
+    assert engine._ip_history == {}
+    assert engine._correlation_history == {}
+
+
 def test_bounded_state_and_history_pruning():
     """Verify risk engine enforces max_history on assessments and cleans stale IP history."""
     engine = RiskEngine(config={

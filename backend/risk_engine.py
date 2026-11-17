@@ -255,6 +255,8 @@ class RiskEngine:
         """Evaluate overall threat level, compute composite score, and record assessment."""
         now = time.time()
         safe_source_ip = source_ip.strip() if isinstance(source_ip, str) and source_ip.strip() else None
+        if safe_source_ip and safe_source_ip.upper() == "UNATTRIBUTED":
+            safe_source_ip = None
         alerts = rule_alerts or []
         ml_score = max(0.0, min(1.0, float(ml_anomaly_score or 0.0)))
 

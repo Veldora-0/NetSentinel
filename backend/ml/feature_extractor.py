@@ -114,13 +114,16 @@ def extract_features_from_window(
 class TrafficWindow:
     """Thread-safe packet window buffer that aggregates packets over discrete time slices."""
 
-    def __init__(self, window_seconds: float = 5.0):
+    def __init__(self, window_seconds: float = 5.0, interface_id: Optional[str] = None):
         self.window_seconds = float(window_seconds)
+        self.interface_id = interface_id
         self._lock = threading.Lock()
         self._packets: List[ParsedPacket] = []
         self._window_start = time.time()
         self.last_primary_source_ip: Optional[str] = None
         self.last_primary_destination_ip: Optional[str] = None
+        self.last_window_start: Optional[float] = self._window_start
+        self.last_window_end: Optional[float] = self._window_start
 
     def add_packet(self, packet: ParsedPacket) -> None:
         """Add a parsed packet to the current window buffer."""
@@ -150,8 +153,12 @@ class TrafficWindow:
         with self._lock:
             pkts = self._packets
             self._packets = []
+            window_start = self._window_start
             elapsed = now - self._window_start
             self._window_start = now
+
+        self.last_window_start = window_start
+        self.last_window_end = now
 
         top_src: Optional[str] = None
         top_dst: Optional[str] = None
